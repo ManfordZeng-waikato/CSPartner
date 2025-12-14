@@ -39,7 +39,7 @@ public class HighlightVideo : AuditableEntity
         SetTitle(title);
         SetVideoUrl(videoUrl);
         SetDescription(description);
-        ThumbnailUrl = NormalizeUrl(thumbnailUrl);
+        SetThumbnailUrl(thumbnailUrl);
     }
 
     public void SetTitle(string title)
@@ -71,6 +71,12 @@ public class HighlightVideo : AuditableEntity
             throw new ArgumentException("VideoUrl 不能为空", nameof(url));
 
         VideoUrl = url.Trim();
+        Touch();
+    }
+
+    public void SetThumbnailUrl(string? url)
+    {
+        ThumbnailUrl = NormalizeUrl(url);
         Touch();
     }
 

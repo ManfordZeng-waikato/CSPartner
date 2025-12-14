@@ -11,4 +11,8 @@
     <ProjectReference Include="..\Persistence\Persistence.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="AWSSDK.S3" Version="4.0.14.3" />
+  </ItemGroup>
+
 </Project>
