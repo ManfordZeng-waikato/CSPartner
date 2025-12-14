@@ -1,4 +1,5 @@
-using API.DTOs;
+using Application.DTOs;
+using Application.Interfaces.Services;
 using Application.Services;
 using Domain.Comments;
 using Domain.Videos;
@@ -9,13 +10,13 @@ namespace API.Controllers;
 public class VideosController : BaseApiController
 {
     private readonly IVideoService _videoService;
-    private readonly IR2StorageService _r2StorageService;
+    private readonly IStorageService _storageService;
     private readonly ILogger<VideosController> _logger;
 
-    public VideosController(IVideoService videoService, IR2StorageService r2StorageService, ILogger<VideosController> logger)
+    public VideosController(IVideoService videoService, IStorageService storageService, ILogger<VideosController> logger)
     {
         _videoService = videoService;
-        _r2StorageService = r2StorageService;
+        _storageService = storageService;
         _logger = logger;
     }
 
@@ -85,7 +86,7 @@ public class VideosController : BaseApiController
             string videoUrl;
             using (var videoStream = videoFile.OpenReadStream())
             {
-                videoUrl = await _r2StorageService.UploadVideoAsync(videoStream, videoFile.FileName, cancellationToken);
+                videoUrl = await _storageService.UploadVideoAsync(videoStream, videoFile.FileName, cancellationToken);
             }
 
             // 上传缩略图（如果提供）
@@ -98,7 +99,7 @@ public class VideosController : BaseApiController
                 {
                     using (var thumbnailStream = thumbnailFile.OpenReadStream())
                     {
-                        thumbnailUrl = await _r2StorageService.UploadThumbnailAsync(thumbnailStream, thumbnailFile.FileName, cancellationToken);
+                        thumbnailUrl = await _storageService.UploadThumbnailAsync(thumbnailStream, thumbnailFile.FileName, cancellationToken);
                     }
                 }
             }

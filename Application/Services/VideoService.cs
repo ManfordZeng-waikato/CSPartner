@@ -1,36 +1,35 @@
+using Application.Interfaces;
+using Application.Interfaces.Repositories;
 using Domain.Comments;
+using Domain.Exceptions;
 using Domain.Videos;
-using Microsoft.EntityFrameworkCore;
-using Persistence.Context;
 
 namespace Application.Services;
 
 public class VideoService : IVideoService
 {
-    private readonly AppDbContext _context;
+    private readonly IVideoRepository _videoRepository;
+    private readonly ICommentRepository _commentRepository;
+    private readonly IUnitOfWork _unitOfWork;
 
-    public VideoService(AppDbContext context)
+    public VideoService(
+        IVideoRepository videoRepository,
+        ICommentRepository commentRepository,
+        IUnitOfWork unitOfWork)
     {
-        _context = context;
+        _videoRepository = videoRepository;
+        _commentRepository = commentRepository;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<IEnumerable<HighlightVideo>> GetVideosAsync(int page = 1, int pageSize = 20)
     {
-        return await _context.Videos
-            .Where(v => !v.IsDeleted)
-            .Include(v => v.Likes)
-            .OrderByDescending(v => v.CreatedAtUtc)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync();
+        return await _videoRepository.GetVideosAsync(page, pageSize);
     }
 
     public async Task<HighlightVideo?> GetVideoByIdAsync(Guid videoId)
     {
-        return await _context.Videos
-            .Include(v => v.Likes)
-            .Include(v => v.Comments)
-            .FirstOrDefaultAsync(v => v.Id == videoId && !v.IsDeleted);
+        return await _videoRepository.GetVideoByIdAsync(videoId);
     }
 
     public async Task<HighlightVideo> CreateVideoAsync(Guid uploaderUserId, string title, string videoUrl, string? description = null, string? thumbnailUrl = null, VideoVisibility visibility = VideoVisibility.Public)
@@ -40,14 +39,14 @@ public class VideoService : IVideoService
         {
             video.SetVisibility(visibility);
         }
-        _context.Videos.Add(video);
-        await _context.SaveChangesAsync();
+        await _videoRepository.AddAsync(video);
+        await _unitOfWork.SaveChangesAsync();
         return video;
     }
 
     public async Task<bool> UpdateVideoAsync(Guid videoId, Guid userId, string? title = null, string? description = null, string? thumbnailUrl = null, VideoVisibility? visibility = null)
     {
-        var video = await _context.Videos.FirstOrDefaultAsync(v => v.Id == videoId && !v.IsDeleted);
+        var video = await _videoRepository.GetVideoByIdAsync(videoId);
         if (video == null || video.UploaderUserId != userId)
             return false;
 
@@ -63,109 +62,107 @@ public class VideoService : IVideoService
         if (visibility.HasValue)
             video.SetVisibility(visibility.Value);
 
-        await _context.SaveChangesAsync();
+        await _videoRepository.UpdateAsync(video);
+        await _unitOfWork.SaveChangesAsync();
         return true;
     }
 
     public async Task<bool> DeleteVideoAsync(Guid videoId, Guid userId)
     {
-        var video = await _context.Videos.FirstOrDefaultAsync(v => v.Id == videoId && !v.IsDeleted);
+        var video = await _videoRepository.GetVideoByIdAsync(videoId);
         if (video == null || video.UploaderUserId != userId)
             return false;
 
         video.SoftDelete();
-        await _context.SaveChangesAsync();
+        await _videoRepository.UpdateAsync(video);
+        await _unitOfWork.SaveChangesAsync();
         return true;
     }
 
     public async Task<bool> ToggleLikeAsync(Guid videoId, Guid userId)
     {
-        var video = await _context.Videos
-            .Include(v => v.Likes)
-            .FirstOrDefaultAsync(v => v.Id == videoId && !v.IsDeleted);
-
+        var video = await _videoRepository.GetVideoByIdAsync(videoId);
         if (video == null)
             return false;
 
-        var existingLike = await _context.VideoLikes
-            .FirstOrDefaultAsync(l => l.VideoId == videoId && l.UserId == userId);
+        var existingLike = await _videoRepository.GetVideoLikeAsync(videoId, userId);
 
         if (existingLike != null)
         {
-            _context.VideoLikes.Remove(existingLike);
+            await _videoRepository.RemoveVideoLikeAsync(existingLike);
             video.ApplyLikeRemoved();
         }
         else
         {
             var like = new VideoLike(videoId, userId);
-            _context.VideoLikes.Add(like);
+            await _videoRepository.AddVideoLikeAsync(like);
             video.ApplyLikeAdded();
         }
 
-        await _context.SaveChangesAsync();
+        await _videoRepository.UpdateAsync(video);
+        await _unitOfWork.SaveChangesAsync();
         return true;
     }
 
     public async Task<bool> HasUserLikedAsync(Guid videoId, Guid userId)
     {
-        return await _context.VideoLikes
-            .AnyAsync(l => l.VideoId == videoId && l.UserId == userId);
+        var like = await _videoRepository.GetVideoLikeAsync(videoId, userId);
+        return like != null;
     }
 
     public async Task IncreaseViewCountAsync(Guid videoId)
     {
-        var video = await _context.Videos.FirstOrDefaultAsync(v => v.Id == videoId && !v.IsDeleted);
+        var video = await _videoRepository.GetVideoByIdAsync(videoId);
         if (video != null)
         {
             video.IncreaseView();
-            await _context.SaveChangesAsync();
+            await _videoRepository.UpdateAsync(video);
+            await _unitOfWork.SaveChangesAsync();
         }
     }
 
     public async Task<IEnumerable<Comment>> GetVideoCommentsAsync(Guid videoId)
     {
-        return await _context.Comments
-            .Where(c => c.VideoId == videoId && !c.IsDeleted)
-            .Include(c => c.Replies.Where(r => !r.IsDeleted))
-            .OrderBy(c => c.CreatedAtUtc)
-            .ToListAsync();
+        return await _commentRepository.GetCommentsByVideoIdAsync(videoId);
     }
 
     public async Task<Comment> CreateCommentAsync(Guid videoId, Guid userId, string content, Guid? parentCommentId = null)
     {
-        var video = await _context.Videos.FirstOrDefaultAsync(v => v.Id == videoId && !v.IsDeleted);
+        var video = await _videoRepository.GetVideoByIdAsync(videoId);
         if (video == null)
-            throw new InvalidOperationException("视频不存在或已删除");
+            throw new VideoNotFoundException(videoId);
 
         if (parentCommentId.HasValue)
         {
-            var parentComment = await _context.Comments.FirstOrDefaultAsync(c => c.Id == parentCommentId.Value && !c.IsDeleted);
+            var parentComment = await _commentRepository.GetCommentByIdAsync(parentCommentId.Value);
             if (parentComment == null)
-                throw new InvalidOperationException("父评论不存在或已删除");
+                throw new CommentNotFoundException(parentCommentId.Value);
         }
 
         var comment = new Comment(videoId, userId, content, parentCommentId);
-        _context.Comments.Add(comment);
+        await _commentRepository.AddAsync(comment);
         video.ApplyCommentAdded();
-        await _context.SaveChangesAsync();
+        await _videoRepository.UpdateAsync(video);
+        await _unitOfWork.SaveChangesAsync();
         return comment;
     }
 
     public async Task<bool> DeleteCommentAsync(Guid commentId, Guid userId)
     {
-        var comment = await _context.Comments.FirstOrDefaultAsync(c => c.Id == commentId && !c.IsDeleted);
+        var comment = await _commentRepository.GetCommentByIdAsync(commentId);
         if (comment == null || comment.UserId != userId)
             return false;
 
-        var video = await _context.Videos.FirstOrDefaultAsync(v => v.Id == comment.VideoId);
+        var video = await _videoRepository.GetVideoByIdAsync(comment.VideoId);
         if (video != null)
         {
             video.ApplyCommentRemoved();
+            await _videoRepository.UpdateAsync(video);
         }
 
         comment.SoftDelete();
-        await _context.SaveChangesAsync();
+        await _commentRepository.UpdateAsync(comment);
+        await _unitOfWork.SaveChangesAsync();
         return true;
     }
 }
-

@@ -1,16 +1,14 @@
 using Application.Services;
+using Infrastructure;
+using Infrastructure.Persistence.Context;
+using Infrastructure.Persistence.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Persistence.Context;
-using Persistence.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-builder.Services.AddDbContext<AppDbContext>(options =>
-{
-    options.UseSqlServer(builder.Configuration.GetConnectionString("Default"));
-});
+// Add Infrastructure services (DbContext, Repositories, UnitOfWork, Storage)
+builder.Services.AddInfrastructure(builder.Configuration);
 
 builder.Services.AddCors(options =>
 {
@@ -39,7 +37,6 @@ builder.Services.AddOpenApi();
 // Register Application Services
 builder.Services.AddScoped<IVideoService, VideoService>();
 builder.Services.AddScoped<IUserProfileService, UserProfileService>();
-builder.Services.AddScoped<IR2StorageService, R2StorageService>();
 
 var app = builder.Build();
 

@@ -2,8 +2,8 @@ using Domain.Users;
 using Domain.Videos;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Persistence.Context;
-using Persistence.Identity;
+using Infrastructure.Persistence.Context;
+using Infrastructure.Persistence.Identity;
 
 namespace API.Seed;
 
