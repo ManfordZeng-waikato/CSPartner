@@ -12,6 +12,17 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("Default"));
 });
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowReactClient", policy =>
+    {
+        policy.WithOrigins("http://localhost:3000", "https://localhost:3000")
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials(); // If frontend needs to send credentials (cookies, auth headers)
+    });
+});
+
 builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
 {
     options.Password.RequireDigit = true;
@@ -40,6 +51,12 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseRouting();
+
+// CORS must be after UseRouting and before UseAuthorization and MapControllers
+app.UseCors("AllowReactClient");
+
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
