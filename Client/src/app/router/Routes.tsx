@@ -1,7 +1,7 @@
 
 import { createBrowserRouter } from "react-router";
 import App from "../layout/App";
-import Login from "@mui/icons-material/Login";
+import LoginPage from "../../features/Auth/LoginPage";
 import VideoDashboard from "../../features/Videos/dashboard/VideoDashboard";
 
 export const router =createBrowserRouter([
@@ -12,7 +12,7 @@ export const router =createBrowserRouter([
            
             {
                 path: 'login',
-                element: <Login />
+                element: <LoginPage />
             },
             {
                 path: '',
