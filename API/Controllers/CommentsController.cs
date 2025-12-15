@@ -1,5 +1,5 @@
 using Application.DTOs;
-using Application.Services;
+using Application.Interfaces.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers;
@@ -24,8 +24,7 @@ public class CommentsController : BaseApiController
         try
         {
             var comment = await _videoService.CreateCommentAsync(videoId, userId, dto.Content, dto.ParentCommentId);
-            var commentDto = MapCommentToDto(comment);
-            return CreatedAtAction(nameof(CreateComment), new { id = comment.CommentId }, commentDto);
+            return CreatedAtAction(nameof(CreateComment), new { id = comment.CommentId }, comment);
         }
         catch (InvalidOperationException ex)
         {
@@ -50,21 +49,6 @@ public class CommentsController : BaseApiController
             return NotFound();
 
         return NoContent();
-    }
-
-    private static CommentDto MapCommentToDto(Domain.Comments.Comment comment)
-    {
-        return new CommentDto
-        {
-            CommentId = comment.CommentId,
-            VideoId = comment.VideoId,
-            UserId = comment.UserId,
-            ParentCommentId = comment.ParentCommentId,
-            Content = comment.Content,
-            CreatedAtUtc = comment.CreatedAtUtc,
-            UpdatedAtUtc = comment.UpdatedAtUtc,
-            Replies = comment.Replies.Select(r => MapCommentToDto(r)).ToList()
-        };
     }
 }
 

@@ -1,8 +1,8 @@
+using API.DTOs;
 using Application.DTOs;
 using Application.Interfaces.Services;
-using Application.Services;
-using Domain.Comments;
 using Domain.Videos;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers;
@@ -10,13 +10,11 @@ namespace API.Controllers;
 public class VideosController : BaseApiController
 {
     private readonly IVideoService _videoService;
-    private readonly IStorageService _storageService;
     private readonly ILogger<VideosController> _logger;
 
-    public VideosController(IVideoService videoService, IStorageService storageService, ILogger<VideosController> logger)
+    public VideosController(IVideoService videoService, ILogger<VideosController> logger)
     {
         _videoService = videoService;
-        _storageService = storageService;
         _logger = logger;
     }
 
@@ -24,15 +22,13 @@ public class VideosController : BaseApiController
     /// 获取视频列表
     /// </summary>
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<VideoDto>>> GetVideos([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    public async Task<ActionResult<IEnumerable<VideoDto>>> GetVideos([FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] Guid? userId = null)
     {
         if (page < 1) page = 1;
         if (pageSize < 1 || pageSize > 100) pageSize = 20;
 
-        var videos = await _videoService.GetVideosAsync(page, pageSize);
-        var videoDtos = videos.Select(v => MapToDto(v, null)).ToList();
-
-        return Ok(videoDtos);
+        var videos = await _videoService.GetVideosAsync(page, pageSize, userId);
+        return Ok(videos);
     }
 
     /// <summary>
@@ -41,75 +37,61 @@ public class VideosController : BaseApiController
     [HttpGet("{id}")]
     public async Task<ActionResult<VideoDto>> GetVideo(Guid id, [FromQuery] Guid? userId = null)
     {
-        var video = await _videoService.GetVideoByIdAsync(id);
+        var video = await _videoService.GetVideoByIdAsync(id, userId);
         if (video == null)
             return NotFound();
 
         // 增加观看次数
         await _videoService.IncreaseViewCountAsync(id);
 
-        // 检查用户是否已点赞
-        bool hasLiked = false;
-        if (userId.HasValue)
-        {
-            hasLiked = await _videoService.HasUserLikedAsync(id, userId.Value);
-        }
-
-        var videoDto = MapToDto(video, userId);
-        videoDto.HasLiked = hasLiked;
-
-        return Ok(videoDto);
+        return Ok(video);
     }
 
     /// <summary>
-    /// 上传视频文件到 R2
+    /// 上传视频文件到 R2 并创建视频记录
     /// </summary>
     [HttpPost("upload")]
     [RequestSizeLimit(50_000_000)] // 50MB 限制
-    public async Task<ActionResult<UploadVideoResponseDto>> UploadVideo(
-        [FromForm] IFormFile videoFile,
-        [FromForm] IFormFile? thumbnailFile = null,
+    public async Task<ActionResult<VideoDto>> UploadVideo(
+        [FromForm] UploadVideoFormRequest formRequest,
+        [FromForm] Guid uploaderUserId,
         CancellationToken cancellationToken = default)
     {
-        if (videoFile == null || videoFile.Length == 0)
+        // 基本验证
+        if (formRequest.VideoFile == null || formRequest.VideoFile.Length == 0)
             return BadRequest(new { error = "视频文件不能为空" });
 
-        // 验证文件类型
-        var allowedVideoExtensions = new[] { ".mp4", ".webm", ".mov", ".avi" };
-        var fileExtension = Path.GetExtension(videoFile.FileName).ToLowerInvariant();
-        if (!allowedVideoExtensions.Contains(fileExtension))
-            return BadRequest(new { error = "不支持的视频格式，支持: mp4, webm, mov, avi" });
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
 
         try
         {
-            // 上传视频到 R2
-            string videoUrl;
-            using (var videoStream = videoFile.OpenReadStream())
+            // 将 API 层的表单请求转换为应用层的请求
+            var uploadRequest = new UploadVideoRequest
             {
-                videoUrl = await _storageService.UploadVideoAsync(videoStream, videoFile.FileName, cancellationToken);
+                VideoStream = formRequest.VideoFile.OpenReadStream(),
+                VideoFileName = formRequest.VideoFile.FileName,
+                Title = formRequest.Title,
+                Description = formRequest.Description,
+                Visibility = formRequest.Visibility
+            };
+
+            // 处理缩略图（如果提供）
+            if (formRequest.ThumbnailFile != null && formRequest.ThumbnailFile.Length > 0)
+            {
+                uploadRequest.ThumbnailStream = formRequest.ThumbnailFile.OpenReadStream();
+                uploadRequest.ThumbnailFileName = formRequest.ThumbnailFile.FileName;
             }
 
-            // 上传缩略图（如果提供）
-            string? thumbnailUrl = null;
-            if (thumbnailFile != null && thumbnailFile.Length > 0)
-            {
-                var allowedImageExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
-                var imageExtension = Path.GetExtension(thumbnailFile.FileName).ToLowerInvariant();
-                if (allowedImageExtensions.Contains(imageExtension))
-                {
-                    using (var thumbnailStream = thumbnailFile.OpenReadStream())
-                    {
-                        thumbnailUrl = await _storageService.UploadThumbnailAsync(thumbnailStream, thumbnailFile.FileName, cancellationToken);
-                    }
-                }
-            }
+            // 调用应用服务处理上传和创建
+            var video = await _videoService.UploadAndCreateVideoAsync(uploaderUserId, uploadRequest, cancellationToken);
 
-            return Ok(new UploadVideoResponseDto
-            {
-                VideoUrl = videoUrl,
-                ThumbnailUrl = thumbnailUrl,
-                Message = "视频上传成功"
-            });
+            return CreatedAtAction(nameof(GetVideo), new { id = video.VideoId }, video);
+        }
+        catch (ArgumentException ex)
+        {
+            _logger.LogWarning(ex, "上传视频验证失败");
+            return BadRequest(new { error = ex.Message });
         }
         catch (Exception ex)
         {
@@ -134,8 +116,7 @@ public class VideosController : BaseApiController
                 dto.ThumbnailUrl,
                 dto.Visibility);
 
-            var videoDto = MapToDto(video, uploaderUserId);
-            return CreatedAtAction(nameof(GetVideo), new { id = video.VideoId }, videoDto);
+            return CreatedAtAction(nameof(GetVideo), new { id = video.VideoId }, video);
         }
         catch (Exception ex)
         {
@@ -197,43 +178,7 @@ public class VideosController : BaseApiController
     public async Task<ActionResult<IEnumerable<CommentDto>>> GetVideoComments(Guid id)
     {
         var comments = await _videoService.GetVideoCommentsAsync(id);
-        var commentDtos = comments.Select(c => MapCommentToDto(c)).ToList();
-        return Ok(commentDtos);
-    }
-
-    private static VideoDto MapToDto(HighlightVideo video, Guid? userId)
-    {
-        return new VideoDto
-        {
-            VideoId = video.VideoId,
-            UploaderUserId = video.UploaderUserId,
-            Title = video.Title,
-            Description = video.Description,
-            VideoUrl = video.VideoUrl,
-            ThumbnailUrl = video.ThumbnailUrl,
-            LikeCount = video.LikeCount,
-            CommentCount = video.CommentCount,
-            ViewCount = video.ViewCount,
-            Visibility = video.Visibility,
-            CreatedAtUtc = video.CreatedAtUtc,
-            UpdatedAtUtc = video.UpdatedAtUtc,
-            HasLiked = false // 将在调用方设置
-        };
-    }
-
-    private static CommentDto MapCommentToDto(Comment comment)
-    {
-        return new CommentDto
-        {
-            CommentId = comment.CommentId,
-            VideoId = comment.VideoId,
-            UserId = comment.UserId,
-            ParentCommentId = comment.ParentCommentId,
-            Content = comment.Content,
-            CreatedAtUtc = comment.CreatedAtUtc,
-            UpdatedAtUtc = comment.UpdatedAtUtc,
-            Replies = comment.Replies.Select(r => MapCommentToDto(r)).ToList()
-        };
+        return Ok(comments);
     }
 }
 

@@ -1,5 +1,5 @@
 using Application.DTOs;
-using Application.Services;
+using Application.Interfaces.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers;
@@ -25,8 +25,7 @@ public class UserProfilesController : BaseApiController
         if (profile == null)
             return NotFound();
 
-        var dto = MapToDto(profile);
-        return Ok(dto);
+        return Ok(profile);
     }
 
     /// <summary>
@@ -45,30 +44,13 @@ public class UserProfilesController : BaseApiController
                 dto.SteamProfileUrl,
                 dto.FaceitProfileUrl);
 
-            var profileDto = MapToDto(profile);
-            return Ok(profileDto);
+            return Ok(profile);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "更新用户资料失败");
             return BadRequest(new { error = ex.Message });
         }
-    }
-
-    private static UserProfileDto MapToDto(Domain.Users.UserProfile profile)
-    {
-        return new UserProfileDto
-        {
-            Id = profile.Id,
-            UserId = profile.UserId,
-            DisplayName = profile.DisplayName,
-            Bio = profile.Bio,
-            AvatarUrl = profile.AvatarUrl,
-            SteamProfileUrl = profile.SteamProfileUrl,
-            FaceitProfileUrl = profile.FaceitProfileUrl,
-            CreatedAtUtc = profile.CreatedAtUtc,
-            UpdatedAtUtc = profile.UpdatedAtUtc
-        };
     }
 }
 

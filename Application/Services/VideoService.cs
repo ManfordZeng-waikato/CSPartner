@@ -1,5 +1,8 @@
+using Application.DTOs;
 using Application.Interfaces;
 using Application.Interfaces.Repositories;
+using Application.Interfaces.Services;
+using Application.Mappings;
 using Domain.Comments;
 using Domain.Exceptions;
 using Domain.Videos;
@@ -10,29 +13,55 @@ public class VideoService : IVideoService
 {
     private readonly IVideoRepository _videoRepository;
     private readonly ICommentRepository _commentRepository;
+    private readonly IStorageService _storageService;
     private readonly IUnitOfWork _unitOfWork;
 
     public VideoService(
         IVideoRepository videoRepository,
         ICommentRepository commentRepository,
+        IStorageService storageService,
         IUnitOfWork unitOfWork)
     {
         _videoRepository = videoRepository;
         _commentRepository = commentRepository;
+        _storageService = storageService;
         _unitOfWork = unitOfWork;
     }
 
-    public async Task<IEnumerable<HighlightVideo>> GetVideosAsync(int page = 1, int pageSize = 20)
+    public async Task<IEnumerable<VideoDto>> GetVideosAsync(int page = 1, int pageSize = 20, Guid? userId = null)
     {
-        return await _videoRepository.GetVideosAsync(page, pageSize);
+        var videos = await _videoRepository.GetVideosAsync(page, pageSize);
+        var videoDtos = new List<VideoDto>();
+
+        foreach (var video in videos)
+        {
+            bool hasLiked = false;
+            if (userId.HasValue)
+            {
+                hasLiked = await HasUserLikedAsync(video.VideoId, userId.Value);
+            }
+            videoDtos.Add(video.ToDto(hasLiked));
+        }
+
+        return videoDtos;
     }
 
-    public async Task<HighlightVideo?> GetVideoByIdAsync(Guid videoId)
+    public async Task<VideoDto?> GetVideoByIdAsync(Guid videoId, Guid? userId = null)
     {
-        return await _videoRepository.GetVideoByIdAsync(videoId);
+        var video = await _videoRepository.GetVideoByIdAsync(videoId);
+        if (video == null)
+            return null;
+
+        bool hasLiked = false;
+        if (userId.HasValue)
+        {
+            hasLiked = await HasUserLikedAsync(videoId, userId.Value);
+        }
+
+        return video.ToDto(hasLiked);
     }
 
-    public async Task<HighlightVideo> CreateVideoAsync(Guid uploaderUserId, string title, string videoUrl, string? description = null, string? thumbnailUrl = null, VideoVisibility visibility = VideoVisibility.Public)
+    public async Task<VideoDto> CreateVideoAsync(Guid uploaderUserId, string title, string videoUrl, string? description = null, string? thumbnailUrl = null, VideoVisibility visibility = VideoVisibility.Public)
     {
         var video = new HighlightVideo(uploaderUserId, title, videoUrl, description, thumbnailUrl);
         if (visibility != VideoVisibility.Public)
@@ -41,7 +70,60 @@ public class VideoService : IVideoService
         }
         await _videoRepository.AddAsync(video);
         await _unitOfWork.SaveChangesAsync();
-        return video;
+        return video.ToDto(false);
+    }
+
+    public async Task<VideoDto> UploadAndCreateVideoAsync(Guid uploaderUserId, UploadVideoRequest request, CancellationToken cancellationToken = default)
+    {
+        // 验证视频文件
+        ValidateVideoFile(request.VideoFileName);
+
+        // 上传视频到存储
+        string videoUrl;
+        using (request.VideoStream)
+        {
+            videoUrl = await _storageService.UploadVideoAsync(request.VideoStream, request.VideoFileName, cancellationToken);
+        }
+
+        // 上传缩略图（如果提供）
+        string? thumbnailUrl = null;
+        if (request.ThumbnailStream != null && !string.IsNullOrWhiteSpace(request.ThumbnailFileName))
+        {
+            ValidateThumbnailFile(request.ThumbnailFileName);
+            using (request.ThumbnailStream)
+            {
+                thumbnailUrl = await _storageService.UploadThumbnailAsync(request.ThumbnailStream, request.ThumbnailFileName, cancellationToken);
+            }
+        }
+
+        // 创建视频记录
+        return await CreateVideoAsync(
+            uploaderUserId,
+            request.Title,
+            videoUrl,
+            request.Description,
+            thumbnailUrl,
+            request.Visibility);
+    }
+
+    private static void ValidateVideoFile(string fileName)
+    {
+        var allowedVideoExtensions = new[] { ".mp4", ".webm", ".mov", ".avi" };
+        var fileExtension = Path.GetExtension(fileName).ToLowerInvariant();
+        if (!allowedVideoExtensions.Contains(fileExtension))
+        {
+            throw new ArgumentException("不支持的视频格式，支持: mp4, webm, mov, avi", nameof(fileName));
+        }
+    }
+
+    private static void ValidateThumbnailFile(string fileName)
+    {
+        var allowedImageExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
+        var imageExtension = Path.GetExtension(fileName).ToLowerInvariant();
+        if (!allowedImageExtensions.Contains(imageExtension))
+        {
+            throw new ArgumentException("不支持的图片格式，支持: jpg, jpeg, png, webp", nameof(fileName));
+        }
     }
 
     public async Task<bool> UpdateVideoAsync(Guid videoId, Guid userId, string? title = null, string? description = null, string? thumbnailUrl = null, VideoVisibility? visibility = null)
@@ -121,12 +203,13 @@ public class VideoService : IVideoService
         }
     }
 
-    public async Task<IEnumerable<Comment>> GetVideoCommentsAsync(Guid videoId)
+    public async Task<IEnumerable<CommentDto>> GetVideoCommentsAsync(Guid videoId)
     {
-        return await _commentRepository.GetCommentsByVideoIdAsync(videoId);
+        var comments = await _commentRepository.GetCommentsByVideoIdAsync(videoId);
+        return comments.Select(c => c.ToDto());
     }
 
-    public async Task<Comment> CreateCommentAsync(Guid videoId, Guid userId, string content, Guid? parentCommentId = null)
+    public async Task<CommentDto> CreateCommentAsync(Guid videoId, Guid userId, string content, Guid? parentCommentId = null)
     {
         var video = await _videoRepository.GetVideoByIdAsync(videoId);
         if (video == null)
@@ -144,7 +227,7 @@ public class VideoService : IVideoService
         video.ApplyCommentAdded();
         await _videoRepository.UpdateAsync(video);
         await _unitOfWork.SaveChangesAsync();
-        return comment;
+        return comment.ToDto();
     }
 
     public async Task<bool> DeleteCommentAsync(Guid commentId, Guid userId)

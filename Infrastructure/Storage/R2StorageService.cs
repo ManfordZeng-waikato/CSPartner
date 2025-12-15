@@ -52,13 +52,15 @@ public class R2StorageService : IStorageService, IDisposable
     public async Task<string> UploadVideoAsync(Stream fileStream, string fileName, CancellationToken cancellationToken = default)
     {
         var objectKey = GenerateVideoKey(fileName);
-        return await UploadFileAsync(fileStream, objectKey, "video/mp4", cancellationToken);
+        var contentType = GetVideoContentType(fileName);
+        return await UploadFileAsync(fileStream, objectKey, contentType, cancellationToken);
     }
 
     public async Task<string> UploadThumbnailAsync(Stream fileStream, string fileName, CancellationToken cancellationToken = default)
     {
         var objectKey = GenerateThumbnailKey(fileName);
-        return await UploadFileAsync(fileStream, objectKey, "image/jpeg", cancellationToken);
+        var contentType = GetImageContentType(fileName);
+        return await UploadFileAsync(fileStream, objectKey, contentType, cancellationToken);
     }
 
     public async Task<bool> DeleteFileAsync(string objectKey, CancellationToken cancellationToken = default)
@@ -158,6 +160,32 @@ public class R2StorageService : IStorageService, IDisposable
         var timestamp = DateTime.UtcNow.ToString("yyyyMMdd");
         // 不需要包含 bucket 名称，因为已经在 BucketName 参数中指定了
         return $"{timestamp}/thumb-{uniqueId}{extension}";
+    }
+
+    private static string GetVideoContentType(string fileName)
+    {
+        var extension = Path.GetExtension(fileName).ToLowerInvariant();
+        return extension switch
+        {
+            ".mp4" => "video/mp4",
+            ".webm" => "video/webm",
+            ".mov" => "video/quicktime",
+            ".avi" => "video/x-msvideo",
+            _ => "video/mp4" // 默认值
+        };
+    }
+
+    private static string GetImageContentType(string fileName)
+    {
+        var extension = Path.GetExtension(fileName).ToLowerInvariant();
+        return extension switch
+        {
+            ".jpg" => "image/jpeg",
+            ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".webp" => "image/webp",
+            _ => "image/jpeg" // 默认值
+        };
     }
 
     public void Dispose()

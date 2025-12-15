@@ -1,5 +1,8 @@
+using Application.DTOs;
 using Application.Interfaces;
 using Application.Interfaces.Repositories;
+using Application.Interfaces.Services;
+using Application.Mappings;
 using Domain.Users;
 
 namespace Application.Services;
@@ -17,17 +20,19 @@ public class UserProfileService : IUserProfileService
         _unitOfWork = unitOfWork;
     }
 
-    public async Task<UserProfile?> GetUserProfileAsync(Guid userId)
+    public async Task<UserProfileDto?> GetUserProfileAsync(Guid userId)
     {
-        return await _userProfileRepository.GetByIdAsync(userId);
+        var profile = await _userProfileRepository.GetByIdAsync(userId);
+        return profile?.ToDto();
     }
 
-    public async Task<UserProfile?> GetUserProfileByUserIdAsync(Guid userId)
+    public async Task<UserProfileDto?> GetUserProfileByUserIdAsync(Guid userId)
     {
-        return await _userProfileRepository.GetByUserIdAsync(userId);
+        var profile = await _userProfileRepository.GetByUserIdAsync(userId);
+        return profile?.ToDto();
     }
 
-    public async Task<UserProfile> CreateOrUpdateUserProfileAsync(Guid userId, string? displayName, string? bio, string? avatarUrl, string? steamUrl, string? faceitUrl)
+    public async Task<UserProfileDto> CreateOrUpdateUserProfileAsync(Guid userId, string? displayName, string? bio, string? avatarUrl, string? steamUrl, string? faceitUrl)
     {
         var profile = await _userProfileRepository.GetByUserIdAsync(userId);
 
@@ -40,6 +45,6 @@ public class UserProfileService : IUserProfileService
         profile.Update(displayName, bio, avatarUrl, steamUrl, faceitUrl);
         await _userProfileRepository.UpdateAsync(profile);
         await _unitOfWork.SaveChangesAsync();
-        return profile;
+        return profile.ToDto();
     }
 }
