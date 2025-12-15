@@ -1,5 +1,6 @@
-import { AppBar, Box, Button, Container, IconButton, Toolbar, Typography } from "@mui/material";
+import { AppBar, Box, Container, IconButton, Toolbar, Typography } from "@mui/material";
 import Menu from '@mui/icons-material/Menu';
+import MenuItemLink from "../shared/components/MenuItemLink";
 
 export default function Navbar() {
     return (
@@ -21,10 +22,10 @@ export default function Navbar() {
                         <Typography variant="h5" component="div" >
                             HighlightsHub
                         </Typography>
-                        <Button color="inherit">Login</Button>
+                        <MenuItemLink to="/login">Login</MenuItemLink>
                     </Toolbar>
                 </Container>
             </AppBar>
         </Box>
     )
-}
+}   

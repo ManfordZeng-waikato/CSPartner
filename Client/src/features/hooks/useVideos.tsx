@@ -1,7 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 
 export const useVideos=()=> {
+    const queryClient = useQueryClient()
     const { data: videos, isLoading } = useQuery({
         queryKey: ['videos'],
         queryFn: async () => {
@@ -10,5 +11,14 @@ export const useVideos=()=> {
         }
       });
 
-      return { videos, isLoading }
+      const createVideo = useMutation({
+        mutationFn: async (video: CreateVideoDto) => {
+          await axios.post('/api/videos/upload', video)
+        },
+        onSuccess:async () => {
+          await queryClient.invalidateQueries({ queryKey: ['videos'] })
+        }
+      })
+
+      return { videos, isLoading, createVideo }
 }

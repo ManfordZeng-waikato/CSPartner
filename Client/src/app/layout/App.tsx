@@ -1,6 +1,6 @@
 import { Container, CssBaseline, Box } from "@mui/material"
 import NavBar from "./NavBar"
-import VideoList from "../../features/Videos/Dashboard/VideoDashboard"
+import { Outlet } from "react-router"
 
 function App() {
   return (
@@ -8,7 +8,7 @@ function App() {
       <CssBaseline />
       <NavBar />
       <Box sx={{ mt: 3 }}>
-        <VideoList />
+       <Outlet />
       </Box>
     </Container>
   )

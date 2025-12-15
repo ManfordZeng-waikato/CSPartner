@@ -23,10 +23,12 @@ type VideoDto = {
 }
 
 type CreateVideoDto = {
+    videoStream: File
+    videoFileName: string
+    thumbnailStream?: File | null
+    thumbnailFileName?: string | null
     title: string
-    description: string | null
-    videoUrl: string
-    thumbnailUrl: string | null
+    description?: string | null
     visibility: VideoVisibility
 }
 
