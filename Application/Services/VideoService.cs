@@ -75,17 +75,17 @@ public class VideoService : IVideoService
 
     public async Task<VideoDto> UploadAndCreateVideoAsync(Guid uploaderUserId, UploadVideoRequest request, CancellationToken cancellationToken = default)
     {
-        // 验证视频文件
+        // Validate video file
         ValidateVideoFile(request.VideoFileName);
 
-        // 上传视频到存储
+        // Upload video to storage
         string videoUrl;
         using (request.VideoStream)
         {
             videoUrl = await _storageService.UploadVideoAsync(request.VideoStream, request.VideoFileName, cancellationToken);
         }
 
-        // 上传缩略图（如果提供）
+        // Upload thumbnail (if provided)
         string? thumbnailUrl = null;
         if (request.ThumbnailStream != null && !string.IsNullOrWhiteSpace(request.ThumbnailFileName))
         {
@@ -96,7 +96,7 @@ public class VideoService : IVideoService
             }
         }
 
-        // 创建视频记录
+        // Create video record
         return await CreateVideoAsync(
             uploaderUserId,
             request.Title,

@@ -19,7 +19,7 @@ public class VideosController : BaseApiController
     }
 
     /// <summary>
-    /// 获取视频列表
+    /// Get video list
     /// </summary>
     [HttpGet]
     public async Task<ActionResult<IEnumerable<VideoDto>>> GetVideos([FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] Guid? userId = null)
@@ -32,7 +32,7 @@ public class VideosController : BaseApiController
     }
 
     /// <summary>
-    /// 获取视频详情
+    /// Get video details
     /// </summary>
     [HttpGet("{id}")]
     public async Task<ActionResult<VideoDto>> GetVideo(Guid id, [FromQuery] Guid? userId = null)
@@ -41,23 +41,23 @@ public class VideosController : BaseApiController
         if (video == null)
             return NotFound();
 
-        // 增加观看次数
+        // Increment view count
         await _videoService.IncreaseViewCountAsync(id);
 
         return Ok(video);
     }
 
     /// <summary>
-    /// 上传视频文件到 R2 并创建视频记录
+    /// Upload video file to R2 and create video record
     /// </summary>
     [HttpPost("upload")]
-    [RequestSizeLimit(50_000_000)] // 50MB 限制
+    [RequestSizeLimit(50_000_000)] // 50MB limit
     public async Task<ActionResult<VideoDto>> UploadVideo(
         [FromForm] UploadVideoFormRequest formRequest,
         [FromForm] Guid uploaderUserId,
         CancellationToken cancellationToken = default)
     {
-        // 基本验证
+        // Basic validation
         if (formRequest.VideoFile == null || formRequest.VideoFile.Length == 0)
             return BadRequest(new { error = "视频文件不能为空" });
 
@@ -66,7 +66,7 @@ public class VideosController : BaseApiController
 
         try
         {
-            // 将 API 层的表单请求转换为应用层的请求
+            // Convert API layer form request to application layer request
             var uploadRequest = new UploadVideoRequest
             {
                 VideoStream = formRequest.VideoFile.OpenReadStream(),
@@ -76,32 +76,32 @@ public class VideosController : BaseApiController
                 Visibility = formRequest.Visibility
             };
 
-            // 处理缩略图（如果提供）
+            // Handle thumbnail (if provided)
             if (formRequest.ThumbnailFile != null && formRequest.ThumbnailFile.Length > 0)
             {
                 uploadRequest.ThumbnailStream = formRequest.ThumbnailFile.OpenReadStream();
                 uploadRequest.ThumbnailFileName = formRequest.ThumbnailFile.FileName;
             }
 
-            // 调用应用服务处理上传和创建
+            // Call application service to handle upload and creation
             var video = await _videoService.UploadAndCreateVideoAsync(uploaderUserId, uploadRequest, cancellationToken);
 
             return CreatedAtAction(nameof(GetVideo), new { id = video.VideoId }, video);
         }
         catch (ArgumentException ex)
         {
-            _logger.LogWarning(ex, "上传视频验证失败");
+            _logger.LogWarning(ex, "Video upload validation failed");
             return BadRequest(new { error = ex.Message });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "上传视频失败");
+            _logger.LogError(ex, "Video upload failed");
             return BadRequest(new { error = $"上传失败: {ex.Message}" });
         }
     }
 
     /// <summary>
-    /// 创建视频记录（使用已上传的 R2 URL）
+    /// Create video record (using uploaded R2 URL)
     /// </summary>
     [HttpPost]
     public async Task<ActionResult<VideoDto>> CreateVideo([FromBody] CreateVideoDto dto, [FromQuery] Guid uploaderUserId)
@@ -120,13 +120,13 @@ public class VideosController : BaseApiController
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "创建视频失败");
+            _logger.LogError(ex, "Failed to create video");
             return BadRequest(new { error = ex.Message });
         }
     }
 
     /// <summary>
-    /// 更新视频
+    /// Update video
     /// </summary>
     [HttpPut("{id}")]
     public async Task<ActionResult> UpdateVideo(Guid id, [FromBody] UpdateVideoDto dto, [FromQuery] Guid userId)
@@ -146,7 +146,7 @@ public class VideosController : BaseApiController
     }
 
     /// <summary>
-    /// 删除视频
+    /// Delete video
     /// </summary>
     [HttpDelete("{id}")]
     public async Task<ActionResult> DeleteVideo(Guid id, [FromQuery] Guid userId)
@@ -159,7 +159,7 @@ public class VideosController : BaseApiController
     }
 
     /// <summary>
-    /// 点赞/取消点赞视频
+    /// Like/Unlike video
     /// </summary>
     [HttpPost("{id}/like")]
     public async Task<ActionResult> ToggleLike(Guid id, [FromQuery] Guid userId)
@@ -172,7 +172,7 @@ public class VideosController : BaseApiController
     }
 
     /// <summary>
-    /// 获取视频评论列表
+    /// Get video comments list
     /// </summary>
     [HttpGet("{id}/comments")]
     public async Task<ActionResult<IEnumerable<CommentDto>>> GetVideoComments(Guid id)

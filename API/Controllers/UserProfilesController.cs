@@ -16,7 +16,7 @@ public class UserProfilesController : BaseApiController
     }
 
     /// <summary>
-    /// 获取用户资料
+    /// Get user profile
     /// </summary>
     [HttpGet("{userId}")]
     public async Task<ActionResult<UserProfileDto>> GetUserProfile(Guid userId)
@@ -29,7 +29,7 @@ public class UserProfilesController : BaseApiController
     }
 
     /// <summary>
-    /// 更新用户资料
+    /// Update user profile
     /// </summary>
     [HttpPut("{userId}")]
     public async Task<ActionResult<UserProfileDto>> UpdateUserProfile(Guid userId, [FromBody] UpdateUserProfileDto dto)
@@ -48,7 +48,7 @@ public class UserProfilesController : BaseApiController
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "更新用户资料失败");
+            _logger.LogError(ex, "Failed to update user profile");
             return BadRequest(new { error = ex.Message });
         }
     }

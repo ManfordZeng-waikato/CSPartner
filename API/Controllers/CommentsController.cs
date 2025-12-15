@@ -16,7 +16,7 @@ public class CommentsController : BaseApiController
     }
 
     /// <summary>
-    /// 创建评论
+    /// Create comment
     /// </summary>
     [HttpPost("videos/{videoId}/comments")]
     public async Task<ActionResult<CommentDto>> CreateComment(Guid videoId, [FromBody] CreateCommentDto dto, [FromQuery] Guid userId)
@@ -28,18 +28,18 @@ public class CommentsController : BaseApiController
         }
         catch (InvalidOperationException ex)
         {
-            _logger.LogWarning(ex, "创建评论失败");
+            _logger.LogWarning(ex, "Failed to create comment");
             return BadRequest(new { error = ex.Message });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "创建评论失败");
+            _logger.LogError(ex, "Failed to create comment");
             return BadRequest(new { error = "创建评论时发生错误" });
         }
     }
 
     /// <summary>
-    /// 删除评论
+    /// Delete comment
     /// </summary>
     [HttpDelete("{id}")]
     public async Task<ActionResult> DeleteComment(Guid id, [FromQuery] Guid userId)

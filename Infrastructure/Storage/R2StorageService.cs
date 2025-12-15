@@ -24,13 +24,13 @@ public class R2StorageService : IStorageService, IDisposable
         _bucketName = configuration["CloudflareR2:BucketName"] ?? throw new InvalidOperationException("CloudflareR2:BucketName is not configured");
         _publicUrlTemplate = configuration["CloudflareR2:PublicUrl"] ?? $"https://pub-{_accountId}.r2.dev";
 
-        // 优先使用配置的 S3ServiceUrl，如果没有则从 AccountId 构建
+        // Prefer configured S3ServiceUrl, otherwise build from AccountId
         _s3ServiceUrl = configuration["CloudflareR2:S3ServiceUrl"] 
             ?? $"https://{_accountId}.r2.cloudflarestorage.com";
 
         if (string.IsNullOrWhiteSpace(_s3ServiceUrl))
         {
-            throw new InvalidOperationException("CloudflareR2:S3ServiceUrl 未配置，且无法从 AccountId 构建");
+            throw new InvalidOperationException("CloudflareR2:S3ServiceUrl is not configured and cannot be built from AccountId");
         }
 
         var config = new AmazonS3Config
@@ -38,8 +38,8 @@ public class R2StorageService : IStorageService, IDisposable
             ServiceURL = _s3ServiceUrl,
             ForcePathStyle = true,
             UseHttp = false,
-            AllowAutoRedirect = false, // 禁用自动重定向，我们需要明确处理
-            DisableHostPrefixInjection = true // 禁用主机前缀注入
+            AllowAutoRedirect = false, // Disable auto-redirect, we need explicit handling
+            DisableHostPrefixInjection = true // Disable host prefix injection
         };
 
 
@@ -94,7 +94,7 @@ public class R2StorageService : IStorageService, IDisposable
     {
         try
         {
-            // 将流转换为字节数组以避免流式签名问题
+            // Convert stream to byte array to avoid streaming signature issues
             byte[] fileBytes;
             using (var memoryStream = new MemoryStream())
             {
@@ -109,7 +109,7 @@ public class R2StorageService : IStorageService, IDisposable
                 InputStream = new MemoryStream(fileBytes),
                 ContentType = contentType,
                 ServerSideEncryptionMethod = ServerSideEncryptionMethod.None,
-                DisablePayloadSigning = true // 禁用负载签名以兼容 R2
+                DisablePayloadSigning = true // Disable payload signing for R2 compatibility
             };
 
             await _s3Client.PutObjectAsync(request, cancellationToken);
@@ -149,7 +149,7 @@ public class R2StorageService : IStorageService, IDisposable
         var extension = Path.GetExtension(fileName);
         var uniqueId = Guid.NewGuid().ToString("N");
         var timestamp = DateTime.UtcNow.ToString("yyyyMMdd");
-        // 不需要包含 bucket 名称，因为已经在 BucketName 参数中指定了
+        // No need to include bucket name as it's already specified in BucketName parameter
         return $"{timestamp}/highlight-{uniqueId}{extension}";
     }
 
@@ -158,7 +158,7 @@ public class R2StorageService : IStorageService, IDisposable
         var extension = Path.GetExtension(fileName);
         var uniqueId = Guid.NewGuid().ToString("N");
         var timestamp = DateTime.UtcNow.ToString("yyyyMMdd");
-        // 不需要包含 bucket 名称，因为已经在 BucketName 参数中指定了
+        // No need to include bucket name as it's already specified in BucketName parameter
         return $"{timestamp}/thumb-{uniqueId}{extension}";
     }
 
@@ -171,7 +171,7 @@ public class R2StorageService : IStorageService, IDisposable
             ".webm" => "video/webm",
             ".mov" => "video/quicktime",
             ".avi" => "video/x-msvideo",
-            _ => "video/mp4" // 默认值
+            _ => "video/mp4" // Default value
         };
     }
 
@@ -184,7 +184,7 @@ public class R2StorageService : IStorageService, IDisposable
             ".jpeg" => "image/jpeg",
             ".png" => "image/png",
             ".webp" => "image/webp",
-            _ => "image/jpeg" // 默认值
+            _ => "image/jpeg" // Default value
         };
     }
 
