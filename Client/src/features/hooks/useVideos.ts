@@ -27,6 +27,7 @@ export const useVideos=()=> {
             formData.append('Description', video.description)
           }
           formData.append('Visibility', video.visibility.toString())
+          formData.append('uploaderUserId', video.uploaderUserId)
 
           await axios.post('/api/videos/upload', formData)
         },

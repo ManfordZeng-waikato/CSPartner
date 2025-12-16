@@ -30,6 +30,7 @@ type CreateVideoDto = {
     title: string
     description?: string | null
     visibility: VideoVisibility
+    uploaderUserId: string
 }
 
 type UpdateVideoDto = {
