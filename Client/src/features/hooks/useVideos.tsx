@@ -28,9 +28,7 @@ export const useVideos=()=> {
           }
           formData.append('Visibility', video.visibility.toString())
 
-          await axios.post('/api/videos/upload', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-          })
+          await axios.post('/api/videos/upload', formData)
         },
         onSuccess:async () => {
           await queryClient.invalidateQueries({ queryKey: ['videos'] })
@@ -38,4 +36,32 @@ export const useVideos=()=> {
       })
 
       return { videos, isLoading, createVideo }
+}
+
+export const useVideo = (videoId: string | undefined) => {
+  const { data: video, isLoading, error } = useQuery({
+    queryKey: ['video', videoId],
+    queryFn: async () => {
+      if (!videoId) return null
+      const response = await axios.get<VideoDto>(`/api/videos/${videoId}`)
+      return response.data
+    },
+    enabled: !!videoId
+  })
+
+  return { video, isLoading, error }
+}
+
+export const useVideoComments = (videoId: string | undefined) => {
+  const { data: comments, isLoading } = useQuery({
+    queryKey: ['video', videoId, 'comments'],
+    queryFn: async () => {
+      if (!videoId) return []
+      const response = await axios.get<CommentDto[]>(`/api/videos/${videoId}/comments`)
+      return response.data
+    },
+    enabled: !!videoId
+  })
+
+  return { comments: comments || [], isLoading }
 }

@@ -1,5 +1,5 @@
 import { Box, Typography } from "@mui/material"
-import VideoCard from "../VideoCard";
+import VideoCard from "../videoCard";
 import { useVideos } from "../../hooks/useVideos";
 
 export default function VideoDashboard() {
@@ -22,7 +22,7 @@ const { videos, isLoading } = useVideos();
         videos.map(video => (
           <VideoCard key={video.videoId} video={video} />
         ))
-      )}
+      )}  
     </Box>
   )
 }

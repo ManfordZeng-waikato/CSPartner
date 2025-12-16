@@ -2,12 +2,12 @@
     Card, 
     CardContent, 
     Box,
-    Chip,
-    Typography
+    Chip
     } from "@mui/material"
     import VisibilityIcon from "@mui/icons-material/Visibility"
     import ThumbUpIcon from "@mui/icons-material/ThumbUp"
     import CommentIcon from "@mui/icons-material/Comment"
+    import VideoInfo from "./details/components/videoInfo"
 
     interface VideoCardProps {
     video: VideoDto;
@@ -17,25 +17,7 @@
     return (
         <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
         <CardContent sx={{ flexGrow: 1 }}>
-            <Typography variant="h6" component="h2" gutterBottom noWrap>
-            {video.title}
-            </Typography>
-            {video.description && (
-            <Typography 
-                variant="body2" 
-                color="text.secondary" 
-                sx={{ 
-                mb: 2,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                display: '-webkit-box',
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: 'vertical'
-                }}
-            >
-                {video.description}
-            </Typography>
-            )}
+            <VideoInfo title={video.title} description={video.description} />
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 2 }}>
             <Chip 
                 icon={<VisibilityIcon />}
