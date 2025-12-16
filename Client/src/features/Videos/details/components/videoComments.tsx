@@ -43,7 +43,7 @@ const VideoComments: React.FC<VideoCommentsProps> = ({ videoId, commentCount }) 
               {comment.replies && comment.replies.length > 0 && (
                 <Box sx={{ mt: 2, ml: 3, pl: 2, borderLeft: '2px solid', borderColor: 'divider' }}>
                   {comment.replies.map((reply) => (
-                    <Paper key={reply.commentId} sx={{ p: 1.5, mb: 1, bgcolor: 'grey.50' }}>
+                    <Paper key={reply.commentId} sx={{ p: 1.5, mb: 1, bgcolor: '#FFF3E0' }}>
                       <Typography variant="body2" sx={{ mb: 0.5 }}>
                         {reply.content}
                       </Typography>

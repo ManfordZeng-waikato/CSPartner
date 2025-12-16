@@ -5,9 +5,7 @@ import MenuItemLink from "../shared/components/MenuItemLink";
 export default function Navbar() {
     return (
         <Box sx={{ flexGrow: 1 }}>
-            <AppBar position="static" sx={{
-                backgroundImage: 'linear-gradient(135deg, #182a73 0%, #218aae 69%, #20a7ac 89%)'
-            }}>
+            <AppBar position="static" color="primary">
                 <Container maxWidth="xl">
                     <Toolbar sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <IconButton
