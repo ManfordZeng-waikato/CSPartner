@@ -1,8 +1,7 @@
 // Enums
 enum VideoVisibility {
     Public = 1,
-    Unlisted = 2,
-    Private = 3
+    Private = 2
 }
 
 // Video Types

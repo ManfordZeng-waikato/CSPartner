@@ -1,16 +1,8 @@
 import React from "react";
 import { useParams } from "react-router";
-import {
-  Box,
-  Chip,
-  Divider,
-  CircularProgress,
-  Alert
-} from "@mui/material";
-import VisibilityIcon from "@mui/icons-material/Visibility";
-import ThumbUpIcon from "@mui/icons-material/ThumbUp";
-import PersonIcon from "@mui/icons-material/Person";
+import { Box, Divider, CircularProgress, Alert } from "@mui/material";
 import { useVideo } from "../../hooks/useVideos";
+import VideoStats from "./components/videoStats";
 import VideoComments from "./components/videoComments";
 import VideoUploader from "./components/videoUploader";
 import VideoInfo from "./components/videoInfo";
@@ -53,27 +45,12 @@ const VideoDetail: React.FC = () => {
       {/* Video Title and Description */}
       <VideoInfo title={video.title} description={video.description} />
 
-      {/* Statistics and Uploader */}
-      <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 3, flexWrap: 'wrap' }}>
-        <Chip
-          icon={<VisibilityIcon />}
-          label={`Views: ${video.viewCount}`}
-          variant="outlined"
-          color="primary"
-        />
-        <Chip
-          icon={<ThumbUpIcon />}
-          label={`Likes: ${video.likeCount}`}
-          variant="outlined"
-          color="primary"
-        />
-        <Chip
-          icon={<PersonIcon />}
-          label={`Comments: ${video.commentCount}`}
-          variant="outlined"
-          color="primary"
-        />
-      </Box>
+      {/* Statistics */}
+      <VideoStats
+        viewCount={video.viewCount}
+        likeCount={video.likeCount}
+        commentCount={video.commentCount}
+      />
 
       <Divider sx={{ my: 3 }} />
 

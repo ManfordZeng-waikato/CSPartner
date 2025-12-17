@@ -1,72 +1,56 @@
-    import { 
-    Card, 
-    CardContent, 
+import {
+    Card,
+    CardContent,
     Box,
-    Chip,
     Avatar
-    } from "@mui/material"
-    import VisibilityIcon from "@mui/icons-material/Visibility"
-    import ThumbUpIcon from "@mui/icons-material/ThumbUp"
-    import CommentIcon from "@mui/icons-material/Comment"
-    import VideoInfo from "./details/components/videoInfo"
-    import { useUserProfile } from "../hooks/useUserProfile"
+} from "@mui/material"
+import VideoInfo from "./details/components/videoInfo"
+import { useUserProfile } from "../hooks/useUserProfile"
+import VideoStats from "./details/components/videoStats"
 
-    interface VideoCardProps {
+interface VideoCardProps {
     video: VideoDto;
-    }
+}
 
-    export default function VideoCard({ video }: VideoCardProps) {
+export default function VideoCard({ video }: VideoCardProps) {
     const { profile } = useUserProfile(video.uploaderUserId);
-    
+
     return (
         <Card elevation={3} sx={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', borderRadius: 3, overflow: 'hidden' }}>
-        <Avatar
-            src={profile?.avatarUrl || undefined}
-            sx={{
-                position: 'absolute',
-                top: 16,
-                right: 16,
-                width: 40,
-                height: 40,
-                zIndex: 1
-            }}
-        >
-            {profile?.displayName?.[0] || 'U'}
-        </Avatar>
-        <CardContent sx={{ flexGrow: 1 }}>
-            <VideoInfo title={video.title} description={video.description} />
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 2 }}>
-            <Chip 
-                icon={<VisibilityIcon />}
-                label={video.viewCount} 
-                size="small" 
-                variant="outlined"
-            />
-            <Chip 
-                icon={<ThumbUpIcon />}
-                label={video.likeCount} 
-                size="small" 
-                variant="outlined"
-            />
-            <Chip 
-                icon={<CommentIcon />}
-                label={video.commentCount} 
-                size="small" 
-                variant="outlined"
-            />
-            </Box>
-            <Box sx={{ mt: 2 }}>
-            <video
-                controls
-                width="100%"
-                style={{ maxHeight: '500px', minHeight: '400px', borderRadius: '8px' }}
-                src={video.videoUrl}
-                preload="metadata"
+            <Avatar
+                src={profile?.avatarUrl || undefined}
+                sx={{
+                    position: 'absolute',
+                    top: 16,
+                    right: 16,
+                    width: 40,
+                    height: 40,
+                    zIndex: 1
+                }}
             >
-                Your browser does not support video playback.
-            </video>
-            </Box>
-        </CardContent>
+                {profile?.displayName?.[0] || 'U'}
+            </Avatar>
+            <CardContent sx={{ flexGrow: 1 }}>
+                <VideoInfo title={video.title} description={video.description} />
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 2 }}>
+                    <VideoStats
+                        viewCount={video.viewCount}
+                        likeCount={video.likeCount}
+                        commentCount={video.commentCount}
+                    />
+                </Box>
+                <Box sx={{ mt: 2 }}>
+                    <video
+                        controls
+                        width="100%"
+                        style={{ maxHeight: '500px', minHeight: '400px', borderRadius: '8px' }}
+                        src={video.videoUrl}
+                        preload="metadata"
+                    >
+                        Your browser does not support video playback.
+                    </video>
+                </Box>
+            </CardContent>
         </Card>
     );
-    }
+}

@@ -1,9 +1,10 @@
 
 import { createBrowserRouter } from "react-router";
 import LoginPage from "../../features/Auth/LoginPage";
-import VideoDetail from "../../features/Videos/details/videoDetail";
+import VideoDetailPage from "../../features/Videos/details/videoDetailPage";
 import App from "../../app/layout/App";
 import VideoDashboard from "../../features/Videos/dashboard/VideoDashboard";
+import VideoUploadPage from "../../features/Videos/VideoUploadPage";
 
 export const router = createBrowserRouter([
     {
@@ -21,8 +22,12 @@ export const router = createBrowserRouter([
                 element: <VideoDashboard />
             },
             {
+                path: 'videos/upload',
+                element: <VideoUploadPage />
+            },
+            {
                 path: 'video/:id',
-                element: <VideoDetail />
+                element: <VideoDetailPage />
             },
 
         ]

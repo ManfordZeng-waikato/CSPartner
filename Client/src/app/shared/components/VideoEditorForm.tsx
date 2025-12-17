@@ -1,0 +1,207 @@
+import React from "react";
+import {
+  Alert,
+  Box,
+  Button,
+  LinearProgress,
+  MenuItem,
+  Paper,
+  Stack,
+  TextField,
+  Typography
+} from "@mui/material";
+import CloudUploadIcon from "@mui/icons-material/CloudUpload";
+import {
+  Controller,
+  type Control,
+  type FieldErrors,
+  type UseFormHandleSubmit,
+  type UseFormRegister
+} from "react-hook-form";
+import type { VideoUploadFormValues } from "../../../lib/schemas/videoUploadSchema";
+
+interface VideoEditorFormProps {
+  title?: string;
+  subtitle?: string;
+  control: Control<VideoUploadFormValues>;
+  register: UseFormRegister<VideoUploadFormValues>;
+  handleSubmit: UseFormHandleSubmit<VideoUploadFormValues>;
+  errors: FieldErrors<VideoUploadFormValues>;
+  isPending?: boolean;
+  serverError?: string | null;
+  isSuccess?: boolean;
+  visibilityOptions: { label: string; value: VideoVisibility }[];
+  onSubmit: (values: VideoUploadFormValues) => void | Promise<void>;
+  onReset: () => void;
+  submitLabel?: string;
+  pendingLabel?: string;
+  hideFileInput?: boolean;
+}
+
+const VideoEditorForm: React.FC<VideoEditorFormProps> = ({
+  title = "Upload Video",
+  subtitle = "Select a video, add details and visibility. Submit to call the upload API.",
+  control,
+  register,
+  handleSubmit,
+  errors,
+  isPending = false,
+  serverError = null,
+  isSuccess = false,
+  visibilityOptions,
+  onSubmit,
+  onReset,
+  submitLabel = "Submit",
+  pendingLabel = "Uploading...",
+  hideFileInput = false
+}) => {
+  return (
+    <Paper sx={{ p: 3 }}>
+      <Typography variant="h5" fontWeight={700} gutterBottom>
+        {title}
+      </Typography>
+      {subtitle && (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {subtitle}
+        </Typography>
+      )}
+
+      {isPending && <LinearProgress sx={{ mb: 2 }} />}
+      {serverError && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {serverError}
+        </Alert>
+      )}
+      {isSuccess && (
+        <Alert severity="success" sx={{ mb: 2 }}>
+          Upload succeeded! The video was submitted.
+        </Alert>
+      )}
+
+      <Box component="form" noValidate onSubmit={handleSubmit(onSubmit)}>
+        <Stack spacing={2}>
+          <TextField
+            label="Title"
+            fullWidth
+            {...register("title")}
+            error={!!errors.title}
+            helperText={errors.title?.message || "Up to 10 words"}
+            disabled={isPending}
+          />
+
+          <TextField
+            label="Description (optional)"
+            fullWidth
+            multiline
+            minRows={3}
+            {...register("description")}
+            error={!!errors.description}
+            helperText={errors.description?.message || "Up to 20 words"}
+            disabled={isPending}
+          />
+
+          {!hideFileInput && (
+            <Controller
+              name="videoFile"
+              control={control}
+              render={({ field }) => (
+                <Box>
+                  <Button
+                    component="label"
+                    variant="contained"
+                    startIcon={<CloudUploadIcon />}
+                    disabled={isPending}
+                  >
+                    Choose video file
+                    <input
+                      hidden
+                      type="file"
+                      accept="video/*"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0] ?? null;
+                        field.onChange(file);
+                        // 重置 input 以便选择相同文件
+                        event.target.value = "";
+                      }}
+                    />
+                  </Button>
+                  {field.value && (
+                    <Typography variant="body2" sx={{ mt: 1 }}>
+                      Selected: {(field.value as File).name}
+                    </Typography>
+                  )}
+                  {errors.videoFile ? (
+                    <Typography
+                      variant="caption"
+                      color="error"
+                      display="block"
+                      sx={{ mt: 0.5 }}
+                    >
+                      {errors.videoFile.message?.toString()}
+                    </Typography>
+                  ) : (
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      display="block"
+                      sx={{ mt: 0.5 }}
+                    >
+                      Max file size 50 MB
+                    </Typography>
+                  )}
+                </Box>
+              )}
+            />
+          )}
+
+          <Controller
+            name="visibility"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                select
+                label="Visibility"
+                fullWidth
+                value={field.value}
+                onChange={(event) => field.onChange(Number(event.target.value))}
+                error={!!errors.visibility}
+                helperText={errors.visibility?.message}
+                disabled={isPending}
+              >
+                {visibilityOptions.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
+          />
+
+          <TextField
+            label="Uploader User ID"
+            fullWidth
+            {...register("uploaderUserId")}
+            error={!!errors.uploaderUserId}
+            helperText={
+              errors.uploaderUserId?.message ||
+              "Backend uses this user ID for ownership"
+            }
+            disabled={isPending}
+          />
+
+          <Stack direction="row" spacing={2} justifyContent="flex-end" sx={{ pt: 1 }}>
+            <Button variant="outlined" onClick={onReset} disabled={isPending}>
+              Reset
+            </Button>
+            <Button type="submit" variant="contained" disabled={isPending}>
+              {isPending ? pendingLabel : submitLabel}
+            </Button>
+          </Stack>
+        </Stack>
+      </Box>
+    </Paper>
+  );
+};
+
+export default VideoEditorForm;
+

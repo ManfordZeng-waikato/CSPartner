@@ -64,16 +64,25 @@ public static class DemoSeeder
         // 3) 插入 demo 视频（幂等：用 VideoUrl 去重）
         var demoVideos = new List<HighlightVideo>
         {
-            new HighlightVideo(demoUser.Id, "CS2 1v3 Clutch",
+            new(demoUser.Id, "CS2 1v3 Clutch",
                 "https://pub-bda0f9dd33824f6bbb05c0eed9da4d44.r2.dev/highlight-BjNidspXxfeoDSzXtkjuNUjrYd.mp4", "Demo highlight"
                 ),
 
-            new HighlightVideo(demoUser.Id, "FACEIT Entry Frag",
+            new(demoUser.Id, "FACEIT Entry Frag",
                 "https://pub-bda0f9dd33824f6bbb05c0eed9da4d44.r2.dev/highlight-BnnHntrpFdmsqHQVHcgBuCejfq.mp4", "Demo highlight"
+                ),
+            new(demoUser.Id, "3 Kills",
+                "https://pub-bda0f9dd33824f6bbb05c0eed9da4d44.r2.dev/highlight-iSGOUcIiMUEfdSONmiInQCnUy.mp4", "Demo highlight"
+                ),
+            new(demoUser.Id, "4 Kills",
+                "https://pub-bda0f9dd33824f6bbb05c0eed9da4d44.r2.dev/highlight-cpwfgHvMjOjrdscmvXUipxJAW.mp4", "Demo highlight"
+                ),
+            new(demoUser.Id, "DEMO",
+                "https://pub-bda0f9dd33824f6bbb05c0eed9da4d44.r2.dev/highlight-PPmluanzFFBeumBAJDqWXdhuT.mp4", "Demo highlight"
                 ),
         };
 
-        // 只插入不存在的（以 VideoUrl 为唯一标识）
+        // 只插入不存在的（以 VideoUrl 为唯一标F识）
         var existingUrls = await db.Videos.Select(v => v.VideoUrl).ToListAsync();
         var toInsert = demoVideos.Where(v => !existingUrls.Contains(v.VideoUrl)).ToList();
 
