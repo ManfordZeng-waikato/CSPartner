@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using Domain.Videos;
 
-namespace Application.DTOs;
+namespace Application.DTOs.Video;
 
 public class CreateVideoDto
 {

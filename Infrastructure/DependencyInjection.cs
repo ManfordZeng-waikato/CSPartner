@@ -1,6 +1,7 @@
 using Application.Interfaces;
 using Application.Interfaces.Repositories;
 using Application.Interfaces.Services;
+using Infrastructure.Identity;
 using Infrastructure.Persistence.Context;
 using Infrastructure.Persistence.Repositories;
 using Infrastructure.Persistence.UnitOfWork;
@@ -31,6 +32,7 @@ public static class DependencyInjection
 
         // Infrastructure Services
         services.AddScoped<IStorageService, R2StorageService>();
+        services.AddScoped<IAuthService, AuthService>();
 
         return services;
     }

@@ -1,4 +1,4 @@
-using Application.DTOs;
+using Application.DTOs.UserProfile;
 using Application.Interfaces;
 using Application.Interfaces.Repositories;
 using Application.Interfaces.Services;

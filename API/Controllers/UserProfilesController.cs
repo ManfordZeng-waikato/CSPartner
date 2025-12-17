@@ -1,6 +1,7 @@
-using Application.DTOs;
+using Application.DTOs.UserProfile;
 using Application.Interfaces.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace API.Controllers;
 
@@ -19,6 +20,7 @@ public class UserProfilesController : BaseApiController
     /// Get user profile
     /// </summary>
     [HttpGet("{userId}")]
+    [AllowAnonymous]
     public async Task<ActionResult<UserProfileDto>> GetUserProfile(Guid userId)
     {
         var profile = await _userProfileService.GetUserProfileByUserIdAsync(userId);

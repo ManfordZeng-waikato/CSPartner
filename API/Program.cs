@@ -3,6 +3,7 @@ using Application.Services;
 using Infrastructure;
 using Infrastructure.Persistence.Context;
 using Infrastructure.Persistence.Identity;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -30,7 +31,7 @@ builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
 })
 .AddEntityFrameworkStores<AppDbContext>()
 .AddDefaultTokenProviders();
-
+ 
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
@@ -38,6 +39,14 @@ builder.Services.AddOpenApi();
 // Register Application Services
 builder.Services.AddScoped<IVideoService, VideoService>();
 builder.Services.AddScoped<IUserProfileService, UserProfileService>();
+
+// Global auth fallback: require authenticated by default
+builder.Services.AddAuthorization(options =>
+{
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+});
 
 var app = builder.Build();
 

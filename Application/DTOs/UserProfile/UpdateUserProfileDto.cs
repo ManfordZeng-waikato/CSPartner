@@ -1,14 +1,18 @@
-namespace Application.DTOs;
+using System.ComponentModel.DataAnnotations;
 
-public class UserProfileDto
+namespace Application.DTOs.UserProfile;
+
+public class UpdateUserProfileDto
 {
-    public Guid Id { get; set; }
-    public Guid UserId { get; set; }
+    [StringLength(50)]
     public string? DisplayName { get; set; }
+
+    [StringLength(500)]
     public string? Bio { get; set; }
+
     public string? AvatarUrl { get; set; }
+
     public string? SteamProfileUrl { get; set; }
+
     public string? FaceitProfileUrl { get; set; }
-    public DateTime CreatedAtUtc { get; set; }
-    public DateTime? UpdatedAtUtc { get; set; }
 }

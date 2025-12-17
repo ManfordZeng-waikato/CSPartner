@@ -1,4 +1,4 @@
-using Application.DTOs;
+using Application.DTOs.UserProfile;
 
 namespace Application.Interfaces.Services;
 

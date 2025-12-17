@@ -1,49 +1,75 @@
-import { AppBar, Box, Container, IconButton, Toolbar, Typography } from "@mui/material";
-import Menu from '@mui/icons-material/Menu';
+import {
+  AppBar,
+  Avatar,
+  Box,
+  Container,
+  Toolbar,
+  Button,
+  Stack,
+  Tooltip
+} from "@mui/material";
 import MenuItemLink from "../shared/components/MenuItemLink";
+import { useLogout } from "../../features/hooks/useAccount";
+import { useAuthSession } from "../../features/hooks/useAuthSession";
+import { useNavigate } from "react-router";
 
 export default function Navbar() {
+    const logout = useLogout();
+    const navigate = useNavigate();
+    const { session } = useAuthSession();
+
+    const handleLogout = async () => {
+        try {
+            await logout.mutateAsync();
+            navigate("/login");
+        } catch {
+            // error already logged in hook
+        }
+    };
+
     return (
         <Box sx={{ flexGrow: 1 }}>
             <AppBar position="static" color="primary">
                 <Container maxWidth="xl">
-                    <Toolbar sx={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <IconButton
-                            size="large"
-                            edge="start"
-                            color="inherit"
-                            aria-label="menu"
-                            sx={{ mr: 2 }}
-                        >
-                            <Menu />
-                        </IconButton>
-                        <Typography
-                            variant="h5"
-                            component="div"
-                            sx={{
-                                position: 'absolute',
-                                left: '50%',
-                                transform: 'translateX(-50%)',
-                                pointerEvents: 'none'
-                            }}
-                        >
-                            Highlights
-                        </Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <MenuItemLink
-                                to="/videos"
-                                matchMode="startsWith"
-                                exclude={["/videos/upload"]}
-                            >
-                                Videos
-                            </MenuItemLink>
+                    <Toolbar sx={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center' }}>
+                        <Stack direction="row" alignItems="center" spacing={2}>
                             <MenuItemLink to="/videos/upload" matchMode="startsWith">
                                 Upload
                             </MenuItemLink>
-                            <MenuItemLink to="/login" matchMode="startsWith">
-                                Login
+                        </Stack>
+
+                        <Stack direction="row" justifyContent="center">
+                            <MenuItemLink
+                                to="/videos"
+                                matchMode="startsWith"
+                            >
+                                Highlights
                             </MenuItemLink>
-                        </Box>
+                        </Stack>
+
+                        <Stack direction="row" alignItems="center" spacing={1} justifyContent="flex-end">
+                            {!session && (
+                                <MenuItemLink to="/login" matchMode="startsWith">
+                                    Login
+                                </MenuItemLink>
+                            )}
+                            {session && (
+                                <>
+                                    <Tooltip title={session.displayName || session.email || "User"}>
+                                        <Avatar sx={{ width: 32, height: 32 }}>
+                                            {(session.displayName || session.email || "U").charAt(0).toUpperCase()}
+                                        </Avatar>
+                                    </Tooltip>
+                                    <Button
+                                        color="inherit"
+                                        onClick={handleLogout}
+                                        disabled={logout.isPending}
+                                    >
+                                        {logout.isPending ? "Logging out..." : "Logout"}
+                                    </Button>
+                                </>
+                            )}
+                        </Stack>
                     </Toolbar>
                 </Container>
             </AppBar>

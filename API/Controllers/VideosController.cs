@@ -1,9 +1,11 @@
 using API.DTOs;
-using Application.DTOs;
+using Application.DTOs.Video;
+using Application.DTOs.Comment;
 using Application.Interfaces.Services;
 using Domain.Videos;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace API.Controllers;
 
@@ -22,6 +24,7 @@ public class VideosController : BaseApiController
     /// Get video list
     /// </summary>
     [HttpGet]
+    [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<VideoDto>>> GetVideos([FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] Guid? userId = null)
     {
         if (page < 1) page = 1;
@@ -35,6 +38,7 @@ public class VideosController : BaseApiController
     /// Get video details
     /// </summary>
     [HttpGet("{id}")]
+    [AllowAnonymous]
     public async Task<ActionResult<VideoDto>> GetVideo(Guid id, [FromQuery] Guid? userId = null)
     {
         var video = await _videoService.GetVideoByIdAsync(id, userId);
@@ -175,6 +179,7 @@ public class VideosController : BaseApiController
     /// Get video comments list
     /// </summary>
     [HttpGet("{id}/comments")]
+    [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<CommentDto>>> GetVideoComments(Guid id)
     {
         var comments = await _videoService.GetVideoCommentsAsync(id);

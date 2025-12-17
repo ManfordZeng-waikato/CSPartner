@@ -1,4 +1,5 @@
-using Application.DTOs;
+using Application.DTOs.Video;
+using Application.DTOs.Comment;
 using Domain.Videos;
 
 namespace Application.Interfaces.Services;

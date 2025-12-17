@@ -3,26 +3,26 @@ import { createTheme } from '@mui/material/styles';
 export const theme = createTheme({
   palette: {
     primary: {
-      main: '#FF6B35', // 橙色 - 来自 CS2 背景
+      main: '#FF6B35', // Orange accent inspired by CS2 background
       light: '#FF8C65',
       dark: '#E55100',
-      contrastText: '#FFFFFF', // 白色文字在橙色背景上
+      contrastText: '#FFFFFF', // White text on orange
     },
     secondary: {
-      main: '#424242', // 深灰色 - 来自人物剪影
+      main: '#424242', // Dark gray inspired by silhouette
       light: '#616161',
       dark: '#212121',
-      contrastText: '#FFFFFF', // 白色文字
+      contrastText: '#FFFFFF', // White text
     },
     background: {
-      default: '#F5F5F5', // 浅灰色背景 - 来自图片左半部分
+      default: '#F5F5F5', // Light gray background
       paper: '#FFFFFF',
     },
     text: {
-      primary: '#212121', // 深灰色文字
-      secondary: '#757575', // 中等灰色文字
+      primary: '#212121', // Dark gray text
+      secondary: '#757575', // Medium gray text
     },
-    divider: '#BDBDBD', // 灰色分隔线
+    divider: '#BDBDBD', // Gray divider
   },
   typography: {
     fontFamily: 'Roboto, Arial, sans-serif',

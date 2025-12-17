@@ -1,4 +1,4 @@
-using Application.DTOs;
+using Application.DTOs.Comment;
 using Application.Interfaces.Services;
 using Microsoft.AspNetCore.Mvc;
 

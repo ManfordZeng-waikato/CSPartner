@@ -1,14 +1,7 @@
 import React from "react";
+import LoginForm from "./components/LoginForm";
 
-const LoginPage: React.FC = () => {
-  // TODO: replace with real login form when auth is implemented
-  return (
-    <div>
-      <h1>Login</h1>
-      
-    </div>
-  );
-};
+const LoginPage: React.FC = () => <LoginForm />;
 
 export default LoginPage;
 

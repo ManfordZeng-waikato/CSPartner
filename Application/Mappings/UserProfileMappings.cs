@@ -1,4 +1,4 @@
-using Application.DTOs;
+using Application.DTOs.UserProfile;
 using Domain.Users;
 
 namespace Application.Mappings;

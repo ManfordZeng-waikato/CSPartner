@@ -120,7 +120,7 @@ const VideoEditorForm: React.FC<VideoEditorFormProps> = ({
                       onChange={(event) => {
                         const file = event.target.files?.[0] ?? null;
                         field.onChange(file);
-                        // 重置 input 以便选择相同文件
+                        // Reset input to allow selecting the same file again
                         event.target.value = "";
                       }}
                     />

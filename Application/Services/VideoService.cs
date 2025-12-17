@@ -1,4 +1,5 @@
-using Application.DTOs;
+using Application.DTOs.Video;
+using Application.DTOs.Comment;
 using Application.Interfaces;
 using Application.Interfaces.Repositories;
 using Application.Interfaces.Services;
