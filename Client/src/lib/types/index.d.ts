@@ -55,6 +55,7 @@ type UserProfileDto = {
     faceitProfileUrl: string | null
     createdAtUtc: string
     updatedAtUtc: string | null
+    videos: readonly VideoDto[]
 }
 
 type UpdateUserProfileDto = {

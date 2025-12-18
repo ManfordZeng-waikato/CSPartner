@@ -29,17 +29,26 @@ public class VideoService : IVideoService
         _unitOfWork = unitOfWork;
     }
 
-    public async Task<IEnumerable<VideoDto>> GetVideosAsync(int page = 1, int pageSize = 20, Guid? userId = null)
+    public async Task<IEnumerable<VideoDto>> GetVideosAsync(int page = 1, int pageSize = 20, Guid? currentUserId = null)
     {
         var videos = await _videoRepository.GetVideosAsync(page, pageSize);
         var videoDtos = new List<VideoDto>();
 
         foreach (var video in videos)
         {
-            bool hasLiked = false;
-            if (userId.HasValue)
+            // 可见性过滤规则：
+            // 1. 匿名用户只能看到 Public 视频
+            // 2. 已登录用户可以看到 Public 视频和自己的 Private 视频
+            var isOwner = currentUserId.HasValue && currentUserId.Value == video.UploaderUserId;
+            if (video.Visibility != VideoVisibility.Public && !isOwner)
             {
-                hasLiked = await HasUserLikedAsync(video.VideoId, userId.Value);
+                continue; // 跳过私有视频（除非是所有者）
+            }
+
+            bool hasLiked = false;
+            if (currentUserId.HasValue)
+            {
+                hasLiked = await HasUserLikedAsync(video.VideoId, currentUserId.Value);
             }
             videoDtos.Add(video.ToDto(hasLiked));
         }
@@ -47,16 +56,55 @@ public class VideoService : IVideoService
         return videoDtos;
     }
 
-    public async Task<VideoDto?> GetVideoByIdAsync(Guid videoId, Guid? userId = null)
+    public async Task<IEnumerable<VideoDto>> GetVideosByUserIdAsync(Guid uploaderUserId, Guid? currentUserId = null)
+    {
+        var videos = await _videoRepository.GetVideosByUserIdAsync(uploaderUserId);
+        var videoDtos = new List<VideoDto>();
+
+        // 判断是否是查看自己的视频
+        var isViewingOwnVideos = currentUserId.HasValue && currentUserId.Value == uploaderUserId;
+
+        foreach (var video in videos)
+        {
+            // 可见性过滤规则：
+            // 1. 匿名用户只能看到 Public 视频
+            // 2. 查看自己的视频时，可以看到所有视频（Public + Private）
+            // 3. 查看他人视频时，只能看到 Public 视频
+            if (!isViewingOwnVideos && video.Visibility != VideoVisibility.Public)
+            {
+                continue; // 跳过私有视频
+            }
+
+            bool hasLiked = false;
+            if (currentUserId.HasValue)
+            {
+                hasLiked = await HasUserLikedAsync(video.VideoId, currentUserId.Value);
+            }
+            videoDtos.Add(video.ToDto(hasLiked));
+        }
+
+        return videoDtos;
+    }
+
+    public async Task<VideoDto?> GetVideoByIdAsync(Guid videoId, Guid? currentUserId = null)
     {
         var video = await _videoRepository.GetVideoByIdAsync(videoId);
         if (video == null)
             return null;
 
-        bool hasLiked = false;
-        if (userId.HasValue)
+        // 可见性检查：
+        // 1. 匿名用户只能看到 Public 视频
+        // 2. 只有视频所有者可以看到 Private 视频
+        var isOwner = currentUserId.HasValue && currentUserId.Value == video.UploaderUserId;
+        if (video.Visibility != VideoVisibility.Public && !isOwner)
         {
-            hasLiked = await HasUserLikedAsync(videoId, userId.Value);
+            return null; // 拒绝访问私有视频
+        }
+
+        bool hasLiked = false;
+        if (currentUserId.HasValue)
+        {
+            hasLiked = await HasUserLikedAsync(videoId, currentUserId.Value);
         }
 
         return video.ToDto(hasLiked);

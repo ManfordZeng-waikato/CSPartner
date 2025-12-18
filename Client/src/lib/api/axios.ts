@@ -30,7 +30,6 @@ apiClient.interceptors.request.use(
     
     // List of endpoints that don't require authentication
     const anonymousEndpoints = [
-      '/api/videos',
       '/api/account/login',
       '/api/account/register',
       '/api/userprofiles'

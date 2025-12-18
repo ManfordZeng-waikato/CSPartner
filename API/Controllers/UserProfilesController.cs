@@ -18,12 +18,17 @@ public class UserProfilesController : BaseApiController
 
     /// <summary>
     /// Get user profile
+    /// Visibility rules for videos:
+    /// - Anonymous users: only Public videos
+    /// - Viewing own profile: all videos (Public + Private)
+    /// - Viewing others' profile: only Public videos
     /// </summary>
     [HttpGet("{userId}")]
     [AllowAnonymous]
     public async Task<ActionResult<UserProfileDto>> GetUserProfile(Guid userId)
     {
-        var profile = await _userProfileService.GetUserProfileByUserIdAsync(userId);
+        var currentUserId = GetCurrentUserId();
+        var profile = await _userProfileService.GetUserProfileByUserIdAsync(userId, currentUserId);
         if (profile == null)
             return NotFound();
 
@@ -34,8 +39,15 @@ public class UserProfilesController : BaseApiController
     /// Update user profile
     /// </summary>
     [HttpPut("{userId}")]
+    [Authorize]
     public async Task<ActionResult<UserProfileDto>> UpdateUserProfile(Guid userId, [FromBody] UpdateUserProfileDto dto)
     {
+        var currentUserId = GetCurrentUserId();
+        if (!currentUserId.HasValue || currentUserId.Value != userId)
+        {
+            return Forbid(); // Only allow users to update their own profile
+        }
+
         try
         {
             var profile = await _userProfileService.CreateOrUpdateUserProfileAsync(
@@ -44,7 +56,8 @@ public class UserProfilesController : BaseApiController
                 dto.Bio,
                 dto.AvatarUrl,
                 dto.SteamProfileUrl,
-                dto.FaceitProfileUrl);
+                dto.FaceitProfileUrl,
+                currentUserId);
 
             return Ok(profile);
         }

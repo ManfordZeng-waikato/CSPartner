@@ -5,6 +5,7 @@ namespace Application.Interfaces.Repositories;
 public interface IVideoRepository
 {
     Task<IEnumerable<HighlightVideo>> GetVideosAsync(int page, int pageSize);
+    Task<IEnumerable<HighlightVideo>> GetVideosByUserIdAsync(Guid userId);
     Task<HighlightVideo?> GetVideoByIdAsync(Guid videoId);
     Task<HighlightVideo> AddAsync(HighlightVideo video);
     Task UpdateAsync(HighlightVideo video);

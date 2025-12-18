@@ -1,3 +1,5 @@
+using Application.DTOs.Video;
+
 namespace Application.DTOs.UserProfile;
 
 public class UserProfileDto
@@ -11,4 +13,5 @@ public class UserProfileDto
     public string? FaceitProfileUrl { get; set; }
     public DateTime CreatedAtUtc { get; set; }
     public DateTime? UpdatedAtUtc { get; set; }
+    public IReadOnlyList<VideoDto> Videos { get; init; } = [];
 }

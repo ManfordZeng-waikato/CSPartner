@@ -6,8 +6,6 @@ using Domain.Videos;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
 
 namespace API.Controllers;
 
@@ -24,26 +22,50 @@ public class VideosController : BaseApiController
 
     /// <summary>
     /// Get video list
+    /// Visibility rules:
+    /// - Anonymous users: only Public videos
+    /// - Authenticated users: Public videos + own Private videos
     /// </summary>
     [HttpGet]
     [AllowAnonymous]
-    public async Task<ActionResult<IEnumerable<VideoDto>>> GetVideos([FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] Guid? userId = null)
+    public async Task<ActionResult<IEnumerable<VideoDto>>> GetVideos([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
         if (page < 1) page = 1;
         if (pageSize < 1 || pageSize > 100) pageSize = 20;
 
-        var videos = await _videoService.GetVideosAsync(page, pageSize, userId);
+        var currentUserId = GetCurrentUserId();
+        var videos = await _videoService.GetVideosAsync(page, pageSize, currentUserId);
+        return Ok(videos);
+    }
+
+    /// <summary>
+    /// Get all videos uploaded by a specific user
+    /// Visibility rules:
+    /// - Anonymous users: only Public videos
+    /// - Viewing own videos: all videos (Public + Private)
+    /// - Viewing others' videos: only Public videos
+    /// </summary>
+    [HttpGet("user/{userId}")]
+    [AllowAnonymous]
+    public async Task<ActionResult<IEnumerable<VideoDto>>> GetVideosByUser(Guid userId)
+    {
+        var currentUserId = GetCurrentUserId();
+        var videos = await _videoService.GetVideosByUserIdAsync(userId, currentUserId);
         return Ok(videos);
     }
 
     /// <summary>
     /// Get video details
+    /// Visibility rules:
+    /// - Anonymous users: only Public videos
+    /// - Authenticated users: Public videos + own Private videos
     /// </summary>
     [HttpGet("{id}")]
     [AllowAnonymous]
-    public async Task<ActionResult<VideoDto>> GetVideo(Guid id, [FromQuery] Guid? userId = null)
+    public async Task<ActionResult<VideoDto>> GetVideo(Guid id)
     {
-        var video = await _videoService.GetVideoByIdAsync(id, userId);
+        var currentUserId = GetCurrentUserId();
+        var video = await _videoService.GetVideoByIdAsync(id, currentUserId);
         if (video == null)
             return NotFound();
 
@@ -63,13 +85,8 @@ public class VideosController : BaseApiController
         [FromForm] UploadVideoFormRequest formRequest,
         CancellationToken cancellationToken = default)
     {
-        // Get current user ID from JWT token
-        // Try multiple claim types as JWT Bearer middleware may map claims differently
-        var userIdClaim = User.FindFirst(JwtRegisteredClaimNames.Sub) 
-                          ?? User.FindFirst(ClaimTypes.NameIdentifier)
-                          ?? User.FindFirst("sub");
-        
-        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var uploaderUserId))
+        var uploaderUserId = GetCurrentUserId();
+        if (!uploaderUserId.HasValue)
         {
             _logger.LogWarning("无法从JWT令牌中提取用户ID。Claims: {Claims}", 
                 string.Join(", ", User.Claims.Select(c => $"{c.Type}={c.Value}")));
@@ -103,7 +120,7 @@ public class VideosController : BaseApiController
             }
 
             // Call application service to handle upload and creation
-            var video = await _videoService.UploadAndCreateVideoAsync(uploaderUserId, uploadRequest, cancellationToken);
+            var video = await _videoService.UploadAndCreateVideoAsync(uploaderUserId.Value, uploadRequest, cancellationToken);
 
             return CreatedAtAction(nameof(GetVideo), new { id = video.VideoId }, video);
         }
@@ -126,13 +143,8 @@ public class VideosController : BaseApiController
     [Authorize]
     public async Task<ActionResult<VideoDto>> CreateVideo([FromBody] CreateVideoDto dto)
     {
-        // Get current user ID from JWT token
-        // Try multiple claim types as JWT Bearer middleware may map claims differently
-        var userIdClaim = User.FindFirst(JwtRegisteredClaimNames.Sub) 
-                          ?? User.FindFirst(ClaimTypes.NameIdentifier)
-                          ?? User.FindFirst("sub");
-        
-        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var uploaderUserId))
+        var uploaderUserId = GetCurrentUserId();
+        if (!uploaderUserId.HasValue)
         {
             _logger.LogWarning("无法从JWT令牌中提取用户ID。Claims: {Claims}", 
                 string.Join(", ", User.Claims.Select(c => $"{c.Type}={c.Value}")));
@@ -142,7 +154,7 @@ public class VideosController : BaseApiController
         try
         {
             var video = await _videoService.CreateVideoAsync(
-                uploaderUserId,
+                uploaderUserId.Value,
                 dto.Title,
                 dto.VideoUrl,
                 dto.Description,

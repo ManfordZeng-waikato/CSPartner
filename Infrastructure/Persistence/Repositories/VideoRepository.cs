@@ -25,6 +25,15 @@ public class VideoRepository : IVideoRepository
             .ToListAsync();
     }
 
+    public async Task<IEnumerable<HighlightVideo>> GetVideosByUserIdAsync(Guid userId)
+    {
+        return await _context.Videos
+            .Where(v => v.UploaderUserId == userId && !v.IsDeleted)
+            .Include(v => v.Likes)
+            .OrderByDescending(v => v.CreatedAtUtc)
+            .ToListAsync();
+    }
+
     public async Task<HighlightVideo?> GetVideoByIdAsync(Guid videoId)
     {
         return await _context.Videos
