@@ -25,11 +25,14 @@ const VideoUploadForm: React.FC = () => {
     setUploadProgress(progress);
   });
 
-  // Check if user is authenticated
+  // Check if user is authenticated and clear/set error accordingly
   useEffect(() => {
     const token = getAuthToken();
     if (!token || !session) {
       setServerError("Please log in to upload videos");
+    } else {
+      // Clear error when user becomes authenticated
+      setServerError(null);
     }
   }, [session]);
 

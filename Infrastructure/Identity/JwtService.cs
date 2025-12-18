@@ -23,8 +23,15 @@ public class JwtService : IJwtService
         var audience = _configuration["Jwt:Audience"];
         var expirationMinutes = _configuration.GetValue<int>("Jwt:ExpirationMinutes", 1440);
 
+        // Validate all required configuration values
         if (string.IsNullOrEmpty(secretKey))
             throw new InvalidOperationException("JWT SecretKey is not configured");
+
+        if (string.IsNullOrEmpty(issuer))
+            throw new InvalidOperationException("JWT Issuer is not configured");
+
+        if (string.IsNullOrEmpty(audience))
+            throw new InvalidOperationException("JWT Audience is not configured");
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
