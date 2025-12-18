@@ -17,6 +17,7 @@ public class AuthService : IAuthService
     private readonly RoleManager<ApplicationRole> _roleManager;
     private readonly IUserProfileRepository _profileRepository;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IJwtService _jwtService;
     private readonly ILogger<AuthService> _logger;
 
     public AuthService(
@@ -25,6 +26,7 @@ public class AuthService : IAuthService
         RoleManager<ApplicationRole> roleManager,
         IUserProfileRepository profileRepository,
         IUnitOfWork unitOfWork,
+        IJwtService jwtService,
         ILogger<AuthService> logger)
     {
         _userManager = userManager;
@@ -32,6 +34,7 @@ public class AuthService : IAuthService
         _roleManager = roleManager;
         _profileRepository = profileRepository;
         _unitOfWork = unitOfWork;
+        _jwtService = jwtService;
         _logger = logger;
     }
 
@@ -71,8 +74,10 @@ public class AuthService : IAuthService
         await _profileRepository.AddAsync(profile);
         await _unitOfWork.SaveChangesAsync();
 
+        var roles = await _userManager.GetRolesAsync(user);
+
         _logger.LogInformation("用户 {Email} 注册成功", user.Email);
-        return Success(user, displayName);
+        return Success(user, displayName, roles);
     }
 
     public async Task<AuthResultDto> LoginAsync(LoginDto dto)
@@ -93,29 +98,34 @@ public class AuthService : IAuthService
             return Failure("Incorrect email or password");
         }
 
-        await _signInManager.SignInAsync(user, dto.RememberMe);
-
         var profile = await _profileRepository.GetByUserIdAsync(user.Id);
         var displayName = profile?.DisplayName ?? user.Email;
+        var roles = await _userManager.GetRolesAsync(user);
 
         _logger.LogInformation("用户 {Email} 登录成功", user.Email);
-        return Success(user, displayName);
+        return Success(user, displayName, roles);
     }
 
     public async Task LogoutAsync()
     {
-        await _signInManager.SignOutAsync();
-        _logger.LogInformation("User signed out");
+        // JWT tokens are stateless, so logout is handled client-side by removing the token
+        // This method is kept for API compatibility
+        _logger.LogInformation("User logged out (token should be removed client-side)");
+        await Task.CompletedTask;
     }
 
-    private static AuthResultDto Success(ApplicationUser user, string? displayName)
-        => new()
+    private AuthResultDto Success(ApplicationUser user, string? displayName, IEnumerable<string> roles)
+    {
+        var token = _jwtService.GenerateToken(user.Id, user.Email ?? string.Empty, roles);
+        return new()
         {
             Succeeded = true,
             UserId = user.Id,
             Email = user.Email,
-            DisplayName = displayName
+            DisplayName = displayName,
+            Token = token
         };
+    }
 
     private static AuthResultDto Failure(params string[] errors)
         => new()

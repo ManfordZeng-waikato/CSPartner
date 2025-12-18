@@ -3,9 +3,13 @@ import {
   Alert,
   Box,
   Button,
+  FormControl,
+  FormHelperText,
+  InputLabel,
   LinearProgress,
   MenuItem,
   Paper,
+  Select,
   Stack,
   TextField,
   Typography
@@ -28,6 +32,7 @@ interface VideoEditorFormProps {
   handleSubmit: UseFormHandleSubmit<VideoUploadFormValues>;
   errors: FieldErrors<VideoUploadFormValues>;
   isPending?: boolean;
+  uploadProgress?: number;
   serverError?: string | null;
   isSuccess?: boolean;
   visibilityOptions: { label: string; value: VideoVisibility }[];
@@ -46,6 +51,7 @@ const VideoEditorForm: React.FC<VideoEditorFormProps> = ({
   handleSubmit,
   errors,
   isPending = false,
+  uploadProgress,
   serverError = null,
   isSuccess = false,
   visibilityOptions,
@@ -66,7 +72,20 @@ const VideoEditorForm: React.FC<VideoEditorFormProps> = ({
         </Typography>
       )}
 
-      {isPending && <LinearProgress sx={{ mb: 2 }} />}
+      {isPending && (
+        <Box sx={{ mb: 2 }}>
+          <LinearProgress
+            variant={uploadProgress !== undefined ? "determinate" : "indeterminate"}
+            value={uploadProgress}
+            sx={{ mb: 1 }}
+          />
+          {uploadProgress !== undefined && (
+            <Typography variant="body2" color="text.secondary" align="center">
+              Uploading: {uploadProgress}%
+            </Typography>
+          )}
+        </Box>
+      )}
       {serverError && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {serverError}
@@ -84,6 +103,8 @@ const VideoEditorForm: React.FC<VideoEditorFormProps> = ({
             label="Title"
             fullWidth
             {...register("title")}
+            id="video-title"
+            name="title"
             error={!!errors.title}
             helperText={errors.title?.message || "Up to 10 words"}
             disabled={isPending}
@@ -95,6 +116,8 @@ const VideoEditorForm: React.FC<VideoEditorFormProps> = ({
             multiline
             minRows={3}
             {...register("description")}
+            id="video-description"
+            name="description"
             error={!!errors.description}
             helperText={errors.description?.message || "Up to 20 words"}
             disabled={isPending}
@@ -106,25 +129,29 @@ const VideoEditorForm: React.FC<VideoEditorFormProps> = ({
               control={control}
               render={({ field }) => (
                 <Box>
-                  <Button
-                    component="label"
-                    variant="contained"
-                    startIcon={<CloudUploadIcon />}
-                    disabled={isPending}
-                  >
-                    Choose video file
-                    <input
-                      hidden
-                      type="file"
-                      accept="video/*"
-                      onChange={(event) => {
-                        const file = event.target.files?.[0] ?? null;
-                        field.onChange(file);
-                        // Reset input to allow selecting the same file again
-                        event.target.value = "";
-                      }}
-                    />
-                  </Button>
+                  <input
+                    id="video-file-input"
+                    name="videoFile"
+                    type="file"
+                    accept="video/*"
+                    style={{ display: 'none' }}
+                    onChange={(event) => {
+                      const file = event.target.files?.[0] ?? null;
+                      field.onChange(file);
+                      // Reset input to allow selecting the same file again
+                      event.target.value = "";
+                    }}
+                  />
+                  <label htmlFor="video-file-input">
+                    <Button
+                      component="span"
+                      variant="contained"
+                      startIcon={<CloudUploadIcon />}
+                      disabled={isPending}
+                    >
+                      Choose video file
+                    </Button>
+                  </label>
                   {field.value && (
                     <Typography variant="body2" sx={{ mt: 1 }}>
                       Selected: {(field.value as File).name}
@@ -158,36 +185,29 @@ const VideoEditorForm: React.FC<VideoEditorFormProps> = ({
             name="visibility"
             control={control}
             render={({ field }) => (
-              <TextField
-                select
-                label="Visibility"
-                fullWidth
-                value={field.value}
-                onChange={(event) => field.onChange(Number(event.target.value))}
-                error={!!errors.visibility}
-                helperText={errors.visibility?.message}
-                disabled={isPending}
-              >
-                {visibilityOptions.map((option) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
-                  </MenuItem>
-                ))}
-              </TextField>
+              <FormControl fullWidth error={!!errors.visibility} disabled={isPending}>
+                <InputLabel id="video-visibility-label">Visibility</InputLabel>
+
+                <Select
+                  labelId="video-visibility-label"
+                  id="video-visibility"
+                  label="Visibility"
+                  value={field.value}
+                  onChange={(e) => field.onChange(Number(e.target.value))}
+                  inputProps={{ id: "video-visibility-input" }} 
+                >
+                  {visibilityOptions.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+
+                <FormHelperText>{errors.visibility?.message}</FormHelperText>
+              </FormControl>
             )}
           />
 
-          <TextField
-            label="Uploader User ID"
-            fullWidth
-            {...register("uploaderUserId")}
-            error={!!errors.uploaderUserId}
-            helperText={
-              errors.uploaderUserId?.message ||
-              "Backend uses this user ID for ownership"
-            }
-            disabled={isPending}
-          />
 
           <Stack direction="row" spacing={2} justifyContent="flex-end" sx={{ pt: 1 }}>
             <Button variant="outlined" onClick={onReset} disabled={isPending}>

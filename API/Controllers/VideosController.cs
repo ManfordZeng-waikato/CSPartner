@@ -6,6 +6,8 @@ using Domain.Videos;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 
 namespace API.Controllers;
 
@@ -55,12 +57,25 @@ public class VideosController : BaseApiController
     /// Upload video file to R2 and create video record
     /// </summary>
     [HttpPost("upload")]
+    [Authorize]
     [RequestSizeLimit(50_000_000)] // 50MB limit
     public async Task<ActionResult<VideoDto>> UploadVideo(
         [FromForm] UploadVideoFormRequest formRequest,
-        [FromForm] Guid uploaderUserId,
         CancellationToken cancellationToken = default)
     {
+        // Get current user ID from JWT token
+        // Try multiple claim types as JWT Bearer middleware may map claims differently
+        var userIdClaim = User.FindFirst(JwtRegisteredClaimNames.Sub) 
+                          ?? User.FindFirst(ClaimTypes.NameIdentifier)
+                          ?? User.FindFirst("sub");
+        
+        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var uploaderUserId))
+        {
+            _logger.LogWarning("无法从JWT令牌中提取用户ID。Claims: {Claims}", 
+                string.Join(", ", User.Claims.Select(c => $"{c.Type}={c.Value}")));
+            return Unauthorized(new { error = "无法识别用户身份" });
+        }
+
         // Basic validation
         if (formRequest.VideoFile == null || formRequest.VideoFile.Length == 0)
             return BadRequest(new { error = "视频文件不能为空" });
@@ -108,8 +123,22 @@ public class VideosController : BaseApiController
     /// Create video record (using uploaded R2 URL)
     /// </summary>
     [HttpPost]
-    public async Task<ActionResult<VideoDto>> CreateVideo([FromBody] CreateVideoDto dto, [FromQuery] Guid uploaderUserId)
+    [Authorize]
+    public async Task<ActionResult<VideoDto>> CreateVideo([FromBody] CreateVideoDto dto)
     {
+        // Get current user ID from JWT token
+        // Try multiple claim types as JWT Bearer middleware may map claims differently
+        var userIdClaim = User.FindFirst(JwtRegisteredClaimNames.Sub) 
+                          ?? User.FindFirst(ClaimTypes.NameIdentifier)
+                          ?? User.FindFirst("sub");
+        
+        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var uploaderUserId))
+        {
+            _logger.LogWarning("无法从JWT令牌中提取用户ID。Claims: {Claims}", 
+                string.Join(", ", User.Claims.Select(c => $"{c.Type}={c.Value}")));
+            return Unauthorized(new { error = "无法识别用户身份" });
+        }
+
         try
         {
             var video = await _videoService.CreateVideoAsync(

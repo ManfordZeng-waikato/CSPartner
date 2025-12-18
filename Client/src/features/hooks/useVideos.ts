@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
+import apiClient from "../../lib/api/axios";
 
-export const useCreateVideo = () => {
+export const useCreateVideo = (
+  onProgress?: (progress: number) => void
+) => {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -20,9 +22,17 @@ export const useCreateVideo = () => {
       }
 
       formData.append('Visibility', video.visibility.toString());
-      formData.append('uploaderUserId', video.uploaderUserId);
 
-      const response = await axios.post<VideoDto>('/api/videos/upload', formData);
+      const response = await apiClient.post<VideoDto>('/api/videos/upload', formData, {
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.total && onProgress) {
+            const percentCompleted = Math.round(
+              (progressEvent.loaded * 100) / progressEvent.total
+            );
+            onProgress(percentCompleted);
+          }
+        }
+      });
       return response.data;
     },
     onSuccess: async () => {
@@ -35,7 +45,7 @@ export const useVideos = () => {
   const { data: videos, isLoading } = useQuery({
     queryKey: ['videos'],
     queryFn: async () => {
-      const response = await axios.get<VideoDto[]>('/api/videos');
+      const response = await apiClient.get<VideoDto[]>('/api/videos');
       return response.data;
     }
   });
@@ -50,7 +60,7 @@ export const useVideo = (videoId: string | undefined) => {
     queryKey: ['video', videoId],
     queryFn: async () => {
       if (!videoId) return null
-      const response = await axios.get<VideoDto>(`/api/videos/${videoId}`)
+      const response = await apiClient.get<VideoDto>(`/api/videos/${videoId}`)
       return response.data
     },
     enabled: !!videoId
@@ -64,7 +74,7 @@ export const useVideoComments = (videoId: string | undefined) => {
     queryKey: ['video', videoId, 'comments'],
     queryFn: async () => {
       if (!videoId) return []
-      const response = await axios.get<CommentDto[]>(`/api/videos/${videoId}/comments`)
+      const response = await apiClient.get<CommentDto[]>(`/api/videos/${videoId}/comments`)
       return response.data
     },
     enabled: !!videoId

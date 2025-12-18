@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import axios from "axios";
+import apiClient, { setAuthToken } from "../../lib/api/axios";
 import type {
   LoginFormValues,
   RegisterFormValues
@@ -10,6 +10,7 @@ export type AuthResult = {
   userId?: string;
   email?: string;
   displayName?: string;
+  token?: string;
   errors?: string[];
 };
 
@@ -63,14 +64,17 @@ const extractErrorMessage = (error: unknown) => {
 export const useLogin = () =>
   useMutation({
     mutationFn: async (payload: LoginFormValues): Promise<AuthResult> => {
-      const response = await axios.post<AuthResult>(
+      const response = await apiClient.post<AuthResult>(
         "/api/account/login",
-        payload,
-        { withCredentials: true }
+        payload
       );
 
       if (!response.data.succeeded) {
         throw new Error(response.data.errors?.[0] ?? "Login failed");
+      }
+      // Save JWT token
+      if (response.data.token) {
+        setAuthToken(response.data.token);
       }
       // Persist minimal session info for UI
       saveSession({
@@ -88,15 +92,24 @@ export const useLogin = () =>
 export const useRegister = () =>
   useMutation({
     mutationFn: async (payload: RegisterFormValues): Promise<AuthResult> => {
-      const response = await axios.post<AuthResult>(
+      const response = await apiClient.post<AuthResult>(
         "/api/account/register",
-        payload,
-        { withCredentials: true }
+        payload
       );
 
       if (!response.data.succeeded) {
         throw new Error(response.data.errors?.[0] ?? "Registration failed");
       }
+      // Save JWT token
+      if (response.data.token) {
+        setAuthToken(response.data.token);
+      }
+      // Persist minimal session info for UI
+      saveSession({
+        userId: response.data.userId ?? "",
+        email: response.data.email,
+        displayName: response.data.displayName
+      });
       return response.data;
     },
     onError: (error) => {
@@ -107,11 +120,15 @@ export const useRegister = () =>
 export const useLogout = () =>
   useMutation({
     mutationFn: async (): Promise<void> => {
-      await axios.post("/api/account/logout", null, { withCredentials: true });
+      await apiClient.post("/api/account/logout", null);
+      setAuthToken(null);
       clearSession();
     },
     onError: (error) => {
       console.error("Logout failed:", error);
+      // Clear token even if logout request fails
+      setAuthToken(null);
+      clearSession();
     }
   });
 

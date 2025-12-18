@@ -40,8 +40,7 @@ export const videoUploadSchema = z.object({
     if (file.size > MAX_VIDEO_BYTES) return false;
     return true;
   }, { message: "Please select a video file under 50 MB" }),
-  visibility: z.union([z.literal(1), z.literal(2)]),
-  uploaderUserId: z.string().trim().min(1, "Uploader user ID is required")
+  visibility: z.union([z.literal(1), z.literal(2)])
 });
 
 export type VideoUploadFormValues = z.infer<typeof videoUploadSchema>;

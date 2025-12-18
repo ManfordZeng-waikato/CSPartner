@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -6,6 +6,8 @@ import { useCreateVideo } from "../../hooks/useVideos";
 import { videoUploadSchema } from "../../../lib/schemas/videoUploadSchema";
 import type { VideoUploadFormValues } from "../../../lib/schemas/videoUploadSchema";
 import VideoEditorForm from "../../../app/shared/components/VideoEditorForm";
+import { useAuthSession } from "../../hooks/useAuthSession";
+import { getAuthToken } from "../../../lib/api/axios";
 
 const visibilityOptions: { label: string; value: VideoVisibility }[] = [
   { label: "Public", value: 1 as VideoVisibility },
@@ -13,10 +15,23 @@ const visibilityOptions: { label: string; value: VideoVisibility }[] = [
 ];
 
 const VideoUploadForm: React.FC = () => {
-  const createVideo = useCreateVideo();
   const navigate = useNavigate();
+  const { session } = useAuthSession();
   const [serverError, setServerError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  
+  const createVideo = useCreateVideo((progress) => {
+    setUploadProgress(progress);
+  });
+
+  // Check if user is authenticated
+  useEffect(() => {
+    const token = getAuthToken();
+    if (!token || !session) {
+      setServerError("Please log in to upload videos");
+    }
+  }, [session]);
 
   const {
     control,
@@ -30,8 +45,7 @@ const VideoUploadForm: React.FC = () => {
       title: "",
       description: "",
       videoFile: null,
-      visibility: visibilityOptions[0].value,
-      uploaderUserId: ""
+      visibility: visibilityOptions[0].value
     }
   });
 
@@ -40,22 +54,20 @@ const VideoUploadForm: React.FC = () => {
       title: "",
       description: "",
       videoFile: null,
-      visibility: visibilityOptions[0].value,
-      uploaderUserId: ""
-    });
-
-  const resetAfterSuccess = (uploaderUserId: string) =>
-    reset({
-      title: "",
-      description: "",
-      videoFile: null,
-      visibility: visibilityOptions[0].value,
-      uploaderUserId
+      visibility: visibilityOptions[0].value
     });
 
   const onSubmit = async (values: VideoUploadFormValues) => {
     setServerError(null);
     setIsSuccess(false);
+
+    // Check authentication before submitting
+    const token = getAuthToken();
+    if (!token || !session) {
+      setServerError("Please log in to upload videos");
+      navigate("/login");
+      return;
+    }
 
     const description = values.description?.trim();
     const payload: CreateVideoDto = {
@@ -65,31 +77,66 @@ const VideoUploadForm: React.FC = () => {
       thumbnailFileName: null,
       title: values.title.trim(),
       description: description ? description : null,
-      visibility: values.visibility as VideoVisibility,
-      uploaderUserId: values.uploaderUserId.trim()
+      visibility: values.visibility as VideoVisibility
     };
 
     try {
+      setUploadProgress(0);
       const createdVideo = await createVideo.mutateAsync(payload);
       setIsSuccess(true);
-      resetAfterSuccess(values.uploaderUserId.trim());
+      setUploadProgress(100);
+      resetToEmpty();
       if (createdVideo?.videoId) {
         navigate(`/video/${createdVideo.videoId}`);
       }
     } catch (error: unknown) {
+      setUploadProgress(0);
+      console.error("Video upload error:", error);
       let message = "Upload failed, please try again later";
+      
+      // Handle axios error response
       if (
         error &&
         typeof error === "object" &&
-        "response" in error &&
-        (error as { response?: { data?: { message?: string } } }).response?.data
-          ?.message
+        "response" in error
       ) {
-        message = (error as { response: { data: { message: string } } }).response
-          .data.message;
-      } else if (error instanceof Error && error.message) {
-        message = error.message;
+        const axiosError = error as { 
+          response?: { 
+            data?: { 
+              message?: string;
+              error?: string;
+              errors?: string[] | string;
+            };
+            status?: number;
+          };
+          message?: string;
+        };
+        
+        if (axiosError.response?.data) {
+          const data = axiosError.response.data;
+          // Try different error message formats
+          if (data.error) {
+            message = typeof data.error === "string" ? data.error : String(data.error);
+          } else if (data.message) {
+            message = data.message;
+          } else if (data.errors) {
+            if (Array.isArray(data.errors) && data.errors.length > 0) {
+              message = data.errors[0];
+            } else if (typeof data.errors === "string") {
+              message = data.errors;
+            }
+          } else if (axiosError.response.status === 401) {
+            message = "Authentication failed. Please log in again.";
+          } else if (axiosError.response.status === 403) {
+            message = "You don't have permission to perform this action.";
+          }
+        } else if (axiosError.message) {
+          message = axiosError.message;
+        }
+      } else if (error instanceof Error) {
+        message = error.message || message;
       }
+      
       setServerError(message);
     }
   };
@@ -103,6 +150,7 @@ const VideoUploadForm: React.FC = () => {
       handleSubmit={handleSubmit}
       errors={errors}
       isPending={createVideo.isPending}
+      uploadProgress={uploadProgress}
       serverError={serverError}
       isSuccess={isSuccess}
       visibilityOptions={visibilityOptions}

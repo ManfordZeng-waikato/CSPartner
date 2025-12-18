@@ -33,6 +33,7 @@ public static class DependencyInjection
         // Infrastructure Services
         services.AddScoped<IStorageService, R2StorageService>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IJwtService, JwtService>();
 
         return services;
     }
