@@ -86,7 +86,7 @@ public class AuthService : IAuthService
         if (user is null)
         {
             _logger.LogWarning("用户 {Email} 登录失败：用户不存在", dto.Email);
-            return Failure("Incorrect email or password");
+            return Failure("The email address you entered does not exist. Please check your email and try again.");
         }
 
         var signInResult = await _signInManager.CheckPasswordSignInAsync(
@@ -95,7 +95,7 @@ public class AuthService : IAuthService
         if (!signInResult.Succeeded)
         {
             _logger.LogWarning("用户 {Email} 登录失败：密码错误", dto.Email);
-            return Failure("Incorrect email or password");
+            return Failure("The password you entered is incorrect. Please try again.");
         }
 
         var profile = await _profileRepository.GetByUserIdAsync(user.Id);

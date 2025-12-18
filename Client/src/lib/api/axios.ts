@@ -68,10 +68,12 @@ apiClient.interceptors.response.use(
       if (error.response.status === 401) {
         // Token expired or invalid, clear it
         setAuthToken(null);
-        // Don't redirect immediately for upload requests to allow error handling
-        // Only redirect for non-upload API calls
+        // Don't redirect for login/register endpoints (they handle their own errors)
+        // Don't redirect for upload requests to allow error handling
+        const isAuthEndpoint = error.config?.url?.includes('/account/login') || 
+                              error.config?.url?.includes('/account/register');
         const isUploadRequest = error.config?.url?.includes('/upload');
-        if (typeof window !== "undefined" && !isUploadRequest) {
+        if (typeof window !== "undefined" && !isAuthEndpoint && !isUploadRequest) {
           window.location.href = "/login";
         }
       }

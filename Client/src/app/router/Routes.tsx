@@ -6,7 +6,7 @@ import VideoDetailPage from "../../features/Videos/details/videoDetailPage";
 import App from "../../app/layout/App";
 import VideoDashboard from "../../features/Videos/dashboard/VideoDashboard";
 import VideoUploadPage from "../../features/Videos/VideoUploadPage";
-import RequireAuth from "./components/RequireAuth.tsx";
+import RequireAuth from "../shared/components/RequireAuth.tsx";
 
 export const router = createBrowserRouter([
     {
