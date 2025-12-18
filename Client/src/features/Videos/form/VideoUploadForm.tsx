@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -24,17 +24,6 @@ const VideoUploadForm: React.FC = () => {
   const createVideo = useCreateVideo((progress) => {
     setUploadProgress(progress);
   });
-
-  // Check if user is authenticated and clear/set error accordingly
-  useEffect(() => {
-    const token = getAuthToken();
-    if (!token || !session) {
-      setServerError("Please log in to upload videos");
-    } else {
-      // Clear error when user becomes authenticated
-      setServerError(null);
-    }
-  }, [session]);
 
   const {
     control,
@@ -147,7 +136,7 @@ const VideoUploadForm: React.FC = () => {
   return (
     <VideoEditorForm
       title="Upload Video"
-      subtitle="Select a video, add details and visibility. Submit to call the upload API."
+      subtitle="Upload your video to the platform. You can choose to make it public or private."
       control={control}
       register={register}
       handleSubmit={handleSubmit}

@@ -1,6 +1,6 @@
 import React from "react";
 import { Navigate, useLocation } from "react-router";
-import { useAuthSession } from "../../../features/hooks/useAuthSession";
+import { getAuthToken } from "../../../lib/api/axios";
 
 type RequireAuthProps = {
   children: React.ReactNode;
@@ -8,15 +8,12 @@ type RequireAuthProps = {
 
 const RequireAuth: React.FC<RequireAuthProps> = ({ children }) => {
   const location = useLocation();
-  const { session } = useAuthSession();
+  
+  // Check for JWT token in localStorage
+  const token = getAuthToken();
+  const isAuthenticated = !!token;
 
-  const hasCookie = typeof document !== "undefined"
-    ? document.cookie.includes("Identity.Application")
-    : false;
-
-  const isAuthed = !!session || hasCookie;
-
-  if (!isAuthed) {
+  if (!isAuthenticated) {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
