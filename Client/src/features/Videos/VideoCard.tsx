@@ -3,11 +3,14 @@ import {
     CardContent,
     Box,
     Avatar,
-    Tooltip
+    Tooltip,
+    Chip
 } from "@mui/material"
+import { Lock, Public } from "@mui/icons-material"
 import { useNavigate } from "react-router"
 import VideoInfo from "./details/components/videoInfo"
 import { useUserProfile } from "../hooks/useUserProfile"
+import { useAuthSession } from "../hooks/useAuthSession"
 import VideoStats from "./details/components/videoStats"
 import { getAvatarUrl } from "../../lib/utils/avatar"
 
@@ -17,7 +20,11 @@ interface VideoCardProps {
 
 export default function VideoCard({ video }: VideoCardProps) {
     const { profile } = useUserProfile(video.uploaderUserId);
+    const { session } = useAuthSession();
     const navigate = useNavigate();
+
+    // 判断是否是视频所有者
+    const isOwner = session?.userId === video.uploaderUserId;
 
     const handleAvatarClick = () => {
         if (video.uploaderUserId) {
@@ -52,6 +59,22 @@ export default function VideoCard({ video }: VideoCardProps) {
                     {profile?.displayName?.[0] || 'U'}
                 </Avatar>
             </Tooltip>
+            {/* 可见性标签 - 仅对视频所有者显示，位于头像下方 */}
+            {isOwner && (
+                <Chip
+                    icon={video.visibility === 1 ? <Public sx={{ fontSize: 16 }} /> : <Lock sx={{ fontSize: 16 }} />}
+                    label={video.visibility === 1 ? "Public" : "Private"}
+                    size="small"
+                    color={video.visibility === 1 ? "success" : "default"}
+                    sx={{
+                        position: 'absolute',
+                        top: 64, // 头像高度(40) + 顶部间距(16) + 标签与头像间距(8)
+                        right: 16, // 与头像右对齐
+                        zIndex: 1,
+                        fontWeight: 500
+                    }}
+                />
+            )}
             <CardContent sx={{ flexGrow: 1 }}>
                 <VideoInfo title={video.title} description={video.description} />
                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 2 }}>

@@ -8,12 +8,26 @@ import {
   CircularProgress
 } from "@mui/material";
 import { useUserProfile } from "../hooks/useUserProfile";
+import { useAuthSession } from "../hooks/useAuthSession";
 import VideoCard from "../Videos/videoCard";
 import UserProfileCard from "./components/UserProfileCard";
 
 function UserProfilePage() {
   const { id } = useParams<{ id: string }>();
   const { profile, isLoading } = useUserProfile(id);
+  const { session } = useAuthSession();
+  
+  // 判断是否是查看自己的主页
+  const isViewingOwnProfile = session?.userId === id;
+  
+  const visibleVideos = profile?.videos.filter(video => {
+    if (isViewingOwnProfile) {
+     
+      return true;
+    }
+    // 查看他人主页，只显示 Public 视频
+    return video.visibility === 1; // VideoVisibility.Public = 1
+  }) ?? [];
 
   if (isLoading) {
     return (
@@ -39,14 +53,18 @@ function UserProfilePage() {
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
-      <UserProfileCard profile={profile} />
+      <UserProfileCard profile={profile} visibleVideoCount={visibleVideos.length} />
 
       {/* 视频列表 */}
       <Box>
-        {profile.videos.length === 0 ? (
+        {visibleVideos.length === 0 ? (
           <Paper sx={{ p: 4, textAlign: "center" }}>
             <Typography variant="body1" color="text.secondary">
-              No videos uploaded yet
+              {profile.videos.length === 0 
+                ? "No videos uploaded yet"
+                : isViewingOwnProfile 
+                  ? "No videos to display"
+                  : "No public videos available"}
             </Typography>
           </Paper>
         ) : (
@@ -61,7 +79,7 @@ function UserProfilePage() {
               gap: 3
             }}
           >
-            {profile.videos.map(video => (
+            {visibleVideos.map(video => (
               <VideoCard key={video.videoId} video={video} />
             ))}
           </Box>

@@ -10,9 +10,10 @@ import type { UserProfileDto } from "../../../lib/types";
 
 interface UserProfileCardProps {
   profile: UserProfileDto;
+  visibleVideoCount?: number;
 }
 
-function UserProfileCard({ profile }: UserProfileCardProps) {
+function UserProfileCard({ profile, visibleVideoCount }: UserProfileCardProps) {
   return (
     <Paper elevation={3} sx={{ p: 4, mb: 4, borderRadius: 3 }}>
       <Box sx={{ display: "flex", flexDirection: { xs: "column", md: "row" }, gap: 3, alignItems: { xs: "center", md: "flex-start" } }}>
@@ -69,7 +70,7 @@ function UserProfileCard({ profile }: UserProfileCardProps) {
           <Box sx={{ mt: 3, display: "flex", gap: 3, justifyContent: { xs: "center", md: "flex-start" } }}>
             <Box>
               <Typography variant="h6" fontWeight={600}>
-                {profile.videos.length}
+                {visibleVideoCount ?? profile.videos.length}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Highlights
