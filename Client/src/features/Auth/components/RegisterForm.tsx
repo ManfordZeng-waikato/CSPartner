@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Alert,
   Box,
@@ -8,7 +8,8 @@ import {
   TextField,
   Typography,
   Avatar,
-  Grid
+  Grid,
+  LinearProgress
 } from "@mui/material";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -42,10 +43,10 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
     handleSubmit,
     watch,
     setValue,
-    formState: { errors }
+    formState: { errors, touchedFields }
   } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
-    mode: "onTouched",
+    mode: "onChange", // 改为 onChange 以实现实时验证
     defaultValues: {
       email: "",
       password: "",
@@ -56,6 +57,34 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
   });
 
   const selectedAvatar = watch("avatarUrl");
+  const password = watch("password");
+  const confirmPassword = watch("confirmPassword");
+
+  // 密码强度验证
+  const passwordRequirements = useMemo(() => {
+    if (!password) return null;
+    
+    return {
+      minLength: password.length >= 8,
+      hasNumber: /[0-9]/.test(password),
+      hasUppercase: /[A-Z]/.test(password)
+    };
+  }, [password]);
+
+  const passwordStrength = useMemo(() => {
+    if (!password) return 0;
+    let strength = 0;
+    if (password.length >= 8) strength += 33;
+    if (/[0-9]/.test(password)) strength += 33;
+    if (/[A-Z]/.test(password)) strength += 34;
+    return strength;
+  }, [password]);
+
+  const getPasswordStrengthColor = () => {
+    if (passwordStrength < 33) return "error";
+    if (passwordStrength < 66) return "warning";
+    return "success";
+  };
 
   const onSubmit = async (values: RegisterFormValues) => {
     setServerError(null);
@@ -105,22 +134,75 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
               helperText={errors.email?.message}
               disabled={registerMutation.isPending}
             />
-            <TextField
-              label="Password"
-              type="password"
-              fullWidth
-              {...register("password")}
-              error={!!errors.password}
-              helperText={errors.password?.message}
-              disabled={registerMutation.isPending}
-            />
+            <Box>
+              <TextField
+                label="Password"
+                type="password"
+                fullWidth
+                {...register("password")}
+                error={!!errors.password || (!!password && passwordRequirements && !Object.values(passwordRequirements).every(v => v))}
+                helperText={errors.password?.message}
+                disabled={registerMutation.isPending}
+              />
+              {password && (
+                <Box sx={{ mt: 1 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+                    <LinearProgress
+                      variant="determinate"
+                      value={passwordStrength}
+                      color={getPasswordStrengthColor()}
+                      sx={{ flexGrow: 1, height: 6, borderRadius: 3 }}
+                    />
+                    <Typography variant="caption" color="text.secondary" sx={{ minWidth: 40 }}>
+                      {passwordStrength}%
+                    </Typography>
+                  </Box>
+                  <Box sx={{ mt: 1 }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                      Password requirements:
+                    </Typography>
+                    <Box component="ul" sx={{ m: 0, pl: 2, fontSize: "0.75rem" }}>
+                      <Box
+                        component="li"
+                        sx={{
+                          color: passwordRequirements?.minLength ? "success.main" : "error.main"
+                        }}
+                      >
+                        At least 8 characters
+                      </Box>
+                      <Box
+                        component="li"
+                        sx={{
+                          color: passwordRequirements?.hasNumber ? "success.main" : "error.main"
+                        }}
+                      >
+                        At least one number
+                      </Box>
+                      <Box
+                        component="li"
+                        sx={{
+                          color: passwordRequirements?.hasUppercase ? "success.main" : "error.main"
+                        }}
+                      >
+                        At least one uppercase letter
+                      </Box>
+                    </Box>
+                  </Box>
+                </Box>
+              )}
+            </Box>
             <TextField
               label="Confirm password"
               type="password"
               fullWidth
               {...register("confirmPassword")}
-              error={!!errors.confirmPassword}
-              helperText={errors.confirmPassword?.message}
+              error={!!errors.confirmPassword || (!!confirmPassword && !!password && confirmPassword !== password)}
+              helperText={
+                errors.confirmPassword?.message ||
+                (confirmPassword && password && confirmPassword !== password
+                  ? "Passwords do not match"
+                  : "")
+              }
               disabled={registerMutation.isPending}
             />
             <TextField

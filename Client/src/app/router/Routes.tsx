@@ -7,6 +7,7 @@ import App from "../../app/layout/App";
 import VideoDashboard from "../../features/Videos/dashboard/VideoDashboard";
 import VideoUploadPage from "../../features/Videos/VideoUploadPage";
 import RequireAuth from "../shared/components/RequireAuth.tsx";
+import UserProfilePage from "../../features/userProfile/UserProfilepage";
 
 export const router = createBrowserRouter([
     {
@@ -39,7 +40,10 @@ export const router = createBrowserRouter([
                 path: 'video/:id',
                 element: <VideoDetailPage />
             },
-
+            {
+                path: 'user/:id',
+                element: <UserProfilePage />
+            },
         ]
     }
 ])
