@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import apiClient from "../../lib/api/axios";
+import { useAuthSession } from "./useAuthSession";
 
 export const useCreateVideo = (
   onProgress?: (progress: number) => void
@@ -82,3 +83,48 @@ export const useVideoComments = (videoId: string | undefined) => {
 
   return { comments: comments || [], isLoading }
 }
+
+export const useUpdateVideoVisibility = () => {
+  const queryClient = useQueryClient();
+  const { session } = useAuthSession();
+
+  return useMutation({
+    mutationFn: async ({ videoId, visibility }: { videoId: string; visibility: VideoVisibility }): Promise<void> => {
+      if (!session?.userId) {
+        throw new Error("User not authenticated");
+      }
+      await apiClient.put(`/api/videos/${videoId}`, {
+        title: null,
+        description: null,
+        thumbnailUrl: null,
+        visibility: visibility
+      }, {
+        params: { userId: session.userId }
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['videos'] });
+      await queryClient.invalidateQueries({ queryKey: ['userProfile'] });
+    }
+  });
+};
+
+export const useDeleteVideo = () => {
+  const queryClient = useQueryClient();
+  const { session } = useAuthSession();
+
+  return useMutation({
+    mutationFn: async (videoId: string): Promise<void> => {
+      if (!session?.userId) {
+        throw new Error("User not authenticated");
+      }
+      await apiClient.delete(`/api/videos/${videoId}`, {
+        params: { userId: session.userId }
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['videos'] });
+      await queryClient.invalidateQueries({ queryKey: ['userProfile'] });
+    }
+  });
+};

@@ -7,7 +7,8 @@ import App from "../../app/layout/App";
 import VideoDashboard from "../../features/Videos/dashboard/VideoDashboard";
 import VideoUploadPage from "../../features/Videos/VideoUploadPage";
 import RequireAuth from "../shared/components/RequireAuth.tsx";
-import UserProfilePage from "../../features/userProfile/userProfilepage";
+import UserProfilePage from "../../features/userProfile/UserProfilePage";
+import EditProfilePage from "../../features/userProfile/EditProfilePage";
 
 export const router = createBrowserRouter([
     {
@@ -43,6 +44,14 @@ export const router = createBrowserRouter([
             {
                 path: 'user/:id',
                 element: <UserProfilePage />
+            },
+            {
+                path: 'user/:id/edit',
+                element: (
+                    <RequireAuth>
+                        <EditProfilePage />
+                    </RequireAuth>
+                )
             },
         ]
     }

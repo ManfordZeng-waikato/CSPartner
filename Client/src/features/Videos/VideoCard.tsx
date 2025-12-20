@@ -1,29 +1,34 @@
+import { useState } from "react";
 import {
     Card,
     CardContent,
     Box,
     Avatar,
-    Tooltip,
-    Chip
+    Tooltip
 } from "@mui/material"
-import { Lock, Public } from "@mui/icons-material"
 import { useNavigate } from "react-router"
 import VideoInfo from "./details/components/videoInfo"
 import { useUserProfile } from "../hooks/useUserProfile"
 import { useAuthSession } from "../hooks/useAuthSession"
+import { useUpdateVideoVisibility, useDeleteVideo } from "../hooks/useVideos"
 import VideoStats from "./details/components/videoStats"
+import { VideoVisibilityLabel, VideoDeleteDialog, VideoActionButtons } from "./details/components/VideoCardActions"
 import { getAvatarUrl } from "../../lib/utils/avatar"
 
 interface VideoCardProps {
     video: VideoDto;
+    showMenu?: boolean; // Whether to show the three-dot menu
 }
 
-export default function VideoCard({ video }: VideoCardProps) {
+export default function VideoCard({ video, showMenu = false }: VideoCardProps) {
     const { profile } = useUserProfile(video.uploaderUserId);
     const { session } = useAuthSession();
     const navigate = useNavigate();
+    const updateVisibility = useUpdateVideoVisibility();
+    const deleteVideo = useDeleteVideo();
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
-    // 判断是否是视频所有者
+    // Check if current user is the video owner
     const isOwner = session?.userId === video.uploaderUserId;
 
     const handleAvatarClick = () => {
@@ -35,6 +40,32 @@ export default function VideoCard({ video }: VideoCardProps) {
     const tooltipTitle = profile?.displayName 
         ? `${profile.displayName} - Click to view profile`
         : "Click to view profile";
+
+    const handleToggleVisibility = async () => {
+        const newVisibility = video.visibility === 1 ? 2 : 1;
+        try {
+            await updateVisibility.mutateAsync({ videoId: video.videoId, visibility: newVisibility });
+        } catch (error) {
+            console.error("Failed to update video visibility:", error);
+        }
+    };
+
+    const handleDeleteClick = () => {
+        setDeleteDialogOpen(true);
+    };
+
+    const handleDeleteConfirm = async () => {
+        try {
+            await deleteVideo.mutateAsync(video.videoId);
+            setDeleteDialogOpen(false);
+        } catch (error) {
+            console.error("Failed to delete video:", error);
+        }
+    };
+
+    const handleDeleteCancel = () => {
+        setDeleteDialogOpen(false);
+    };
 
     return (
         <Card elevation={3} sx={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', borderRadius: 3, overflow: 'hidden' }}>
@@ -59,22 +90,16 @@ export default function VideoCard({ video }: VideoCardProps) {
                     {profile?.displayName?.[0] || 'U'}
                 </Avatar>
             </Tooltip>
-            {/* 可见性标签 - 仅对视频所有者显示，位于头像下方 */}
-            {isOwner && (
-                <Chip
-                    icon={video.visibility === 1 ? <Public sx={{ fontSize: 16 }} /> : <Lock sx={{ fontSize: 16 }} />}
-                    label={video.visibility === 1 ? "Public" : "Private"}
-                    size="small"
-                    color={video.visibility === 1 ? "success" : "default"}
-                    sx={{
-                        position: 'absolute',
-                        top: 64, // 头像高度(40) + 顶部间距(16) + 标签与头像间距(8)
-                        right: 16, // 与头像右对齐
-                        zIndex: 1,
-                        fontWeight: 500
-                    }}
-                />
-            )}
+            <VideoVisibilityLabel video={video} isOwner={isOwner} />
+            <VideoDeleteDialog
+                video={video}
+                isOwner={isOwner}
+                showMenu={showMenu}
+                deleteDialogOpen={deleteDialogOpen}
+                onDeleteConfirm={handleDeleteConfirm}
+                onDeleteCancel={handleDeleteCancel}
+                isDeleting={deleteVideo.isPending}
+            />
             <CardContent sx={{ flexGrow: 1 }}>
                 <VideoInfo title={video.title} description={video.description} />
                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 2 }}>
@@ -84,6 +109,15 @@ export default function VideoCard({ video }: VideoCardProps) {
                         commentCount={video.commentCount}
                     />
                 </Box>
+                <VideoActionButtons
+                    video={video}
+                    isOwner={isOwner}
+                    showMenu={showMenu}
+                    onToggleVisibility={handleToggleVisibility}
+                    onDeleteClick={handleDeleteClick}
+                    isUpdating={updateVisibility.isPending}
+                    isDeleting={deleteVideo.isPending}
+                />
                 <Box sx={{ mt: 2 }}>
                     <video
                         controls

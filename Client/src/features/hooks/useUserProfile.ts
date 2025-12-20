@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import apiClient from "../../lib/api/axios";
 
 export const useUserProfile = (userId: string | undefined) => {
@@ -13,5 +13,20 @@ export const useUserProfile = (userId: string | undefined) => {
   })
 
   return { profile, isLoading }
+}
+
+export const useUpdateUserProfile = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ userId, data }: { userId: string; data: UpdateUserProfileDto }): Promise<UserProfileDto> => {
+      const response = await apiClient.put<UserProfileDto>(`/api/userprofiles/${userId}`, data);
+      return response.data;
+    },
+    onSuccess: (data) => {
+      // Invalidate and refetch user profile
+      queryClient.invalidateQueries({ queryKey: ['userProfile', data.userId] });
+    }
+  });
 }
 

@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useCreateVideo } from "../../hooks/useVideos";
 import { videoUploadSchema } from "../../../lib/schemas/videoUploadSchema";
 import type { VideoUploadFormValues } from "../../../lib/schemas/videoUploadSchema";
-import VideoEditorForm from "../../../app/shared/components/VideoEditorForm";
+import VideoUploaderForm from "../../../app/shared/components/VideoUploaderForm";
 import { useAuthSession } from "../../hooks/useAuthSession";
 import { getAuthToken } from "../../../lib/api/axios";
 
@@ -134,7 +134,7 @@ const VideoUploadForm: React.FC = () => {
   };
 
   return (
-    <VideoEditorForm
+    <VideoUploaderForm
       title="Upload Video"
       subtitle="Upload your video to the platform. You can choose to make it public or private."
       control={control}

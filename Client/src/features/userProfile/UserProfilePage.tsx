@@ -53,7 +53,11 @@ function UserProfilePage() {
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
-      <UserProfileCard profile={profile} visibleVideoCount={visibleVideos.length} />
+      <UserProfileCard 
+        profile={profile} 
+        visibleVideoCount={visibleVideos.length} 
+        isOwnProfile={isViewingOwnProfile}
+      />
 
       {/* 视频列表 */}
       <Box>
@@ -80,7 +84,7 @@ function UserProfilePage() {
             }}
           >
             {visibleVideos.map(video => (
-              <VideoCard key={video.videoId} video={video} />
+              <VideoCard key={video.videoId} video={video} showMenu={isViewingOwnProfile} />
             ))}
           </Box>
         )}

@@ -20,16 +20,11 @@ import {
 import { handleApiError, useRegister } from "../../hooks/useAccount";
 import { Link, useNavigate, useLocation } from "react-router";
 import type { Location } from "react-router";
+import { AVAILABLE_AVATARS } from "../../../lib/constants/avatars";
 
 type RegisterFormProps = {
   onSuccess?: () => void;
 };
-
-const AVAILABLE_AVATARS = [
-  "/Icon/icon1.png",
-  "/Icon/icon2.png",
-  "/Icon/icon3.jpg"
-];
 
 const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
   const navigate = useNavigate();
@@ -43,7 +38,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
     handleSubmit,
     watch,
     setValue,
-    formState: { errors, touchedFields }
+    formState: { errors }
   } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
     mode: "onChange", // 改为 onChange 以实现实时验证
@@ -140,7 +135,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
                 type="password"
                 fullWidth
                 {...register("password")}
-                error={!!errors.password || (!!password && passwordRequirements && !Object.values(passwordRequirements).every(v => v))}
+                error={!!errors.password || (!!password && passwordRequirements !== null && !Object.values(passwordRequirements).every(v => v))}
                 helperText={errors.password?.message}
                 disabled={registerMutation.isPending}
               />
@@ -220,7 +215,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
               </Typography>
               <Grid container spacing={2}>
                 {AVAILABLE_AVATARS.map((avatar) => (
-                  <Grid item xs={4} key={avatar}>
+                  <Grid  key={avatar}>
                     <Box
                       onClick={() => setValue("avatarUrl", avatar)}
                       sx={{
