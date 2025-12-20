@@ -11,7 +11,7 @@ import {
   Grid,
   LinearProgress
 } from "@mui/material";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   registerSchema,
@@ -36,24 +36,24 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
   const {
     register,
     handleSubmit,
-    watch,
     setValue,
+    control,
     formState: { errors }
   } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
-    mode: "onChange", // 改为 onChange 以实现实时验证
+    mode: "onChange", // Changed to onChange for real-time validation
     defaultValues: {
       email: "",
       password: "",
       confirmPassword: "",
       displayName: "",
-      avatarUrl: AVAILABLE_AVATARS[0] // 默认选择第一个头像
+      avatarUrl: AVAILABLE_AVATARS[0] // Default to first avatar
     }
   });
 
-  const selectedAvatar = watch("avatarUrl");
-  const password = watch("password");
-  const confirmPassword = watch("confirmPassword");
+  const selectedAvatar = useWatch({ control, name: "avatarUrl" });
+  const password = useWatch({ control, name: "password" });
+  const confirmPassword = useWatch({ control, name: "confirmPassword" });
 
   // 密码强度验证
   const passwordRequirements = useMemo(() => {
