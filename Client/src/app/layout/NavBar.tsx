@@ -30,6 +30,12 @@ export default function Navbar() {
         }
     };
 
+    const handleAvatarClick = () => {
+        if (session?.userId) {
+            navigate(`/user/${session.userId}`);
+        }
+    };
+
     return (
         <Box sx={{ flexGrow: 1 }}>
             <AppBar position="static" color="primary">
@@ -58,10 +64,19 @@ export default function Navbar() {
                             )}
                             {session && (
                                 <>
-                                    <Tooltip title={session.displayName || session.email || "User"}>
+                                    <Tooltip title={`${session.displayName || session.email || "User"} - Click to view profile`}>
                                         <Avatar 
                                             src={profileLoading ? undefined : getAvatarUrl(profile?.avatarUrl)}
-                                            sx={{ width: 32, height: 32 }}
+                                            onClick={handleAvatarClick}
+                                            sx={{ 
+                                                width: 32, 
+                                                height: 32,
+                                                cursor: 'pointer',
+                                                transition: 'transform 0.2s',
+                                                '&:hover': {
+                                                    transform: 'scale(1.1)'
+                                                }
+                                            }}
                                         >
                                             {(session.displayName || session.email || "U").charAt(0).toUpperCase()}
                                         </Avatar>

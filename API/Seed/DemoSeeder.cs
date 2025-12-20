@@ -54,7 +54,7 @@ public static class DemoSeeder
             // 同步创建 UserProfile（你的业务资料表）
             var profile = new UserProfile(demoUser.Id);
             profile.Update("DemoPlayer", "Seeded demo profile", null,
-                "hhttps://steamcommunity.com/profiles/76561198828107858/",
+                "https://steamcommunity.com/profiles/76561198828107858/",
                 "https://www.faceit.com/en/players/Manf0rd");
 
             db.UserProfiles.Add(profile);
