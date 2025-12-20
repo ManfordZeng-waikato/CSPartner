@@ -20,7 +20,8 @@ export const registerSchema = z
       .trim()
       .min(2, "Display name must be at least 2 characters")
       .max(50, "Display name must be at most 50 characters")
-      .optional()
+      .optional(),
+    avatarUrl: z.string().optional()
   })
   .refine((data) => data.password === data.confirmPassword, {
     path: ["confirmPassword"],

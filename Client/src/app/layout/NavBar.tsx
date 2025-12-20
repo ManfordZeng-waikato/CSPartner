@@ -11,12 +11,15 @@ import {
 import MenuItemLink from "../shared/components/MenuItemLink";
 import { useLogout } from "../../features/hooks/useAccount";
 import { useAuthSession } from "../../features/hooks/useAuthSession";
+import { useUserProfile } from "../../features/hooks/useUserProfile";
 import { useNavigate } from "react-router";
+import { getAvatarUrl } from "../../lib/utils/avatar";
 
 export default function Navbar() {
     const logout = useLogout();
     const navigate = useNavigate();
     const { session } = useAuthSession();
+    const { profile, isLoading: profileLoading } = useUserProfile(session?.userId);
 
     const handleLogout = async () => {
         try {
@@ -56,7 +59,10 @@ export default function Navbar() {
                             {session && (
                                 <>
                                     <Tooltip title={session.displayName || session.email || "User"}>
-                                        <Avatar sx={{ width: 32, height: 32 }}>
+                                        <Avatar 
+                                            src={profileLoading ? undefined : getAvatarUrl(profile?.avatarUrl)}
+                                            sx={{ width: 32, height: 32 }}
+                                        >
                                             {(session.displayName || session.email || "U").charAt(0).toUpperCase()}
                                         </Avatar>
                                     </Tooltip>

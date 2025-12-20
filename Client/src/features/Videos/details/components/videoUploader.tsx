@@ -6,6 +6,7 @@ import {
   CircularProgress
 } from "@mui/material";
 import { useUserProfile } from "../../../hooks/useUserProfile";
+import { getAvatarUrl } from "../../../../lib/utils/avatar";
 
 interface VideoUploaderProps {
   uploaderUserId: string | undefined;
@@ -25,7 +26,7 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ uploaderUserId }) => {
         ) : (
           <>
             <Avatar
-              src={profile?.avatarUrl || undefined}
+              src={getAvatarUrl(profile?.avatarUrl)}
               sx={{ width: 56, height: 56 }}
             >
               {profile?.displayName?.[0] || 'U'}

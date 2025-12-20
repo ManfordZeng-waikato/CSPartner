@@ -6,7 +6,9 @@ import {
   Paper,
   Stack,
   TextField,
-  Typography
+  Typography,
+  Avatar,
+  Grid
 } from "@mui/material";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -22,6 +24,12 @@ type RegisterFormProps = {
   onSuccess?: () => void;
 };
 
+const AVAILABLE_AVATARS = [
+  "/Icon/icon1.png",
+  "/Icon/icon2.png",
+  "/Icon/icon3.jpg"
+];
+
 const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -32,6 +40,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors }
   } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -40,9 +50,12 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
       email: "",
       password: "",
       confirmPassword: "",
-      displayName: ""
+      displayName: "",
+      avatarUrl: AVAILABLE_AVATARS[0] // 默认选择第一个头像
     }
   });
+
+  const selectedAvatar = watch("avatarUrl");
 
   const onSubmit = async (values: RegisterFormValues) => {
     setServerError(null);
@@ -118,6 +131,44 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
               helperText={errors.displayName?.message}
               disabled={registerMutation.isPending}
             />
+
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: 500 }}>
+                Choose your avatar
+              </Typography>
+              <Grid container spacing={2}>
+                {AVAILABLE_AVATARS.map((avatar) => (
+                  <Grid item xs={4} key={avatar}>
+                    <Box
+                      onClick={() => setValue("avatarUrl", avatar)}
+                      sx={{
+                        cursor: "pointer",
+                        border: selectedAvatar === avatar ? 3 : 1,
+                        borderColor: selectedAvatar === avatar ? "primary.main" : "divider",
+                        borderRadius: 2,
+                        p: 1,
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        transition: "all 0.2s",
+                        "&:hover": {
+                          borderColor: "primary.main",
+                          transform: "scale(1.05)"
+                        }
+                      }}
+                    >
+                      <Avatar
+                        src={avatar}
+                        sx={{
+                          width: 80,
+                          height: 80
+                        }}
+                      />
+                    </Box>
+                  </Grid>
+                ))}
+              </Grid>
+            </Box>
 
             <Button
               type="submit"

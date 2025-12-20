@@ -1,4 +1,4 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import apiClient, { setAuthToken } from "../../lib/api/axios";
 import type {
   LoginFormValues,
@@ -61,8 +61,10 @@ const extractErrorMessage = (error: unknown) => {
   return "Request failed, please try again later";
 };
 
-export const useLogin = () =>
-  useMutation({
+export const useLogin = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
     mutationFn: async (payload: LoginFormValues): Promise<AuthResult> => {
       const response = await apiClient.post<AuthResult>(
         "/api/account/login",
@@ -77,20 +79,32 @@ export const useLogin = () =>
         setAuthToken(response.data.token);
       }
       // Persist minimal session info for UI
+      const userId = response.data.userId ?? "";
       saveSession({
-        userId: response.data.userId ?? "",
+        userId,
         email: response.data.email,
         displayName: response.data.displayName
       });
+      
+      // Invalidate and refetch user profile to get latest avatar
+      if (userId) {
+        await queryClient.invalidateQueries({ queryKey: ['userProfile', userId] });
+        // Force refetch immediately
+        await queryClient.refetchQueries({ queryKey: ['userProfile', userId] });
+      }
+      
       return response.data;
     },
     onError: (error) => {
       console.error("Login failed:", error);
     }
   });
+};
 
-export const useRegister = () =>
-  useMutation({
+export const useRegister = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
     mutationFn: async (payload: RegisterFormValues): Promise<AuthResult> => {
       const response = await apiClient.post<AuthResult>(
         "/api/account/register",
@@ -105,17 +119,27 @@ export const useRegister = () =>
         setAuthToken(response.data.token);
       }
       // Persist minimal session info for UI
+      const userId = response.data.userId ?? "";
       saveSession({
-        userId: response.data.userId ?? "",
+        userId,
         email: response.data.email,
         displayName: response.data.displayName
       });
+      
+      // Invalidate and refetch user profile to get latest avatar
+      if (userId) {
+        await queryClient.invalidateQueries({ queryKey: ['userProfile', userId] });
+        // Force refetch immediately
+        await queryClient.refetchQueries({ queryKey: ['userProfile', userId] });
+      }
+      
       return response.data;
     },
     onError: (error) => {
       console.error("Register failed:", error);
     }
   });
+};
 
 export const useLogout = () =>
   useMutation({

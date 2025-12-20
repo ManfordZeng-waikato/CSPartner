@@ -69,7 +69,9 @@ public class AuthService : IAuthService
             : dto.DisplayName.Trim();
 
         var profile = new UserProfile(user.Id);
-        profile.Update(displayName, null, null, null, null);
+        profile.Update(displayName, null, dto.AvatarUrl, null, null);
+
+        _logger.LogInformation("用户 {Email} 注册成功，头像URL: {AvatarUrl}", user.Email, profile.AvatarUrl ?? "未设置");
 
         await _profileRepository.AddAsync(profile);
         await _unitOfWork.SaveChangesAsync();

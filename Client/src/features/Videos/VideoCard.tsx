@@ -7,6 +7,7 @@ import {
 import VideoInfo from "./details/components/videoInfo"
 import { useUserProfile } from "../hooks/useUserProfile"
 import VideoStats from "./details/components/videoStats"
+import { getAvatarUrl } from "../../lib/utils/avatar"
 
 interface VideoCardProps {
     video: VideoDto;
@@ -18,7 +19,7 @@ export default function VideoCard({ video }: VideoCardProps) {
     return (
         <Card elevation={3} sx={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', borderRadius: 3, overflow: 'hidden' }}>
             <Avatar
-                src={profile?.avatarUrl || undefined}
+                src={getAvatarUrl(profile?.avatarUrl)}
                 sx={{
                     position: 'absolute',
                     top: 16,
