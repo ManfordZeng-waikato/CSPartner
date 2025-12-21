@@ -1,6 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
-
+using Domain.Comments;
 using Domain.Common;
 using Domain.Users;
 
@@ -28,8 +28,8 @@ public class HighlightVideo : AuditableEntity
 
     public bool IsDeleted { get; private set; }
 
-    public ICollection<Comments.Comment> Comments { get; private set; } = new List<Comments.Comment>();
-    public ICollection<VideoLike> Likes { get; private set; } = new List<VideoLike>();
+    public ICollection<Comment> Comments { get; private set; } = [];
+    public ICollection<VideoLike> Likes { get; private set; } = [];
 
     private HighlightVideo() { }
 

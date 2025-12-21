@@ -1,6 +1,4 @@
 using Application.DTOs.Video;
-using Application.DTOs.Comment;
-using Domain.Comments;
 using Domain.Videos;
 
 namespace Application.Mappings;
@@ -24,21 +22,6 @@ public static class VideoMappings
             CreatedAtUtc = video.CreatedAtUtc,
             UpdatedAtUtc = video.UpdatedAtUtc,
             HasLiked = hasLiked
-        };
-    }
-
-    public static CommentDto ToDto(this Comment comment)
-    {
-        return new CommentDto
-        {
-            CommentId = comment.CommentId,
-            VideoId = comment.VideoId,
-            UserId = comment.UserId,
-            ParentCommentId = comment.ParentCommentId,
-            Content = comment.Content,
-            CreatedAtUtc = comment.CreatedAtUtc,
-            UpdatedAtUtc = comment.UpdatedAtUtc,
-            Replies = comment.Replies.Select(r => r.ToDto()).ToList()
         };
     }
 }

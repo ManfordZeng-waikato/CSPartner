@@ -9,5 +9,6 @@ public class CommentDto
     public string Content { get; set; } = default!;
     public DateTime CreatedAtUtc { get; set; }
     public DateTime? UpdatedAtUtc { get; set; }
-    public List<CommentDto> Replies { get; set; } = new();
+    public List<CommentDto> Replies { get; set; } = [];
+
 }

@@ -4,7 +4,7 @@ using Domain.Users;
 
 namespace Application.Mappings;
 
-public static class UserProfileMappings
+public static class UserProfileMapping
 {
     public static UserProfileDto ToDto(this UserProfile profile, IReadOnlyList<VideoDto> videos)
     {

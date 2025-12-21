@@ -1,5 +1,5 @@
 using System;
-
+using System.ComponentModel.DataAnnotations;
 using Domain.Common;
 using Domain.Users;
 using Domain.Videos;
@@ -11,14 +11,16 @@ public class Comment : AuditableEntity
     public Guid CommentId => Id;
 
     public Guid VideoId { get; private set; }
-    public HighlightVideo Video { get; private set; } = default!;
+    
+    [Required]
+    public HighlightVideo Video { get; private set; } = default!;   
 
     public Guid UserId { get; private set; }
 
-    // 楼中楼：父评论
+    // Threaded comment: parent comment
     public Guid? ParentCommentId { get; private set; }
     public Comment? ParentComment { get; private set; }
-    public ICollection<Comment> Replies { get; private set; } = new List<Comment>();
+    public ICollection<Comment> Replies { get; private set; } = [];
 
     public string Content { get; private set; } = default!;
 
@@ -38,7 +40,7 @@ public class Comment : AuditableEntity
     public void SetContent(string content)
     {
         if (string.IsNullOrWhiteSpace(content))
-            throw new ArgumentException("评论内容不能为空", nameof(content));
+            throw new ArgumentException("Comment content cannot be empty", nameof(content));
 
         var s = content.Trim();
         Content = s.Length <= 2000 ? s : s[..2000];
@@ -49,8 +51,8 @@ public class Comment : AuditableEntity
     {
         IsDeleted = true;
         DeletedReason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
-        // 也可以选择清空内容，避免敏感信息泄露
-        Content = "该评论已删除";
+        // Optionally clear content to avoid leaking sensitive information
+        Content = "This comment has been deleted";
         Touch();
     }
 }
