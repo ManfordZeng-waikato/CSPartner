@@ -1,3 +1,4 @@
+using Application.Common.Interfaces;
 using Domain.Users;
 using Domain.Videos;
 using Domain.Comments;
@@ -8,7 +9,7 @@ using Infrastructure.Persistence.Identity;
 namespace Infrastructure.Persistence.Context;
 
 public class AppDbContext
-    : IdentityDbContext<ApplicationUser, ApplicationRole, Guid>
+    : IdentityDbContext<ApplicationUser, ApplicationRole, Guid>, IApplicationDbContext
 {
     public AppDbContext(DbContextOptions<AppDbContext> options)
         : base(options) { }

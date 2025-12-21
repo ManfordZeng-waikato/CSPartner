@@ -1,5 +1,7 @@
 using Application.DTOs.UserProfile;
-using Application.Interfaces.Services;
+using Application.Features.UserProfiles.Commands.CreateOrUpdateUserProfile;
+using Application.Features.UserProfiles.Queries.GetUserProfileByUserId;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 
@@ -7,12 +9,12 @@ namespace API.Controllers;
 
 public class UserProfilesController : BaseApiController
 {
-    private readonly IUserProfileService _userProfileService;
+    private readonly IMediator _mediator;
     private readonly ILogger<UserProfilesController> _logger;
 
-    public UserProfilesController(IUserProfileService userProfileService, ILogger<UserProfilesController> logger)
+    public UserProfilesController(IMediator mediator, ILogger<UserProfilesController> logger)
     {
-        _userProfileService = userProfileService;
+        _mediator = mediator;
         _logger = logger;
     }
 
@@ -28,7 +30,7 @@ public class UserProfilesController : BaseApiController
     public async Task<ActionResult<UserProfileDto>> GetUserProfile(Guid userId)
     {
         var currentUserId = GetCurrentUserId();
-        var profile = await _userProfileService.GetUserProfileByUserIdAsync(userId, currentUserId);
+        var profile = await _mediator.Send(new GetUserProfileByUserIdQuery(userId, currentUserId));
         if (profile == null)
             return NotFound();
 
@@ -50,7 +52,7 @@ public class UserProfilesController : BaseApiController
 
         try
         {
-            var profile = await _userProfileService.CreateOrUpdateUserProfileAsync(
+            var command = new CreateOrUpdateUserProfileCommand(
                 userId,
                 dto.DisplayName,
                 dto.Bio,
@@ -58,6 +60,8 @@ public class UserProfilesController : BaseApiController
                 dto.SteamProfileUrl,
                 dto.FaceitProfileUrl,
                 currentUserId);
+
+            var profile = await _mediator.Send(command);
 
             return Ok(profile);
         }

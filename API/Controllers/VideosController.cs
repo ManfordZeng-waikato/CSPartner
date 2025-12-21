@@ -1,8 +1,18 @@
 using API.DTOs;
 using Application.DTOs.Video;
 using Application.DTOs.Comment;
-using Application.Interfaces.Services;
+using Application.Features.Videos.Commands.CreateVideo;
+using Application.Features.Videos.Commands.UploadAndCreateVideo;
+using Application.Features.Videos.Commands.UpdateVideo;
+using Application.Features.Videos.Commands.DeleteVideo;
+using Application.Features.Videos.Commands.ToggleLike;
+using Application.Features.Videos.Commands.IncreaseViewCount;
+using Application.Features.Videos.Queries.GetVideos;
+using Application.Features.Videos.Queries.GetVideoById;
+using Application.Features.Videos.Queries.GetVideosByUserId;
+using Application.Features.Comments.Queries.GetVideoComments;
 using Domain.Videos;
+using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
@@ -11,12 +21,12 @@ namespace API.Controllers;
 
 public class VideosController : BaseApiController
 {
-    private readonly IVideoService _videoService;
+    private readonly IMediator _mediator;
     private readonly ILogger<VideosController> _logger;
 
-    public VideosController(IVideoService videoService, ILogger<VideosController> logger)
+    public VideosController(IMediator mediator, ILogger<VideosController> logger)
     {
-        _videoService = videoService;
+        _mediator = mediator;
         _logger = logger;
     }
 
@@ -34,7 +44,7 @@ public class VideosController : BaseApiController
         if (pageSize < 1 || pageSize > 100) pageSize = 20;
 
         var currentUserId = GetCurrentUserId();
-        var videos = await _videoService.GetVideosAsync(page, pageSize, currentUserId);
+        var videos = await _mediator.Send(new GetVideosQuery(page, pageSize, currentUserId));
         return Ok(videos);
     }
 
@@ -50,7 +60,7 @@ public class VideosController : BaseApiController
     public async Task<ActionResult<IEnumerable<VideoDto>>> GetVideosByUser(Guid userId)
     {
         var currentUserId = GetCurrentUserId();
-        var videos = await _videoService.GetVideosByUserIdAsync(userId, currentUserId);
+        var videos = await _mediator.Send(new GetVideosByUserIdQuery(userId, currentUserId));
         return Ok(videos);
     }
 
@@ -65,12 +75,12 @@ public class VideosController : BaseApiController
     public async Task<ActionResult<VideoDto>> GetVideo(Guid id)
     {
         var currentUserId = GetCurrentUserId();
-        var video = await _videoService.GetVideoByIdAsync(id, currentUserId);
+        var video = await _mediator.Send(new GetVideoByIdQuery(id, currentUserId));
         if (video == null)
             return NotFound();
 
         // Increment view count
-        await _videoService.IncreaseViewCountAsync(id);
+        await _mediator.Send(new IncreaseViewCountCommand(id));
 
         return Ok(video);
     }
@@ -119,8 +129,18 @@ public class VideosController : BaseApiController
                 uploadRequest.ThumbnailFileName = formRequest.ThumbnailFile.FileName;
             }
 
-            // Call application service to handle upload and creation
-            var video = await _videoService.UploadAndCreateVideoAsync(uploaderUserId.Value, uploadRequest, cancellationToken);
+            // Call MediatR to handle upload and creation
+            var command = new UploadAndCreateVideoCommand(
+                uploaderUserId.Value,
+                uploadRequest.VideoStream,
+                uploadRequest.VideoFileName,
+                uploadRequest.Title,
+                uploadRequest.Description,
+                uploadRequest.ThumbnailStream,
+                uploadRequest.ThumbnailFileName,
+                uploadRequest.Visibility);
+
+            var video = await _mediator.Send(command, cancellationToken);
 
             return CreatedAtAction(nameof(GetVideo), new { id = video.VideoId }, video);
         }
@@ -153,13 +173,15 @@ public class VideosController : BaseApiController
 
         try
         {
-            var video = await _videoService.CreateVideoAsync(
+            var command = new CreateVideoCommand(
                 uploaderUserId.Value,
                 dto.Title,
                 dto.VideoUrl,
                 dto.Description,
                 dto.ThumbnailUrl,
                 dto.Visibility);
+
+            var video = await _mediator.Send(command);
 
             return CreatedAtAction(nameof(GetVideo), new { id = video.VideoId }, video);
         }
@@ -176,13 +198,15 @@ public class VideosController : BaseApiController
     [HttpPut("{id}")]
     public async Task<ActionResult> UpdateVideo(Guid id, [FromBody] UpdateVideoDto dto, [FromQuery] Guid userId)
     {
-        var success = await _videoService.UpdateVideoAsync(
+        var command = new UpdateVideoCommand(
             id,
             userId,
             dto.Title,
             dto.Description,
             dto.ThumbnailUrl,
             dto.Visibility);
+
+        var success = await _mediator.Send(command);
 
         if (!success)
             return NotFound();
@@ -196,7 +220,7 @@ public class VideosController : BaseApiController
     [HttpDelete("{id}")]
     public async Task<ActionResult> DeleteVideo(Guid id, [FromQuery] Guid userId)
     {
-        var success = await _videoService.DeleteVideoAsync(id, userId);
+        var success = await _mediator.Send(new DeleteVideoCommand(id, userId));
         if (!success)
             return NotFound();
 
@@ -209,7 +233,7 @@ public class VideosController : BaseApiController
     [HttpPost("{id}/like")]
     public async Task<ActionResult> ToggleLike(Guid id, [FromQuery] Guid userId)
     {
-        var success = await _videoService.ToggleLikeAsync(id, userId);
+        var success = await _mediator.Send(new ToggleLikeCommand(id, userId));
         if (!success)
             return NotFound();
 
@@ -223,7 +247,7 @@ public class VideosController : BaseApiController
     [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<CommentDto>>> GetVideoComments(Guid id)
     {
-        var comments = await _videoService.GetVideoCommentsAsync(id);
+        var comments = await _mediator.Send(new GetVideoCommentsQuery(id));
         return Ok(comments);
     }
 }

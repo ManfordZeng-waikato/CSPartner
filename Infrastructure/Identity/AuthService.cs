@@ -1,11 +1,11 @@
 using System.Linq;
+using Application.Common.Interfaces;
 using Application.DTOs.Auth;
-using Application.Interfaces;
-using Application.Interfaces.Repositories;
 using Application.Interfaces.Services;
 using Domain.Users;
 using Infrastructure.Persistence.Identity;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace Infrastructure.Identity;
@@ -15,8 +15,7 @@ public class AuthService : IAuthService
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly RoleManager<ApplicationRole> _roleManager;
-    private readonly IUserProfileRepository _profileRepository;
-    private readonly IUnitOfWork _unitOfWork;
+    private readonly IApplicationDbContext _context;
     private readonly IJwtService _jwtService;
     private readonly ILogger<AuthService> _logger;
 
@@ -24,16 +23,14 @@ public class AuthService : IAuthService
         UserManager<ApplicationUser> userManager,
         SignInManager<ApplicationUser> signInManager,
         RoleManager<ApplicationRole> roleManager,
-        IUserProfileRepository profileRepository,
-        IUnitOfWork unitOfWork,
+        IApplicationDbContext context,
         IJwtService jwtService,
         ILogger<AuthService> logger)
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _roleManager = roleManager;
-        _profileRepository = profileRepository;
-        _unitOfWork = unitOfWork;
+        _context = context;
         _jwtService = jwtService;
         _logger = logger;
     }
@@ -73,8 +70,8 @@ public class AuthService : IAuthService
 
         _logger.LogInformation("用户 {Email} 注册成功，头像URL: {AvatarUrl}", user.Email, profile.AvatarUrl ?? "未设置");
 
-        await _profileRepository.AddAsync(profile);
-        await _unitOfWork.SaveChangesAsync();
+        await _context.UserProfiles.AddAsync(profile);
+        await _context.SaveChangesAsync();
 
         var roles = await _userManager.GetRolesAsync(user);
 
@@ -100,7 +97,8 @@ public class AuthService : IAuthService
             return Failure("The password you entered is incorrect. Please try again.");
         }
 
-        var profile = await _profileRepository.GetByUserIdAsync(user.Id);
+        var profile = await _context.UserProfiles
+            .FirstOrDefaultAsync(p => p.UserId == user.Id);
         var displayName = profile?.DisplayName ?? user.Email;
         var roles = await _userManager.GetRolesAsync(user);
 

@@ -1,17 +1,19 @@
 using Application.DTOs.Comment;
-using Application.Interfaces.Services;
+using Application.Features.Comments.Commands.CreateComment;
+using Application.Features.Comments.Commands.DeleteComment;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers;
 
 public class CommentsController : BaseApiController
 {
-    private readonly IVideoService _videoService;
+    private readonly IMediator _mediator;
     private readonly ILogger<CommentsController> _logger;
 
-    public CommentsController(IVideoService videoService, ILogger<CommentsController> logger)
+    public CommentsController(IMediator mediator, ILogger<CommentsController> logger)
     {
-        _videoService = videoService;
+        _mediator = mediator;
         _logger = logger;
     }
 
@@ -23,7 +25,8 @@ public class CommentsController : BaseApiController
     {
         try
         {
-            var comment = await _videoService.CreateCommentAsync(videoId, userId, dto.Content, dto.ParentCommentId);
+            var command = new CreateCommentCommand(videoId, userId, dto.Content, dto.ParentCommentId);
+            var comment = await _mediator.Send(command);
             return CreatedAtAction(nameof(CreateComment), new { id = comment.CommentId }, comment);
         }
         catch (InvalidOperationException ex)
@@ -44,7 +47,7 @@ public class CommentsController : BaseApiController
     [HttpDelete("{id}")]
     public async Task<ActionResult> DeleteComment(Guid id, [FromQuery] Guid userId)
     {
-        var success = await _videoService.DeleteCommentAsync(id, userId);
+        var success = await _mediator.Send(new DeleteCommentCommand(id, userId));
         if (!success)
             return NotFound();
 

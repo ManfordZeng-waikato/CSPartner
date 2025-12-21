@@ -1,9 +1,10 @@
+using Application.Behaviors;
 using Application.Interfaces.Services;
-using Application.Services;
 using Infrastructure;
 using Infrastructure.Identity;
 using Infrastructure.Persistence.Context;
 using Infrastructure.Persistence.Identity;
+using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -15,8 +16,17 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add Infrastructure services (DbContext, Repositories, UnitOfWork, Storage)
+// Add Infrastructure services (DbContext, Storage)
 builder.Services.AddInfrastructure(builder.Configuration);
+
+// Add MediatR
+builder.Services.AddMediatR(cfg =>
+{
+    cfg.RegisterServicesFromAssembly(typeof(Application.Behaviors.TransactionBehavior<,>).Assembly);
+});
+
+// Add MediatR Pipeline Behaviors
+builder.Services.AddScoped(typeof(IPipelineBehavior<,>), typeof(TransactionBehavior<,>));
 
 builder.Services.AddCors(options =>
 {
@@ -86,10 +96,6 @@ builder.Services.AddControllers()
     });
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
-
-// Register Application Services
-builder.Services.AddScoped<IVideoService, VideoService>();
-builder.Services.AddScoped<IUserProfileService, UserProfileService>();
 
 // Global auth fallback: require authenticated by default
 builder.Services.AddAuthorization(options =>

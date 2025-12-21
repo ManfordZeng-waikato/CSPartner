@@ -1,10 +1,7 @@
-using Application.Interfaces;
-using Application.Interfaces.Repositories;
+using Application.Common.Interfaces;
 using Application.Interfaces.Services;
 using Infrastructure.Identity;
 using Infrastructure.Persistence.Context;
-using Infrastructure.Persistence.Repositories;
-using Infrastructure.Persistence.UnitOfWork;
 using Infrastructure.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -22,13 +19,8 @@ public static class DependencyInjection
             options.UseSqlServer(configuration.GetConnectionString("Default"));
         });
 
-        // UnitOfWork
-        services.AddScoped<IUnitOfWork, UnitOfWork>();
-
-        // Repositories
-        services.AddScoped<IVideoRepository, VideoRepository>();
-        services.AddScoped<ICommentRepository, CommentRepository>();
-        services.AddScoped<IUserProfileRepository, UserProfileRepository>();
+        // Register IApplicationDbContext
+        services.AddScoped<IApplicationDbContext>(provider => provider.GetRequiredService<AppDbContext>());
 
         // Infrastructure Services
         services.AddScoped<IStorageService, R2StorageService>();
