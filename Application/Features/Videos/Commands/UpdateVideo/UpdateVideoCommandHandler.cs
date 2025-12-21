@@ -7,18 +7,25 @@ namespace Application.Features.Videos.Commands.UpdateVideo;
 public class UpdateVideoCommandHandler : IRequestHandler<UpdateVideoCommand, bool>
 {
     private readonly IApplicationDbContext _context;
+    private readonly ICurrentUserService _currentUserService;
 
-    public UpdateVideoCommandHandler(IApplicationDbContext context)
+    public UpdateVideoCommandHandler(
+        IApplicationDbContext context,
+        ICurrentUserService currentUserService)
     {
         _context = context;
+        _currentUserService = currentUserService;
     }
 
     public async Task<bool> Handle(UpdateVideoCommand request, CancellationToken cancellationToken)
     {
+        if (!_currentUserService.UserId.HasValue)
+            return false;
+
         var video = await _context.Videos
             .FirstOrDefaultAsync(v => v.Id == request.VideoId && !v.IsDeleted, cancellationToken);
 
-        if (video == null || video.UploaderUserId != request.UserId)
+        if (video == null || video.UploaderUserId != _currentUserService.UserId.Value)
             return false;
 
         if (request.Title != null)

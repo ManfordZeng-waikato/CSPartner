@@ -13,21 +13,30 @@ public class CreateOrUpdateUserProfileCommandHandler : IRequestHandler<CreateOrU
 {
     private readonly IApplicationDbContext _context;
     private readonly IMediator _mediator;
+    private readonly ICurrentUserService _currentUserService;
 
-    public CreateOrUpdateUserProfileCommandHandler(IApplicationDbContext context, IMediator mediator)
+    public CreateOrUpdateUserProfileCommandHandler(
+        IApplicationDbContext context,
+        IMediator mediator,
+        ICurrentUserService currentUserService)
     {
         _context = context;
         _mediator = mediator;
+        _currentUserService = currentUserService;
     }
 
     public async Task<UserProfileDto> Handle(CreateOrUpdateUserProfileCommand request, CancellationToken cancellationToken)
     {
+        if (!_currentUserService.UserId.HasValue)
+            throw new UnauthorizedAccessException("User must be authenticated to update profile");
+
+        var userId = _currentUserService.UserId.Value;
         var profile = await _context.UserProfiles
-            .FirstOrDefaultAsync(p => p.UserId == request.UserId, cancellationToken);
+            .FirstOrDefaultAsync(p => p.UserId == userId, cancellationToken);
 
         if (profile == null)
         {
-            profile = new UserProfile(request.UserId);
+            profile = new UserProfile(userId);
             await _context.UserProfiles.AddAsync(profile, cancellationToken);
         }
 
@@ -41,7 +50,7 @@ public class CreateOrUpdateUserProfileCommandHandler : IRequestHandler<CreateOrU
         await _context.SaveChangesAsync(cancellationToken);
 
         var profileDto = await _mediator.Send(
-            new GetUserProfileByUserIdQuery(request.UserId, request.CurrentUserId ?? request.UserId),
+            new GetUserProfileByUserIdQuery(userId, userId),
             cancellationToken);
 
         return profileDto!;

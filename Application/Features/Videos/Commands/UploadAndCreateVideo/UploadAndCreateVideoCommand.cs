@@ -5,7 +5,6 @@ using Domain.Videos;
 namespace Application.Features.Videos.Commands.UploadAndCreateVideo;
 
 public record UploadAndCreateVideoCommand(
-    Guid UploaderUserId,
     Stream VideoStream,
     string VideoFileName,
     string Title,

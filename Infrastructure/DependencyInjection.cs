@@ -13,6 +13,9 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
+        // HttpContextAccessor for CurrentUserService
+        services.AddHttpContextAccessor();
+
         // Database Context
         services.AddDbContext<AppDbContext>(options =>
         {
@@ -21,6 +24,9 @@ public static class DependencyInjection
 
         // Register IApplicationDbContext
         services.AddScoped<IApplicationDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+
+        // Current User Service
+        services.AddScoped<ICurrentUserService, CurrentUserService>();
 
         // Infrastructure Services
         services.AddScoped<IStorageService, R2StorageService>();

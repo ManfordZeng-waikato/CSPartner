@@ -8,14 +8,21 @@ namespace Application.Features.Videos.Commands.ToggleLike;
 public class ToggleLikeCommandHandler : IRequestHandler<ToggleLikeCommand, bool>
 {
     private readonly IApplicationDbContext _context;
+    private readonly ICurrentUserService _currentUserService;
 
-    public ToggleLikeCommandHandler(IApplicationDbContext context)
+    public ToggleLikeCommandHandler(
+        IApplicationDbContext context,
+        ICurrentUserService currentUserService)
     {
         _context = context;
+        _currentUserService = currentUserService;
     }
 
     public async Task<bool> Handle(ToggleLikeCommand request, CancellationToken cancellationToken)
     {
+        if (!_currentUserService.UserId.HasValue)
+            return false;
+
         var video = await _context.Videos
             .FirstOrDefaultAsync(v => v.Id == request.VideoId && !v.IsDeleted, cancellationToken);
 
@@ -23,7 +30,7 @@ public class ToggleLikeCommandHandler : IRequestHandler<ToggleLikeCommand, bool>
             return false;
 
         var existingLike = await _context.VideoLikes
-            .FirstOrDefaultAsync(l => l.VideoId == request.VideoId && l.UserId == request.UserId, cancellationToken);
+            .FirstOrDefaultAsync(l => l.VideoId == request.VideoId && l.UserId == _currentUserService.UserId.Value, cancellationToken);
 
         if (existingLike != null)
         {
@@ -32,7 +39,7 @@ public class ToggleLikeCommandHandler : IRequestHandler<ToggleLikeCommand, bool>
         }
         else
         {
-            var like = new VideoLike(request.VideoId, request.UserId);
+            var like = new VideoLike(request.VideoId, _currentUserService.UserId.Value);
             await _context.VideoLikes.AddAsync(like, cancellationToken);
             video.ApplyLikeAdded();
         }

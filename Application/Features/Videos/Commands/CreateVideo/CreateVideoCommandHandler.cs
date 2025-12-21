@@ -9,16 +9,23 @@ namespace Application.Features.Videos.Commands.CreateVideo;
 public class CreateVideoCommandHandler : IRequestHandler<CreateVideoCommand, VideoDto>
 {
     private readonly IApplicationDbContext _context;
+    private readonly ICurrentUserService _currentUserService;
 
-    public CreateVideoCommandHandler(IApplicationDbContext context)
+    public CreateVideoCommandHandler(
+        IApplicationDbContext context,
+        ICurrentUserService currentUserService)
     {
         _context = context;
+        _currentUserService = currentUserService;
     }
 
     public async Task<VideoDto> Handle(CreateVideoCommand request, CancellationToken cancellationToken)
     {
+        if (!_currentUserService.UserId.HasValue)
+            throw new UnauthorizedAccessException("User must be authenticated to create a video");
+
         var video = new HighlightVideo(
-            request.UploaderUserId,
+            _currentUserService.UserId.Value,
             request.Title,
             request.VideoUrl,
             request.Description,

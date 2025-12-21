@@ -1,4 +1,5 @@
 using API.DTOs;
+using Application.Common.Interfaces;
 using Application.DTOs.Video;
 using Application.DTOs.Comment;
 using Application.Features.Videos.Commands.CreateVideo;
@@ -22,11 +23,16 @@ namespace API.Controllers;
 public class VideosController : BaseApiController
 {
     private readonly IMediator _mediator;
+    private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<VideosController> _logger;
 
-    public VideosController(IMediator mediator, ILogger<VideosController> logger)
+    public VideosController(
+        IMediator mediator,
+        ICurrentUserService currentUserService,
+        ILogger<VideosController> logger)
     {
         _mediator = mediator;
+        _currentUserService = currentUserService;
         _logger = logger;
     }
 
@@ -43,8 +49,7 @@ public class VideosController : BaseApiController
         if (page < 1) page = 1;
         if (pageSize < 1 || pageSize > 100) pageSize = 20;
 
-        var currentUserId = GetCurrentUserId();
-        var videos = await _mediator.Send(new GetVideosQuery(page, pageSize, currentUserId));
+        var videos = await _mediator.Send(new GetVideosQuery(page, pageSize, _currentUserService.UserId));
         return Ok(videos);
     }
 
@@ -59,8 +64,7 @@ public class VideosController : BaseApiController
     [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<VideoDto>>> GetVideosByUser(Guid userId)
     {
-        var currentUserId = GetCurrentUserId();
-        var videos = await _mediator.Send(new GetVideosByUserIdQuery(userId, currentUserId));
+        var videos = await _mediator.Send(new GetVideosByUserIdQuery(userId, _currentUserService.UserId));
         return Ok(videos);
     }
 
@@ -74,8 +78,7 @@ public class VideosController : BaseApiController
     [AllowAnonymous]
     public async Task<ActionResult<VideoDto>> GetVideo(Guid id)
     {
-        var currentUserId = GetCurrentUserId();
-        var video = await _mediator.Send(new GetVideoByIdQuery(id, currentUserId));
+        var video = await _mediator.Send(new GetVideoByIdQuery(id, _currentUserService.UserId));
         if (video == null)
             return NotFound();
 
@@ -95,14 +98,6 @@ public class VideosController : BaseApiController
         [FromForm] UploadVideoFormRequest formRequest,
         CancellationToken cancellationToken = default)
     {
-        var uploaderUserId = GetCurrentUserId();
-        if (!uploaderUserId.HasValue)
-        {
-            _logger.LogWarning("无法从JWT令牌中提取用户ID。Claims: {Claims}", 
-                string.Join(", ", User.Claims.Select(c => $"{c.Type}={c.Value}")));
-            return Unauthorized(new { error = "无法识别用户身份" });
-        }
-
         // Basic validation
         if (formRequest.VideoFile == null || formRequest.VideoFile.Length == 0)
             return BadRequest(new { error = "视频文件不能为空" });
@@ -131,7 +126,6 @@ public class VideosController : BaseApiController
 
             // Call MediatR to handle upload and creation
             var command = new UploadAndCreateVideoCommand(
-                uploaderUserId.Value,
                 uploadRequest.VideoStream,
                 uploadRequest.VideoFileName,
                 uploadRequest.Title,
@@ -163,18 +157,9 @@ public class VideosController : BaseApiController
     [Authorize]
     public async Task<ActionResult<VideoDto>> CreateVideo([FromBody] CreateVideoDto dto)
     {
-        var uploaderUserId = GetCurrentUserId();
-        if (!uploaderUserId.HasValue)
-        {
-            _logger.LogWarning("无法从JWT令牌中提取用户ID。Claims: {Claims}", 
-                string.Join(", ", User.Claims.Select(c => $"{c.Type}={c.Value}")));
-            return Unauthorized(new { error = "无法识别用户身份" });
-        }
-
         try
         {
             var command = new CreateVideoCommand(
-                uploaderUserId.Value,
                 dto.Title,
                 dto.VideoUrl,
                 dto.Description,
@@ -196,11 +181,11 @@ public class VideosController : BaseApiController
     /// Update video
     /// </summary>
     [HttpPut("{id}")]
-    public async Task<ActionResult> UpdateVideo(Guid id, [FromBody] UpdateVideoDto dto, [FromQuery] Guid userId)
+    [Authorize]
+    public async Task<ActionResult> UpdateVideo(Guid id, [FromBody] UpdateVideoDto dto)
     {
         var command = new UpdateVideoCommand(
             id,
-            userId,
             dto.Title,
             dto.Description,
             dto.ThumbnailUrl,
@@ -218,9 +203,10 @@ public class VideosController : BaseApiController
     /// Delete video
     /// </summary>
     [HttpDelete("{id}")]
-    public async Task<ActionResult> DeleteVideo(Guid id, [FromQuery] Guid userId)
+    [Authorize]
+    public async Task<ActionResult> DeleteVideo(Guid id)
     {
-        var success = await _mediator.Send(new DeleteVideoCommand(id, userId));
+        var success = await _mediator.Send(new DeleteVideoCommand(id));
         if (!success)
             return NotFound();
 
@@ -231,9 +217,10 @@ public class VideosController : BaseApiController
     /// Like/Unlike video
     /// </summary>
     [HttpPost("{id}/like")]
-    public async Task<ActionResult> ToggleLike(Guid id, [FromQuery] Guid userId)
+    [Authorize]
+    public async Task<ActionResult> ToggleLike(Guid id)
     {
-        var success = await _mediator.Send(new ToggleLikeCommand(id, userId));
+        var success = await _mediator.Send(new ToggleLikeCommand(id));
         if (!success)
             return NotFound();
 

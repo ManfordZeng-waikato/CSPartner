@@ -40,7 +40,6 @@ public class UploadAndCreateVideoCommandHandler : IRequestHandler<UploadAndCreat
         }
 
         var createCommand = new CreateVideoCommand(
-            request.UploaderUserId,
             request.Title,
             videoUrl,
             request.Description,

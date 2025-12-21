@@ -1,3 +1,4 @@
+using Application.Common.Interfaces;
 using Application.DTOs.UserProfile;
 using Application.Features.UserProfiles.Commands.CreateOrUpdateUserProfile;
 using Application.Features.UserProfiles.Queries.GetUserProfileByUserId;
@@ -10,11 +11,16 @@ namespace API.Controllers;
 public class UserProfilesController : BaseApiController
 {
     private readonly IMediator _mediator;
+    private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<UserProfilesController> _logger;
 
-    public UserProfilesController(IMediator mediator, ILogger<UserProfilesController> logger)
+    public UserProfilesController(
+        IMediator mediator,
+        ICurrentUserService currentUserService,
+        ILogger<UserProfilesController> logger)
     {
         _mediator = mediator;
+        _currentUserService = currentUserService;
         _logger = logger;
     }
 
@@ -29,8 +35,7 @@ public class UserProfilesController : BaseApiController
     [AllowAnonymous]
     public async Task<ActionResult<UserProfileDto>> GetUserProfile(Guid userId)
     {
-        var currentUserId = GetCurrentUserId();
-        var profile = await _mediator.Send(new GetUserProfileByUserIdQuery(userId, currentUserId));
+        var profile = await _mediator.Send(new GetUserProfileByUserIdQuery(userId, _currentUserService.UserId));
         if (profile == null)
             return NotFound();
 
@@ -40,26 +45,18 @@ public class UserProfilesController : BaseApiController
     /// <summary>
     /// Update user profile
     /// </summary>
-    [HttpPut("{userId}")]
+    [HttpPut]
     [Authorize]
-    public async Task<ActionResult<UserProfileDto>> UpdateUserProfile(Guid userId, [FromBody] UpdateUserProfileDto dto)
+    public async Task<ActionResult<UserProfileDto>> UpdateUserProfile([FromBody] UpdateUserProfileDto dto)
     {
-        var currentUserId = GetCurrentUserId();
-        if (!currentUserId.HasValue || currentUserId.Value != userId)
-        {
-            return Forbid(); // Only allow users to update their own profile
-        }
-
         try
         {
             var command = new CreateOrUpdateUserProfileCommand(
-                userId,
                 dto.DisplayName,
                 dto.Bio,
                 dto.AvatarUrl,
                 dto.SteamProfileUrl,
-                dto.FaceitProfileUrl,
-                currentUserId);
+                dto.FaceitProfileUrl);
 
             var profile = await _mediator.Send(command);
 

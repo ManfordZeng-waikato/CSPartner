@@ -5,7 +5,6 @@ namespace Application.Features.Videos.Commands.UpdateVideo;
 
 public record UpdateVideoCommand(
     Guid VideoId,
-    Guid UserId,
     string? Title = null,
     string? Description = null,
     string? ThumbnailUrl = null,

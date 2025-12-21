@@ -1,7 +1,10 @@
+using Application.Common.Interfaces;
 using Application.DTOs.Comment;
 using Application.Features.Comments.Commands.CreateComment;
+using Application.Features.Comments.Commands.UpdateComment;
 using Application.Features.Comments.Commands.DeleteComment;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers;
@@ -21,11 +24,12 @@ public class CommentsController : BaseApiController
     /// Create comment
     /// </summary>
     [HttpPost("videos/{videoId}/comments")]
-    public async Task<ActionResult<CommentDto>> CreateComment(Guid videoId, [FromBody] CreateCommentDto dto, [FromQuery] Guid userId)
+    [Authorize]
+    public async Task<ActionResult<CommentDto>> CreateComment(Guid videoId, [FromBody] CreateCommentDto dto)
     {
         try
         {
-            var command = new CreateCommentCommand(videoId, userId, dto.Content, dto.ParentCommentId);
+            var command = new CreateCommentCommand(videoId, dto.Content, dto.ParentCommentId);
             var comment = await _mediator.Send(command);
             return CreatedAtAction(nameof(CreateComment), new { id = comment.CommentId }, comment);
         }
@@ -42,12 +46,27 @@ public class CommentsController : BaseApiController
     }
 
     /// <summary>
+    /// Update comment
+    /// </summary>
+    [HttpPut("{id}")]
+    [Authorize]
+    public async Task<ActionResult> UpdateComment(Guid id, [FromBody] UpdateCommentDto dto)
+    {
+        var success = await _mediator.Send(new UpdateCommentCommand(id, dto.Content));
+        if (!success)
+            return NotFound();
+
+        return NoContent();
+    }
+
+    /// <summary>
     /// Delete comment
     /// </summary>
     [HttpDelete("{id}")]
-    public async Task<ActionResult> DeleteComment(Guid id, [FromQuery] Guid userId)
+    [Authorize]
+    public async Task<ActionResult> DeleteComment(Guid id)
     {
-        var success = await _mediator.Send(new DeleteCommentCommand(id, userId));
+        var success = await _mediator.Send(new DeleteCommentCommand(id));
         if (!success)
             return NotFound();
 

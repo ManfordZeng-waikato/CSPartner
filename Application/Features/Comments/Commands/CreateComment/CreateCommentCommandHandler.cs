@@ -11,14 +11,21 @@ namespace Application.Features.Comments.Commands.CreateComment;
 public class CreateCommentCommandHandler : IRequestHandler<CreateCommentCommand, CommentDto>
 {
     private readonly IApplicationDbContext _context;
+    private readonly ICurrentUserService _currentUserService;
 
-    public CreateCommentCommandHandler(IApplicationDbContext context)
+    public CreateCommentCommandHandler(
+        IApplicationDbContext context,
+        ICurrentUserService currentUserService)
     {
         _context = context;
+        _currentUserService = currentUserService;
     }
 
     public async Task<CommentDto> Handle(CreateCommentCommand request, CancellationToken cancellationToken)
     {
+        if (!_currentUserService.UserId.HasValue)
+            throw new UnauthorizedAccessException("User must be authenticated to create a comment");
+
         var video = await _context.Videos
             .FirstOrDefaultAsync(v => v.Id == request.VideoId && !v.IsDeleted, cancellationToken);
 
@@ -34,7 +41,7 @@ public class CreateCommentCommandHandler : IRequestHandler<CreateCommentCommand,
                 throw new CommentNotFoundException(request.ParentCommentId.Value);
         }
 
-        var comment = new Comment(request.VideoId, request.UserId, request.Content, request.ParentCommentId);
+        var comment = new Comment(request.VideoId, _currentUserService.UserId.Value, request.Content, request.ParentCommentId);
         await _context.Comments.AddAsync(comment, cancellationToken);
         video.ApplyCommentAdded();
         await _context.SaveChangesAsync(cancellationToken);
