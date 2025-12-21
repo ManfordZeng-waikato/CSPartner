@@ -84,6 +84,24 @@ export const useVideoComments = (videoId: string | undefined) => {
   return { comments: comments || [], isLoading }
 }
 
+export const useCreateComment = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ videoId, content, parentCommentId }: { videoId: string; content: string; parentCommentId?: string | null }): Promise<CommentDto> => {
+      const response = await apiClient.post<CommentDto>(`/api/videos/${videoId}/comments`, {
+        content,
+        parentCommentId: parentCommentId || null
+      });
+      return response.data;
+    },
+    onSuccess: async (_, variables) => {
+      // Invalidate comments query to refetch
+      await queryClient.invalidateQueries({ queryKey: ['video', variables.videoId, 'comments'] });
+    }
+  });
+};
+
 export const useUpdateVideoVisibility = () => {
   const queryClient = useQueryClient();
   const { session } = useAuthSession();
