@@ -1,6 +1,5 @@
 using Application.Common.Interfaces;
 using Application.DTOs.Comment;
-using Application.Features.Comments.Commands.CreateComment;
 using Application.Features.Comments.Commands.UpdateComment;
 using Application.Features.Comments.Commands.DeleteComment;
 using Application.Features.Comments.Queries.GetVideoComments;
@@ -30,36 +29,6 @@ public class CommentsController : BaseApiController
         _logger = logger;
         _hubContext = hubContext;
         _context = context;
-    }
-
-    /// <summary>
-    /// Create comment
-    /// </summary>
-    [HttpPost("videos/{videoId}/comments")]
-    [Authorize]
-    public async Task<ActionResult<CommentDto>> CreateComment(Guid videoId, [FromBody] CreateCommentDto dto)
-    {
-        try
-        {
-            var command = new CreateCommentCommand(videoId, dto.Content, dto.ParentCommentId);
-            var comment = await _mediator.Send(command);
-
-            // Broadcast updated comments list to all clients watching this video
-            var comments = await _mediator.Send(new GetVideoCommentsQuery(videoId));
-            await _hubContext.Clients.Group(videoId.ToString()).SendAsync("ReceiveComments", comments);
-
-            return CreatedAtAction(nameof(CreateComment), new { id = comment.CommentId }, comment);
-        }
-        catch (InvalidOperationException ex)
-        {
-            _logger.LogWarning(ex, "Failed to create comment");
-            return BadRequest(new { error = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to create comment");
-            return BadRequest(new { error = "创建评论时发生错误" });
-        }
     }
 
     /// <summary>

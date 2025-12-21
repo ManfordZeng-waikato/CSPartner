@@ -11,12 +11,15 @@ using Application.Features.Videos.Commands.IncreaseViewCount;
 using Application.Features.Videos.Queries.GetVideos;
 using Application.Features.Videos.Queries.GetVideoById;
 using Application.Features.Videos.Queries.GetVideosByUserId;
+using Application.Features.Comments.Commands.CreateComment;
 using Application.Features.Comments.Queries.GetVideoComments;
 using Domain.Videos;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.SignalR;
+using API.SignalR;
 
 namespace API.Controllers;
 
@@ -25,15 +28,18 @@ public class VideosController : BaseApiController
     private readonly IMediator _mediator;
     private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<VideosController> _logger;
+    private readonly IHubContext<CommentHub> _hubContext;
 
     public VideosController(
         IMediator mediator,
         ICurrentUserService currentUserService,
-        ILogger<VideosController> logger)
+        ILogger<VideosController> logger,
+        IHubContext<CommentHub> hubContext)
     {
         _mediator = mediator;
         _currentUserService = currentUserService;
         _logger = logger;
+        _hubContext = hubContext;
     }
 
     /// <summary>
@@ -236,6 +242,36 @@ public class VideosController : BaseApiController
     {
         var comments = await _mediator.Send(new GetVideoCommentsQuery(id));
         return Ok(comments);
+    }
+
+    /// <summary>
+    /// Create comment
+    /// </summary>
+    [HttpPost("{id}/comments")]
+    [Authorize]
+    public async Task<ActionResult<CommentDto>> CreateComment(Guid id, [FromBody] CreateCommentDto dto)
+    {
+        try
+        {
+            var command = new CreateCommentCommand(id, dto.Content, dto.ParentCommentId);
+            var comment = await _mediator.Send(command);
+
+            // Broadcast updated comments list to all clients watching this video
+            var comments = await _mediator.Send(new GetVideoCommentsQuery(id));
+            await _hubContext.Clients.Group(id.ToString()).SendAsync("ReceiveComments", comments);
+
+            return CreatedAtAction(nameof(GetVideoComments), new { id }, comment);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "Failed to create comment");
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to create comment");
+            return BadRequest(new { error = "创建评论时发生错误" });
+        }
     }
 }
 

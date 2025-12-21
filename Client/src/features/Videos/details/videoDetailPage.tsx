@@ -1,7 +1,7 @@
-import React from "react";
-import { useParams } from "react-router";
+import React, { useEffect, useRef } from "react";
+import { useParams, useLocation } from "react-router";
 import { Box, Divider, CircularProgress, Alert } from "@mui/material";
-import { useVideo } from "../../hooks/useVideos";
+import { useVideo, useVideoComments } from "../../hooks/useVideos";
 import VideoStats from "./components/videoStats";
 import VideoComments from "./components/videoComments";
 import VideoUploader from "./components/videoUploader";
@@ -9,7 +9,64 @@ import VideoInfo from "./components/videoInfo";
 
 const VideoDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const location = useLocation();
   const { video, isLoading: videoLoading, error: videoError } = useVideo(id);
+  const { isLoading: commentsLoading } = useVideoComments(id);
+  const commentsSectionRef = useRef<HTMLDivElement>(null);
+  const scrollAttemptRef = useRef(0);
+
+  // Handle scroll to comments section when hash is present
+  useEffect(() => {
+    // Only scroll if hash is present and both video and comments are loaded
+    if (
+      location.hash === '#comments' &&
+      !videoLoading &&
+      !commentsLoading &&
+      video &&
+      commentsSectionRef.current
+    ) {
+      const scrollToComments = () => {
+        const element = commentsSectionRef.current;
+        if (!element) return;
+
+        // Check if element is already visible in viewport
+        const rect = element.getBoundingClientRect();
+        const isVisible = rect.top >= 0 && rect.top < window.innerHeight * 0.5;
+
+        if (!isVisible) {
+          // Use scrollIntoView with block: 'start' for reliable scrolling
+          element.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start',
+            inline: 'nearest'
+          });
+        }
+      };
+
+      // Multiple attempts with increasing delays to handle different rendering speeds
+      const timeouts: NodeJS.Timeout[] = [];
+
+      // Attempt 1: After DOM updates (requestAnimationFrame)
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          scrollToComments();
+        });
+      });
+
+      // Attempt 2: After a short delay
+      timeouts.push(setTimeout(scrollToComments, 200));
+
+      // Attempt 3: After a longer delay (for slow rendering)
+      timeouts.push(setTimeout(scrollToComments, 500));
+
+      // Attempt 4: Final attempt after content should be fully loaded
+      timeouts.push(setTimeout(scrollToComments, 1000));
+
+      return () => {
+        timeouts.forEach(timeout => clearTimeout(timeout));
+      };
+    }
+  }, [location.hash, videoLoading, commentsLoading, video]);
 
   if (videoLoading) {
     return (
@@ -60,7 +117,9 @@ const VideoDetail: React.FC = () => {
       <Divider sx={{ my: 3 }} />
 
       {/* Comments Section */}
-      <VideoComments videoId={id} commentCount={video.commentCount} />
+      <Box id="comments" ref={commentsSectionRef}>
+        <VideoComments videoId={id} commentCount={video.commentCount} />
+      </Box>
     </Box>
   );
 };

@@ -67,6 +67,10 @@ export default function VideoCard({ video, showMenu = false }: VideoCardProps) {
         setDeleteDialogOpen(false);
     };
 
+    const handleCommentClick = () => {
+        navigate(`/video/${video.videoId}#comments`);
+    };
+
     return (
         <Card elevation={3} sx={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', borderRadius: 3, overflow: 'hidden' }}>
             <Tooltip title={tooltipTitle} arrow>
@@ -107,6 +111,8 @@ export default function VideoCard({ video, showMenu = false }: VideoCardProps) {
                         viewCount={video.viewCount}
                         likeCount={video.likeCount}
                         commentCount={video.commentCount}
+                        videoId={video.videoId}
+                        onCommentClick={handleCommentClick}
                     />
                 </Box>
                 <VideoActionButtons

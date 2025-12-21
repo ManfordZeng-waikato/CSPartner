@@ -1,16 +1,23 @@
-import React, { useState } from "react";
-import {
-  Box,
-  Typography,
-  Paper,
-  CircularProgress,
-  TextField,
-  Button,
-  Alert,
-  Link as MuiLink
-} from "@mui/material";
-import { useVideoComments, useCreateComment } from "../../../hooks/useVideos";
+import React, { useState, useCallback } from "react";
+import { Box, Typography } from "@mui/material";
+import { useVideoComments } from "../../../hooks/useVideos";
 import { useAuthSession } from "../../../hooks/useAuthSession";
+import { useCommentHub } from "../../../hooks/useCommentHub";
+import { useQueryClient } from "@tanstack/react-query";
+import CommentForm from "./CommentForm";
+import CommentList from "./CommentList";
+
+// CommentDto type definition
+interface CommentDto {
+  commentId: string;
+  videoId: string;
+  userId: string;
+  parentCommentId: string | null;
+  content: string;
+  createdAtUtc: string;
+  updatedAtUtc: string | null;
+  replies: CommentDto[];
+}
 
 interface VideoCommentsProps {
   videoId: string | undefined;
@@ -18,116 +25,48 @@ interface VideoCommentsProps {
 }
 
 const VideoComments: React.FC<VideoCommentsProps> = ({ videoId, commentCount }) => {
-  const { comments, isLoading: commentsLoading } = useVideoComments(videoId);
+  const queryClient = useQueryClient();
+  const { comments: initialComments, isLoading: commentsLoading } = useVideoComments(videoId);
   const { session } = useAuthSession();
-  const createComment = useCreateComment();
-  const [commentContent, setCommentContent] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [comments, setComments] = useState<CommentDto[]>([]);
 
   const isAuthenticated = !!session;
 
-  const handleSubmitComment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!videoId || !commentContent.trim()) return;
+  // Use initialComments as the source of truth, but allow SignalR to override
+  const displayComments = comments.length > 0 ? comments : (initialComments || []);
 
-    setError(null);
-    try {
-      await createComment.mutateAsync({
-        videoId,
-        content: commentContent.trim(),
-        parentCommentId: null
-      });
-      setCommentContent("");
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Failed to post comment. Please try again.");
+  // Handle real-time comment updates from SignalR
+  const handleCommentsReceived = useCallback((newComments: CommentDto[]) => {
+    setComments(newComments);
+    // Also update the query cache
+    if (videoId) {
+      queryClient.setQueryData(['video', videoId, 'comments'], newComments);
     }
-  };
+  }, [videoId, queryClient]);
+
+  // Connect to SignalR hub for real-time updates
+  useCommentHub({
+    videoId,
+    onCommentsReceived: handleCommentsReceived,
+    enabled: !!videoId
+  });
+
+  // Calculate actual comment count (including replies)
+  const totalCommentCount = displayComments.reduce((count, comment) => {
+    return count + 1 + (comment.replies?.length || 0);
+  }, 0);
 
   return (
     <Box>
       <Typography variant="h6" gutterBottom>
-        Comments ({commentCount})
+        Comments ({totalCommentCount > 0 ? totalCommentCount : commentCount})
       </Typography>
 
-      {/* Comment Form - Only show for authenticated users */}
-      {isAuthenticated ? (
-        <Paper sx={{ p: 2, mb: 3 }}>
-          <form onSubmit={handleSubmitComment}>
-            <TextField
-              fullWidth
-              multiline
-              rows={3}
-              placeholder="Write a comment..."
-              value={commentContent}
-              onChange={(e) => setCommentContent(e.target.value)}
-              disabled={createComment.isPending}
-              sx={{ mb: 2 }}
-            />
-            {error && (
-              <Alert severity="error" sx={{ mb: 2 }}>
-                {error}
-              </Alert>
-            )}
-            <Button
-              type="submit"
-              variant="contained"
-              disabled={!commentContent.trim() || createComment.isPending}
-            >
-              {createComment.isPending ? "Posting..." : "Post Comment"}
-            </Button>
-          </form>
-        </Paper>
-      ) : (
-        <Paper sx={{ p: 2, mb: 3, bgcolor: 'action.hover' }}>
-          <Typography variant="body2" color="text.secondary" align="center">
-            Please{" "}
-            <MuiLink href="/login" underline="hover">
-              log in
-            </MuiLink>
-            {" "}to post a comment
-          </Typography>
-        </Paper>
+      {videoId && (
+        <CommentForm videoId={videoId} isAuthenticated={isAuthenticated} />
       )}
 
-      {/* Comments List */}
-      {commentsLoading ? (
-        <Box display="flex" justifyContent="center" p={3}>
-          <CircularProgress />
-        </Box>
-      ) : comments.length === 0 ? (
-        <Paper sx={{ p: 3, mt: 2, textAlign: 'center' }}>
-          <Typography variant="body2" color="text.secondary">
-            No comments yet
-          </Typography>
-        </Paper>
-      ) : (
-        <Box sx={{ mt: 2 }}>
-          {comments.map((comment) => (
-            <Paper key={comment.commentId} sx={{ p: 2, mb: 2 }}>
-              <Typography variant="body1" sx={{ mb: 1 }}>
-                {comment.content}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {new Date(comment.createdAtUtc).toLocaleString('en-US')}
-              </Typography>
-              {comment.replies && comment.replies.length > 0 && (
-                <Box sx={{ mt: 2, ml: 3, pl: 2, borderLeft: '2px solid', borderColor: 'divider' }}>
-                  {comment.replies.map((reply) => (
-                    <Paper key={reply.commentId} sx={{ p: 1.5, mb: 1, bgcolor: '#FFF3E0' }}>
-                      <Typography variant="body2" sx={{ mb: 0.5 }}>
-                        {reply.content}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {new Date(reply.createdAtUtc).toLocaleString('en-US')}
-                      </Typography>
-                    </Paper>
-                  ))}
-                </Box>
-              )}
-            </Paper>
-          ))}
-        </Box>
-      )}
+      <CommentList comments={displayComments} isLoading={commentsLoading} />
     </Box>
   );
 };

@@ -145,7 +145,8 @@ app.UseAuthorization();
 app.MapControllers();
 
 // Map SignalR Hub - Allow anonymous access for viewing comments
-app.MapHub<API.SignalR.CommentHub>("/hubs/comments");
+// Use /api prefix to match API controller routing convention
+app.MapHub<API.SignalR.CommentHub>("/api/hubs/comments");
 
 using var scope = app.Services.CreateScope();
 var services = scope.ServiceProvider;
