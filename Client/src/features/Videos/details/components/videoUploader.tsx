@@ -25,8 +25,8 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ uploaderUserId }) => {
   };
 
   const tooltipTitle = profile?.displayName 
-    ? `${profile.displayName} - 点击查看个人主页`
-    : "点击查看个人主页";
+    ? `${profile.displayName} - Click to view profile`
+    : "Click to view profile";
 
   return (
     <Box sx={{ mb: 3 }}>
