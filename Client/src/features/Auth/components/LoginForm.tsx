@@ -49,9 +49,17 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
     try {
       const result = await loginMutation.mutateAsync(values);
       if (result.succeeded) {
-        const redirectTo =
-          ((location.state as { from?: Location })?.from?.pathname) ?? "/videos";
+        // Check for return URL in state or search params
+        const stateFrom = (location.state as { from?: Location })?.from;
+        const searchParams = new URLSearchParams(location.search);
+        const returnUrl = searchParams.get('returnUrl');
+        
+        // Use stateFrom pathname (which may include hash) or returnUrl or default
+        const redirectTo = stateFrom?.pathname || returnUrl || "/videos";
+        
         if (onSuccess) onSuccess();
+        
+        // Navigate to the redirect URL (hash is included in the pathname)
         navigate(redirectTo);
       }
     } catch (error) {

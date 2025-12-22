@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import { Box, Typography } from "@mui/material";
 import { useVideoComments } from "../../../hooks/useVideos";
 import { useAuthSession } from "../../../hooks/useAuthSession";
@@ -34,7 +34,15 @@ const VideoComments: React.FC<VideoCommentsProps> = ({ videoId, commentCount }) 
   const isAuthenticated = !!session;
 
   // Use initialComments as the source of truth, but allow SignalR to override
-  const displayComments = comments.length > 0 ? comments : (initialComments || []);
+  // Sort comments by creation time (newest first) to ensure consistent ordering
+  const displayComments = useMemo(() => {
+    const rawComments = comments.length > 0 ? comments : (initialComments || []);
+    return [...rawComments].sort((a, b) => {
+      const dateA = new Date(a.createdAtUtc).getTime();
+      const dateB = new Date(b.createdAtUtc).getTime();
+      return dateB - dateA; // Descending order (newest first)
+    });
+  }, [comments, initialComments]);
 
   // Handle real-time comment updates from SignalR (full list replacement)
   const handleCommentsReceived = useCallback((newComments: CommentDto[]) => {

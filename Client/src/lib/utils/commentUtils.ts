@@ -27,20 +27,20 @@ export const addCommentToList = (
     return prevComments;
   }
 
-  // If it's a reply, add it to the parent comment's replies
+  // If it's a reply, add it to the parent comment's replies (newest first)
   if (newComment.parentCommentId) {
     return prevComments.map(comment => {
       if (comment.commentId === newComment.parentCommentId) {
         return {
           ...comment,
-          replies: [...(comment.replies || []), newComment]
+          replies: [newComment, ...(comment.replies || [])]
         };
       }
       return comment;
     });
   }
 
-  // It's a top-level comment, add it to the list
-  return [...prevComments, newComment];
+  // It's a top-level comment, add it to the beginning of the list (newest first)
+  return [newComment, ...prevComments];
 };
 

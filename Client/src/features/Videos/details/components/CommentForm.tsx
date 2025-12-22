@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Paper, TextField, Button, Alert, Link as MuiLink, Typography } from "@mui/material";
+import { Link, useLocation } from "react-router";
 import { useCreateComment } from "../../../hooks/useVideos";
 
 interface CommentFormProps {
@@ -9,8 +10,12 @@ interface CommentFormProps {
 
 const CommentForm: React.FC<CommentFormProps> = ({ videoId, isAuthenticated }) => {
   const createComment = useCreateComment();
+  const location = useLocation();
   const [commentContent, setCommentContent] = useState("");
   const [error, setError] = useState<string | null>(null);
+  
+  // Build return URL with current path and comments anchor
+  const returnUrl = `${location.pathname}${location.search}#comments`;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,9 +47,15 @@ const CommentForm: React.FC<CommentFormProps> = ({ videoId, isAuthenticated }) =
       <Paper sx={{ p: 2, mb: 3, bgcolor: 'action.hover' }}>
         <Typography variant="body2" color="text.secondary" align="center">
           Please{" "}
-          <MuiLink href="/login" underline="hover">
-            log in
-          </MuiLink>
+          <Link 
+            to="/login" 
+            state={{ from: { pathname: returnUrl } }}
+            style={{ textDecoration: 'none', color: 'inherit' }}
+          >
+            <MuiLink component="span" underline="hover">
+              log in
+            </MuiLink>
+          </Link>
           {" "}to post a comment
         </Typography>
       </Paper>

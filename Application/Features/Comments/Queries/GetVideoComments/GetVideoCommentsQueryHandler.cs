@@ -19,8 +19,8 @@ public class GetVideoCommentsQueryHandler : IRequestHandler<GetVideoCommentsQuer
     {
         var comments = await _context.Comments
             .Where(c => c.VideoId == request.VideoId && !c.IsDeleted)
-            .Include(c => c.Replies.Where(r => !r.IsDeleted))
-            .OrderBy(c => c.CreatedAtUtc)
+            .Include(c => c.Replies.Where(r => !r.IsDeleted).OrderByDescending(r => r.CreatedAtUtc))
+            .OrderByDescending(c => c.CreatedAtUtc)
             .ToListAsync(cancellationToken);
 
         return comments.Select(c => c.ToDto());
