@@ -6,6 +6,7 @@ import { useCommentHub } from "../../../hooks/useCommentHub";
 import { useQueryClient } from "@tanstack/react-query";
 import CommentForm from "./CommentForm";
 import CommentList from "./CommentList";
+import { addCommentToList } from "../../../../lib/utils/commentUtils";
 
 // CommentDto type definition
 interface CommentDto {
@@ -35,7 +36,7 @@ const VideoComments: React.FC<VideoCommentsProps> = ({ videoId, commentCount }) 
   // Use initialComments as the source of truth, but allow SignalR to override
   const displayComments = comments.length > 0 ? comments : (initialComments || []);
 
-  // Handle real-time comment updates from SignalR
+  // Handle real-time comment updates from SignalR (full list replacement)
   const handleCommentsReceived = useCallback((newComments: CommentDto[]) => {
     setComments(newComments);
     // Also update the query cache
@@ -44,10 +45,24 @@ const VideoComments: React.FC<VideoCommentsProps> = ({ videoId, commentCount }) 
     }
   }, [videoId, queryClient]);
 
+  // Handle new comment received (add to existing list - more efficient)
+  const handleNewCommentReceived = useCallback((newComment: CommentDto) => {
+    setComments(prevComments => {
+      const updatedComments = addCommentToList(prevComments, newComment);
+      
+      // Update query cache
+      if (videoId) {
+        queryClient.setQueryData(['video', videoId, 'comments'], updatedComments);
+      }
+      return updatedComments;
+    });
+  }, [videoId, queryClient]);
+
   // Connect to SignalR hub for real-time updates
   useCommentHub({
     videoId,
     onCommentsReceived: handleCommentsReceived,
+    onNewCommentReceived: handleNewCommentReceived,
     enabled: !!videoId
   });
 

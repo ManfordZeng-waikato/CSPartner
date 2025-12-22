@@ -1,4 +1,5 @@
 using Application.DTOs.Comment;
+using Application.Features.Comments.Commands.CreateComment;
 using Application.Features.Comments.Queries.GetVideoComments;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -49,4 +50,20 @@ public class CommentHub(IMediator mediator) : Hub
         // Clean up is handled automatically by SignalR
         await base.OnDisconnectedAsync(exception);
     }
+
+    /// <summary>
+    /// Send comment - called by clients to create a new comment
+    /// Requires authentication
+    /// Broadcasts only the new comment to all clients in the video's group (more efficient)
+    /// </summary>
+    [Authorize]
+    public async Task SendComment(CreateCommentCommand command)
+    {
+        var comment = await mediator.Send(command);
+        
+        // Broadcast only the new comment to all clients in the video's group
+        // Clients will add it to their existing comments list
+        await Clients.Group(command.VideoId.ToString()).SendAsync("ReceiveNewComment", comment);
+    }
+
 }

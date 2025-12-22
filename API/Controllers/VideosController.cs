@@ -270,7 +270,7 @@ public class VideosController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to create comment");
-            return BadRequest(new { error = "创建评论时发生错误" });
+            return BadRequest(new { error = "Failed to create comment" });
         }
     }
 }

@@ -1,23 +1,30 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as signalR from "@microsoft/signalr";
 import { getAuthToken } from "../../lib/api/axios";
 
 interface UseCommentHubOptions {
   videoId: string | undefined;
   onCommentsReceived: (comments: CommentDto[]) => void;
+  onNewCommentReceived?: (comment: CommentDto) => void;
   enabled?: boolean;
 }
 
-export const useCommentHub = ({ videoId, onCommentsReceived, enabled = true }: UseCommentHubOptions) => {
+export const useCommentHub = ({ videoId, onCommentsReceived, onNewCommentReceived, enabled = true }: UseCommentHubOptions) => {
   const connectionRef = useRef<signalR.HubConnection | null>(null);
   const onCommentsReceivedRef = useRef(onCommentsReceived);
+  const onNewCommentReceivedRef = useRef(onNewCommentReceived);
   const isCleaningUpRef = useRef(false);
   const isMountedRef = useRef(true);
+  const [isConnected, setIsConnected] = useState(false);
 
-  // Keep the callback ref up to date
+  // Keep the callback refs up to date
   useEffect(() => {
     onCommentsReceivedRef.current = onCommentsReceived;
   }, [onCommentsReceived]);
+
+  useEffect(() => {
+    onNewCommentReceivedRef.current = onNewCommentReceived;
+  }, [onNewCommentReceived]);
 
   useEffect(() => {
     if (!enabled || !videoId) {
@@ -77,21 +84,30 @@ export const useCommentHub = ({ videoId, onCommentsReceived, enabled = true }: U
       }
     });
 
+    connection.on("ReceiveNewComment", (comment: CommentDto) => {
+      if (isMountedRef.current && !isCleaningUpRef.current && onNewCommentReceivedRef.current) {
+        onNewCommentReceivedRef.current(comment);
+      }
+    });
+
     connection.onreconnecting((error) => {
       if (isMountedRef.current && !isCleaningUpRef.current) {
         console.log("SignalR reconnecting...", error);
+        setIsConnected(false);
       }
     });
 
     connection.onreconnected((connectionId) => {
       if (isMountedRef.current && !isCleaningUpRef.current) {
         console.log("SignalR reconnected:", connectionId);
+        setIsConnected(true);
       }
     });
 
     connection.onclose((error) => {
       if (isMountedRef.current && !isCleaningUpRef.current) {
         console.log("SignalR connection closed", error);
+        setIsConnected(false);
       }
     });
 
@@ -104,6 +120,7 @@ export const useCommentHub = ({ videoId, onCommentsReceived, enabled = true }: U
         // Only log if this is still the active connection and component is mounted
         if (isMountedRef.current && connectionRef.current === connection && !isCleaningUpRef.current) {
           console.log("SignalR connected for video:", videoId);
+          setIsConnected(true);
         }
       })
       .catch((error) => {
@@ -124,6 +141,7 @@ export const useCommentHub = ({ videoId, onCommentsReceived, enabled = true }: U
       // Only cleanup if this is still the active connection
       if (connectionRef.current === connection) {
         connectionRef.current = null;
+        setIsConnected(false);
 
         // Wait for start to complete (or fail) before stopping
         startPromise
@@ -144,8 +162,7 @@ export const useCommentHub = ({ videoId, onCommentsReceived, enabled = true }: U
   }, [videoId, enabled]);
 
   return {
-    connection: connectionRef.current,
-    isConnected: connectionRef.current?.state === signalR.HubConnectionState.Connected
+    isConnected
   };
 };
 
