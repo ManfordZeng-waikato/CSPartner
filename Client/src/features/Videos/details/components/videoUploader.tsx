@@ -3,8 +3,10 @@ import {
   Box,
   Typography,
   Avatar,
-  CircularProgress
+  CircularProgress,
+  Tooltip
 } from "@mui/material";
+import { useNavigate } from "react-router";
 import { useUserProfile } from "../../../hooks/useUserProfile";
 import { getAvatarUrl } from "../../../../lib/utils/avatar";
 
@@ -14,6 +16,17 @@ interface VideoUploaderProps {
 
 const VideoUploader: React.FC<VideoUploaderProps> = ({ uploaderUserId }) => {
   const { profile, isLoading: profileLoading } = useUserProfile(uploaderUserId);
+  const navigate = useNavigate();
+
+  const handleClick = () => {
+    if (uploaderUserId) {
+      navigate(`/user/${uploaderUserId}`);
+    }
+  };
+
+  const tooltipTitle = profile?.displayName 
+    ? `${profile.displayName} - 点击查看个人主页`
+    : "点击查看个人主页";
 
   return (
     <Box sx={{ mb: 3 }}>
@@ -25,16 +38,41 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ uploaderUserId }) => {
           <CircularProgress size={24} />
         ) : (
           <>
-            <Avatar
-              src={getAvatarUrl(profile?.avatarUrl)}
-              sx={{ width: 56, height: 56 }}
-            >
-              {profile?.displayName?.[0] || 'U'}
-            </Avatar>
+            <Tooltip title={tooltipTitle} arrow>
+              <Avatar
+                src={getAvatarUrl(profile?.avatarUrl)}
+                onClick={handleClick}
+                sx={{ 
+                  width: 56, 
+                  height: 56,
+                  cursor: 'pointer',
+                  transition: 'transform 0.2s',
+                  '&:hover': {
+                    transform: 'scale(1.05)'
+                  }
+                }}
+              >
+                {profile?.displayName?.[0] || 'U'}
+              </Avatar>
+            </Tooltip>
             <Box>
-              <Typography variant="subtitle1" fontWeight="bold">
-                {profile?.displayName || 'Unknown User'}
-              </Typography>
+              <Tooltip title={tooltipTitle} arrow>
+                <Typography 
+                  variant="subtitle1" 
+                  fontWeight="bold"
+                  onClick={handleClick}
+                  sx={{
+                    cursor: 'pointer',
+                    display: 'inline-block',
+                    transition: 'color 0.2s',
+                    '&:hover': {
+                      color: 'primary.main'
+                    }
+                  }}
+                >
+                  {profile?.displayName || 'Unknown User'}
+                </Typography>
+              </Tooltip>
               {profile?.bio && (
                 <Typography variant="body2" color="text.secondary">
                   {profile.bio}

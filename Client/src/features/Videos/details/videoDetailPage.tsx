@@ -13,7 +13,6 @@ const VideoDetail: React.FC = () => {
   const { video, isLoading: videoLoading, error: videoError } = useVideo(id);
   const { isLoading: commentsLoading } = useVideoComments(id);
   const commentsSectionRef = useRef<HTMLDivElement>(null);
-  const scrollAttemptRef = useRef(0);
 
   // Handle scroll to comments section when hash is present
   useEffect(() => {
@@ -44,7 +43,7 @@ const VideoDetail: React.FC = () => {
       };
 
       // Multiple attempts with increasing delays to handle different rendering speeds
-      const timeouts: NodeJS.Timeout[] = [];
+      const timeouts: ReturnType<typeof setTimeout>[] = [];
 
       // Attempt 1: After DOM updates (requestAnimationFrame)
       requestAnimationFrame(() => {
