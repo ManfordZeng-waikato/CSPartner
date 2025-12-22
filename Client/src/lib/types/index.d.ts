@@ -4,6 +4,14 @@ enum VideoVisibility {
     Private = 2
 }
 
+// Pagination Types
+type CursorPagedResult<T> = {
+    items: T[]
+    nextCursor: string | null
+    hasMore: boolean
+    count: number
+}
+
 // Video Types
 type VideoDto = {
     videoId: string

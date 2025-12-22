@@ -1,5 +1,6 @@
 using API.DTOs;
 using Application.Common.Interfaces;
+using Application.DTOs.Common;
 using Application.DTOs.Video;
 using Application.DTOs.Comment;
 using Application.Features.Videos.Commands.CreateVideo;
@@ -43,20 +44,20 @@ public class VideosController : BaseApiController
     }
 
     /// <summary>
-    /// Get video list
+    /// Get video list with cursor pagination
     /// Visibility rules:
     /// - Anonymous users: only Public videos
     /// - Authenticated users: Public videos + own Private videos
+    /// Sorting: CreatedAt DESC + Id DESC
     /// </summary>
     [HttpGet]
     [AllowAnonymous]
-    public async Task<ActionResult<IEnumerable<VideoDto>>> GetVideos([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    public async Task<ActionResult<CursorPagedResult<VideoDto>>> GetVideos([FromQuery] string? cursor = null, [FromQuery] int pageSize = 20)
     {
-        if (page < 1) page = 1;
         if (pageSize < 1 || pageSize > 100) pageSize = 20;
 
-        var videos = await _mediator.Send(new GetVideosQuery(page, pageSize, _currentUserService.UserId));
-        return Ok(videos);
+        var result = await _mediator.Send(new GetVideosQuery(cursor, pageSize, _currentUserService.UserId));
+        return Ok(result);
     }
 
     /// <summary>

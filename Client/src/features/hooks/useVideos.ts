@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
 import apiClient from "../../lib/api/axios";
 import { useAuthSession } from "./useAuthSession";
 
@@ -42,18 +42,35 @@ export const useCreateVideo = (
   });
 };
 
-export const useVideos = () => {
-  const { data: videos, isLoading } = useQuery({
-    queryKey: ['videos'],
-    queryFn: async () => {
-      const response = await apiClient.get<VideoDto[]>('/api/videos');
+export const useVideos = (pageSize: number = 20) => {
+  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
+    queryKey: ['videos', pageSize],
+    queryFn: async ({ pageParam }) => {
+      const params = new URLSearchParams();
+      params.append('pageSize', pageSize.toString());
+      if (pageParam) {
+        params.append('cursor', pageParam);
+      }
+      const response = await apiClient.get<CursorPagedResult<VideoDto>>(`/api/videos?${params.toString()}`);
       return response.data;
-    }
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
   });
+
+  // Flatten all pages into a single array
+  const videos = data?.pages.flatMap(page => page.items) ?? [];
 
   const createVideo = useCreateVideo();
 
-  return { videos, isLoading, createVideo };
+  return { 
+    videos, 
+    isLoading, 
+    createVideo,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage
+  };
 };
 
 export const useVideo = (videoId: string | undefined) => {
