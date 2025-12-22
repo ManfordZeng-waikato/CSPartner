@@ -1,24 +1,15 @@
 import React from "react";
 import { Box, Typography, Paper, CircularProgress } from "@mui/material";
 import CommentItem from "./CommentItem";
-// CommentDto type definition
-interface CommentDto {
-  commentId: string;
-  videoId: string;
-  userId: string;
-  parentCommentId: string | null;
-  content: string;
-  createdAtUtc: string;
-  updatedAtUtc: string | null;
-  replies: CommentDto[];
-}
 
 interface CommentListProps {
   comments: CommentDto[];
   isLoading: boolean;
+  videoId: string;
+  isAuthenticated: boolean;
 }
 
-const CommentList: React.FC<CommentListProps> = ({ comments, isLoading }) => {
+const CommentList: React.FC<CommentListProps> = ({ comments, isLoading, videoId, isAuthenticated }) => {
   if (isLoading) {
     return (
       <Box display="flex" justifyContent="center" p={3}>
@@ -40,7 +31,12 @@ const CommentList: React.FC<CommentListProps> = ({ comments, isLoading }) => {
   return (
     <Box sx={{ mt: 2 }}>
       {comments.map((comment) => (
-        <CommentItem key={comment.commentId} comment={comment} />
+        <CommentItem 
+          key={comment.commentId} 
+          comment={comment} 
+          videoId={videoId}
+          isAuthenticated={isAuthenticated}
+        />
       ))}
     </Box>
   );

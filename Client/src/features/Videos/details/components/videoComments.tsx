@@ -8,18 +8,6 @@ import CommentForm from "./CommentForm";
 import CommentList from "./CommentList";
 import { addCommentToList } from "../../../../lib/utils/commentUtils";
 
-// CommentDto type definition
-interface CommentDto {
-  commentId: string;
-  videoId: string;
-  userId: string;
-  parentCommentId: string | null;
-  content: string;
-  createdAtUtc: string;
-  updatedAtUtc: string | null;
-  replies: CommentDto[];
-}
-
 interface VideoCommentsProps {
   videoId: string | undefined;
   commentCount: number;
@@ -34,14 +22,19 @@ const VideoComments: React.FC<VideoCommentsProps> = ({ videoId, commentCount }) 
   const isAuthenticated = !!session;
 
   // Use initialComments as the source of truth, but allow SignalR to override
-  // Sort comments by creation time (newest first) to ensure consistent ordering
+  // Sort only top-level comments by creation time (newest first)
+  // Replies should stay in their parent's replies array
   const displayComments = useMemo(() => {
     const rawComments = comments.length > 0 ? comments : (initialComments || []);
-    return [...rawComments].sort((a, b) => {
-      const dateA = new Date(a.createdAtUtc).getTime();
-      const dateB = new Date(b.createdAtUtc).getTime();
-      return dateB - dateA; // Descending order (newest first)
-    });
+    // Only sort top-level comments (those without parentCommentId)
+    // Replies are already nested in their parent's replies array
+    return [...rawComments]
+      .filter(comment => !comment.parentCommentId) // Only top-level comments
+      .sort((a, b) => {
+        const dateA = new Date(a.createdAtUtc).getTime();
+        const dateB = new Date(b.createdAtUtc).getTime();
+        return dateB - dateA; // Descending order (newest first)
+      });
   }, [comments, initialComments]);
 
   // Handle real-time comment updates from SignalR (full list replacement)
@@ -67,12 +60,13 @@ const VideoComments: React.FC<VideoCommentsProps> = ({ videoId, commentCount }) 
   }, [videoId, queryClient]);
 
   // Connect to SignalR hub for real-time updates
-  useCommentHub({
+  const { isConnected } = useCommentHub({
     videoId,
     onCommentsReceived: handleCommentsReceived,
     onNewCommentReceived: handleNewCommentReceived,
     enabled: !!videoId
   });
+
 
   // Calculate actual comment count (including replies)
   const totalCommentCount = displayComments.reduce((count, comment) => {
@@ -89,7 +83,14 @@ const VideoComments: React.FC<VideoCommentsProps> = ({ videoId, commentCount }) 
         <CommentForm videoId={videoId} isAuthenticated={isAuthenticated} />
       )}
 
-      <CommentList comments={displayComments} isLoading={commentsLoading} />
+      {videoId && (
+        <CommentList 
+          comments={displayComments} 
+          isLoading={commentsLoading}
+          videoId={videoId}
+          isAuthenticated={isAuthenticated}
+        />
+      )}
     </Box>
   );
 };

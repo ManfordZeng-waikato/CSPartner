@@ -60,6 +60,7 @@ export const useCommentHub = ({ videoId, onCommentsReceived, onNewCommentReceive
     // Create SignalR connection
     const connection = new signalR.HubConnectionBuilder()
       .withUrl(hubUrl)
+      .configureLogging(signalR.LogLevel.Warning)
       .withAutomaticReconnect({
         nextRetryDelayInMilliseconds: (retryContext) => {
           // Exponential backoff: 0s, 2s, 10s, 30s, then 30s max
@@ -90,23 +91,20 @@ export const useCommentHub = ({ videoId, onCommentsReceived, onNewCommentReceive
       }
     });
 
-    connection.onreconnecting((error) => {
+    connection.onreconnecting(() => {
       if (isMountedRef.current && !isCleaningUpRef.current) {
-        console.log("SignalR reconnecting...", error);
         setIsConnected(false);
       }
     });
 
-    connection.onreconnected((connectionId) => {
+    connection.onreconnected(() => {
       if (isMountedRef.current && !isCleaningUpRef.current) {
-        console.log("SignalR reconnected:", connectionId);
         setIsConnected(true);
       }
     });
 
-    connection.onclose((error) => {
+    connection.onclose(() => {
       if (isMountedRef.current && !isCleaningUpRef.current) {
-        console.log("SignalR connection closed", error);
         setIsConnected(false);
       }
     });
@@ -117,15 +115,12 @@ export const useCommentHub = ({ videoId, onCommentsReceived, onNewCommentReceive
     // Start connection asynchronously
     const startPromise = connection.start()
       .then(() => {
-        // Only log if this is still the active connection and component is mounted
         if (isMountedRef.current && connectionRef.current === connection && !isCleaningUpRef.current) {
-          console.log("SignalR connected for video:", videoId);
           setIsConnected(true);
         }
       })
       .catch((error) => {
-        // Only log if component is still mounted and this is the active connection
-        // Don't log AbortError as it's expected during cleanup in React strict mode
+        // Only log unexpected errors
         if (isMountedRef.current && connectionRef.current === connection && !isCleaningUpRef.current) {
           if (error.name !== 'AbortError' && error.message !== 'The connection was stopped during negotiation.') {
             console.error("SignalR connection error:", error);

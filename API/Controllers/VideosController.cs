@@ -259,7 +259,15 @@ public class VideosController : BaseApiController
 
             // Broadcast updated comments list to all clients watching this video
             var comments = await _mediator.Send(new GetVideoCommentsQuery(id));
-            await _hubContext.Clients.Group(id.ToString()).SendAsync("ReceiveComments", comments);
+            try
+            {
+                await _hubContext.Clients.Group(id.ToString()).SendAsync("ReceiveComments", comments);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send SignalR message to group: {GroupName}", id.ToString());
+                // Don't fail the request if SignalR fails
+            }
 
             return CreatedAtAction(nameof(GetVideoComments), new { id }, comment);
         }

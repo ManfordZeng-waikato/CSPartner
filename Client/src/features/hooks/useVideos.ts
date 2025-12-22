@@ -119,6 +119,21 @@ export const useCreateComment = () => {
   });
 };
 
+export const useDeleteComment = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ commentId, videoId }: { commentId: string; videoId: string }): Promise<void> => {
+      await apiClient.delete(`/api/comments/${commentId}`);
+    },
+    onSuccess: async (_, variables) => {
+      // Invalidate comments query to refetch
+      // SignalR will also update the comments list, but this ensures consistency
+      await queryClient.invalidateQueries({ queryKey: ['video', variables.videoId, 'comments'] });
+    }
+  });
+};
+
 export const useUpdateVideoVisibility = () => {
   const queryClient = useQueryClient();
   const { session } = useAuthSession();

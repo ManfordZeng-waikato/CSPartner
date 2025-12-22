@@ -80,6 +80,7 @@ type CommentDto = {
     videoId: string
     userId: string
     parentCommentId: string | null
+    parentUserId: string | null
     content: string
     createdAtUtc: string
     updatedAtUtc: string | null
