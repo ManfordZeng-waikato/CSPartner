@@ -105,7 +105,7 @@ export default function VideoCard({ video, showMenu = false }: VideoCardProps) {
                 isDeleting={deleteVideo.isPending}
             />
             <CardContent sx={{ flexGrow: 1 }}>
-                <VideoInfo title={video.title} description={video.description} />
+                <VideoInfo title={video.title} description={video.description} videoId={video.videoId} />
                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 2 }}>
                     <VideoStats
                         viewCount={video.viewCount}
