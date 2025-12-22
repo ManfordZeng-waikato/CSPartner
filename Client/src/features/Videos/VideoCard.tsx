@@ -112,6 +112,7 @@ export default function VideoCard({ video, showMenu = false }: VideoCardProps) {
                         likeCount={video.likeCount}
                         commentCount={video.commentCount}
                         videoId={video.videoId}
+                        hasLiked={video.hasLiked}
                         onCommentClick={handleCommentClick}
                     />
                 </Box>

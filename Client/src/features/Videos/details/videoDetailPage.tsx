@@ -106,6 +106,8 @@ const VideoDetail: React.FC = () => {
         viewCount={video.viewCount}
         likeCount={video.likeCount}
         commentCount={video.commentCount}
+        videoId={video.videoId}
+        hasLiked={video.hasLiked}
       />
 
       <Divider sx={{ my: 3 }} />

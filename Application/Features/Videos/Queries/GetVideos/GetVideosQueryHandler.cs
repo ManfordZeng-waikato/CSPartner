@@ -43,27 +43,37 @@ public class GetVideosQueryHandler : IRequestHandler<GetVideosQuery, CursorPaged
             .OrderByDescending(v => v.CreatedAtUtc)
             .ThenByDescending(v => v.Id);
 
-        // Fetch one extra item to determine if there are more results
+        // Fetch more videos than requested to account for visibility filtering
+        // We fetch PageSize * 2 to ensure we have enough visible videos
+        var fetchSize = request.PageSize * 2;
         var videos = await query
             .Include(v => v.Likes)
-            .Take(request.PageSize + 1)
+            .Take(fetchSize + 1) // +1 to check if there are more
             .ToListAsync(cancellationToken);
 
-        // Determine if there are more results
-        var hasMore = videos.Count > request.PageSize;
-        if (hasMore)
+        // Check if there are more videos in the database (before filtering)
+        var hasMoreInDb = videos.Count > fetchSize;
+        if (hasMoreInDb)
         {
-            videos = videos.Take(request.PageSize).ToList();
+            videos = videos.Take(fetchSize).ToList();
         }
 
         // Filter by visibility and build DTOs
         var videoDtos = new List<VideoDto>();
+        HighlightVideo? lastVisibleVideo = null;
+        
         foreach (var video in videos)
         {
             var isOwner = request.CurrentUserId.HasValue && request.CurrentUserId.Value == video.UploaderUserId;
             if (video.Visibility != VideoVisibility.Public && !isOwner)
             {
-                continue;
+                continue; // Skip private videos that user doesn't own
+            }
+
+            // Stop if we have enough visible videos
+            if (videoDtos.Count >= request.PageSize)
+            {
+                break;
             }
 
             bool hasLiked = false;
@@ -74,16 +84,34 @@ public class GetVideosQueryHandler : IRequestHandler<GetVideosQuery, CursorPaged
             }
 
             videoDtos.Add(video.ToDto(hasLiked));
+            lastVisibleVideo = video; // Track last visible video for cursor
         }
 
-        // Generate next cursor from the last item in the filtered list
-        // Use the last video from the original query (before visibility filtering)
-        // to maintain consistent cursor positioning
+        // Determine hasMore and nextCursor based on the last visible video (after filtering)
+        // This ensures pagination works correctly even when private videos are filtered out
+        var hasMore = false;
         string? nextCursor = null;
-        if (hasMore && videos.Count > 0)
+        
+        if (lastVisibleVideo != null)
         {
-            var lastVideo = videos.Last();
-            nextCursor = CursorHelper.EncodeCursor(lastVideo.CreatedAtUtc, lastVideo.Id);
+            // Check if there are more videos after the last visible video
+            var hasMoreAfterLastVisible = await _context.Videos
+                .Where(v => !v.IsDeleted && 
+                    (v.CreatedAtUtc < lastVisibleVideo.CreatedAtUtc || 
+                     (v.CreatedAtUtc == lastVisibleVideo.CreatedAtUtc && v.Id.CompareTo(lastVisibleVideo.Id) < 0)))
+                .AnyAsync(cancellationToken);
+            
+            if (hasMoreAfterLastVisible)
+            {
+                hasMore = true;
+                nextCursor = CursorHelper.EncodeCursor(lastVisibleVideo.CreatedAtUtc, lastVisibleVideo.Id);
+            }
+        }
+        // If we got exactly PageSize visible videos and there are more in DB, there might be more
+        else if (videoDtos.Count == request.PageSize && hasMoreInDb)
+        {
+            // This case shouldn't happen if lastVisibleVideo is set, but handle it for safety
+            hasMore = true;
         }
 
         return new CursorPagedResult<VideoDto>

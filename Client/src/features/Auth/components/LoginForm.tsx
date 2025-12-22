@@ -17,6 +17,7 @@ import {
   type LoginFormValues
 } from "../../../lib/schemas/loginSchema";
 import { handleApiError, useLogin } from "../../hooks/useAccount";
+import { processPendingLikes } from "../../hooks/useVideos";
 import { Link, useNavigate, useLocation } from "react-router";
 import type { Location } from "react-router";
 
@@ -49,6 +50,9 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
     try {
       const result = await loginMutation.mutateAsync(values);
       if (result.succeeded) {
+        // Process any pending likes from before login
+        await processPendingLikes();
+        
         // Check for return URL in state or search params
         const stateFrom = (location.state as { from?: Location })?.from;
         const searchParams = new URLSearchParams(location.search);

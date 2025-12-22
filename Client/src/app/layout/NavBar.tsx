@@ -6,20 +6,28 @@ import {
   Toolbar,
   Button,
   Stack,
-  Tooltip
+  Tooltip,
+  CircularProgress
 } from "@mui/material";
 import MenuItemLink from "../shared/components/MenuItemLink";
 import { useLogout } from "../../features/hooks/useAccount";
 import { useAuthSession } from "../../features/hooks/useAuthSession";
 import { useUserProfile } from "../../features/hooks/useUserProfile";
-import { useNavigate } from "react-router";
+import { useNavigate, useLocation } from "react-router";
 import { getAvatarUrl } from "../../lib/utils/avatar";
+import { useVideos } from "../../features/hooks/useVideos";
 
 export default function Navbar() {
     const logout = useLogout();
     const navigate = useNavigate();
+    const location = useLocation();
     const { session } = useAuthSession();
     const { profile, isLoading: profileLoading } = useUserProfile(session?.userId);
+    
+    // Get loading state for videos page
+    const isVideosPage = location.pathname.startsWith('/videos');
+    const { isLoading: videosLoading, isFetchingNextPage: videosFetchingNextPage } = useVideos();
+    const showLoadingIndicator = isVideosPage && (videosLoading || videosFetchingNextPage);
 
     const handleLogout = async () => {
         try {
@@ -47,13 +55,22 @@ export default function Navbar() {
                             </MenuItemLink>
                         </Stack>
 
-                        <Stack direction="row" justifyContent="center">
+                        <Stack direction="row" justifyContent="center" alignItems="center" spacing={1}>
                             <MenuItemLink
                                 to="/videos"
                                 matchMode="startsWith"
                             >
                                 Highlights
                             </MenuItemLink>
+                            {showLoadingIndicator && (
+                                <CircularProgress 
+                                    size={16} 
+                                    sx={{ 
+                                        color: 'inherit',
+                                        animationDuration: '550ms'
+                                    }} 
+                                />
+                            )}
                         </Stack>
 
                         <Stack direction="row" alignItems="center" spacing={1} justifyContent="flex-end">
