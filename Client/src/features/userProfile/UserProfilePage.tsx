@@ -9,7 +9,7 @@ import {
 } from "@mui/material";
 import { useUserProfile } from "../hooks/useUserProfile";
 import { useAuthSession } from "../hooks/useAuthSession";
-import VideoCard from "../Videos/videoCard";
+import VideoCard from "../Videos/VideoCard";
 import UserProfileCard from "./components/UserProfileCard";
 
 function UserProfilePage() {

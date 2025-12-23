@@ -1,5 +1,5 @@
 import { Box } from "@mui/material"
-import VideoCard from "../videoCard";
+import VideoCard from "../VideoCard";
 import { useVideos } from "../../hooks/useVideos";
 import { useInfiniteScroll } from "../../hooks/useInfiniteScroll";
 
