@@ -13,9 +13,9 @@ public class CreateVideoDto
     public string? Description { get; set; }
 
     [Required]
-    public string VideoUrl { get; set; } = default!;
+    public string VideoObjectKey { get; set; } = default!;
 
-    public string? ThumbnailUrl { get; set; }
+    public string? ThumbnailObjectKey { get; set; }
 
     public VideoVisibility Visibility { get; set; } = VideoVisibility.Public;
 }

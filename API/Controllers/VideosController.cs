@@ -4,7 +4,6 @@ using Application.DTOs.Common;
 using Application.DTOs.Video;
 using Application.DTOs.Comment;
 using Application.Features.Videos.Commands.CreateVideo;
-using Application.Features.Videos.Commands.UploadAndCreateVideo;
 using Application.Features.Videos.Commands.UpdateVideo;
 using Application.Features.Videos.Commands.DeleteVideo;
 using Application.Features.Videos.Commands.ToggleLike;
@@ -16,11 +15,11 @@ using Application.Features.Comments.Commands.CreateComment;
 using Application.Features.Comments.Queries.GetVideoComments;
 using Domain.Videos;
 using MediatR;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using API.SignalR;
+using Application.Interfaces.Services;
 
 namespace API.Controllers;
 
@@ -30,17 +29,20 @@ public class VideosController : BaseApiController
     private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<VideosController> _logger;
     private readonly IHubContext<CommentHub> _hubContext;
+    private readonly IStorageService _storageService;
 
     public VideosController(
         IMediator mediator,
         ICurrentUserService currentUserService,
         ILogger<VideosController> logger,
-        IHubContext<CommentHub> hubContext)
+        IHubContext<CommentHub> hubContext,
+        IStorageService storageService)
     {
         _mediator = mediator;
         _currentUserService = currentUserService;
         _logger = logger;
         _hubContext = hubContext;
+        _storageService = storageService;
     }
 
     /// <summary>
@@ -96,64 +98,43 @@ public class VideosController : BaseApiController
     }
 
     /// <summary>
-    /// Upload video file to R2 and create video record
+    /// Generate a pre-signed URL for uploading a video directly to R2
     /// </summary>
-    [HttpPost("upload")]
+    [HttpPost("upload-url")]
     [Authorize]
-    [RequestSizeLimit(50_000_000)] // 50MB limit
-    public async Task<ActionResult<VideoDto>> UploadVideo(
-        [FromForm] UploadVideoFormRequest formRequest,
+    public async Task<ActionResult<VideoUploadUrlResponse>> GetUploadUrl(
+        [FromBody] VideoUploadUrlRequest request,
         CancellationToken cancellationToken = default)
     {
-        // Basic validation
-        if (formRequest.VideoFile == null || formRequest.VideoFile.Length == 0)
-            return BadRequest(new { error = "Video file cannot be empty" });
-
-        if (!ModelState.IsValid)
-            return BadRequest(ModelState);
-
         try
         {
-            // Convert API layer form request to application layer request
-            var uploadRequest = new UploadVideoRequest
+            if (string.IsNullOrWhiteSpace(request.FileName))
+                return BadRequest(new { error = "FileName is required" });
+
+            var contentType = string.IsNullOrWhiteSpace(request.ContentType)
+                ? "video/mp4"
+                : request.ContentType;
+
+            var result = await _storageService.GetVideoUploadUrlAsync(
+                request.FileName,
+                contentType,
+                cancellationToken);
+
+            var response = new VideoUploadUrlResponse
             {
-                VideoStream = formRequest.VideoFile.OpenReadStream(),
-                VideoFileName = formRequest.VideoFile.FileName,
-                Title = formRequest.Title,
-                Description = formRequest.Description,
-                Visibility = formRequest.Visibility
+                UploadUrl = result.UploadUrl,
+                ObjectKey = result.ObjectKey,
+                PublicUrl = result.PublicUrl,
+                ExpiresAtUtc = result.ExpiresAtUtc,
+                ContentType = result.ContentType
             };
 
-            // Handle thumbnail (if provided)
-            if (formRequest.ThumbnailFile != null && formRequest.ThumbnailFile.Length > 0)
-            {
-                uploadRequest.ThumbnailStream = formRequest.ThumbnailFile.OpenReadStream();
-                uploadRequest.ThumbnailFileName = formRequest.ThumbnailFile.FileName;
-            }
-
-            // Call MediatR to handle upload and creation
-            var command = new UploadAndCreateVideoCommand(
-                uploadRequest.VideoStream,
-                uploadRequest.VideoFileName,
-                uploadRequest.Title,
-                uploadRequest.Description,
-                uploadRequest.ThumbnailStream,
-                uploadRequest.ThumbnailFileName,
-                uploadRequest.Visibility);
-
-            var video = await _mediator.Send(command, cancellationToken);
-
-            return CreatedAtAction(nameof(GetVideo), new { id = video.VideoId }, video);
-        }
-        catch (ArgumentException ex)
-        {
-            _logger.LogWarning(ex, "Video upload validation failed");
-            return BadRequest(new { error = ex.Message });
+            return Ok(response);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Video upload failed");
-            return BadRequest(new { error = $"Upload failed: {ex.Message}" });
+            _logger.LogError(ex, "Failed to generate pre-signed upload URL");
+            return BadRequest(new { error = $"Failed to generate upload URL: {ex.Message}" });
         }
     }
 
@@ -166,11 +147,43 @@ public class VideosController : BaseApiController
     {
         try
         {
+            if (string.IsNullOrWhiteSpace(dto.VideoObjectKey))
+            {
+                return BadRequest(new { error = "VideoObjectKey is required" });
+            }
+
+            // Verify that the video file exists in R2 before creating database record
+            // This prevents orphaned database records if R2 upload failed
+            var videoExists = await _storageService.FileExistsAsync(dto.VideoObjectKey);
+            if (!videoExists)
+            {
+                _logger.LogWarning("Attempted to create video record for non-existent file: {ObjectKey}", dto.VideoObjectKey);
+                return BadRequest(new { error = "Video file not found in storage. Please upload the video again." });
+            }
+
+            // Verify thumbnail if provided
+            if (!string.IsNullOrWhiteSpace(dto.ThumbnailObjectKey))
+            {
+                var thumbnailExists = await _storageService.FileExistsAsync(dto.ThumbnailObjectKey);
+                if (!thumbnailExists)
+                {
+                    _logger.LogWarning("Thumbnail file not found: {ObjectKey}", dto.ThumbnailObjectKey);
+                    // Don't fail the request if thumbnail is missing, just log it
+                }
+            }
+
+            var videoUrl = _storageService.GetPublicUrl(dto.VideoObjectKey);
+            string? thumbnailUrl = null;
+            if (!string.IsNullOrWhiteSpace(dto.ThumbnailObjectKey))
+            {
+                thumbnailUrl = _storageService.GetPublicUrl(dto.ThumbnailObjectKey);
+            }
+
             var command = new CreateVideoCommand(
                 dto.Title,
-                dto.VideoUrl,
+                videoUrl,
                 dto.Description,
-                dto.ThumbnailUrl,
+                thumbnailUrl,
                 dto.Visibility);
 
             var video = await _mediator.Send(command);

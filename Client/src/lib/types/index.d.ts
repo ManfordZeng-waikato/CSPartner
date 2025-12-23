@@ -30,13 +30,27 @@ type VideoDto = {
 }
 
 type CreateVideoDto = {
-    videoStream: File
-    videoFileName: string
-    thumbnailStream?: File | null
-    thumbnailFileName?: string | null
+    videoFile: File
     title: string
     description?: string | null
     visibility: VideoVisibility
+}
+
+type CreateVideoRequestDto = {
+    title: string
+    description?: string | null
+    videoObjectKey: string
+    thumbnailObjectKey?: string | null
+    visibility: VideoVisibility
+}
+
+type VideoUploadUrlResponseDto = {
+    uploadUrl: string
+    objectKey: string
+    publicUrl: string
+    expiresAtUtc: string
+    contentType: string
+    method: string
 }
 
 type UpdateVideoDto = {
@@ -44,12 +58,6 @@ type UpdateVideoDto = {
     description: string | null
     thumbnailUrl: string | null
     visibility: VideoVisibility | null
-}
-
-type UploadVideoResponseDto = {
-    videoUrl: string
-    thumbnailUrl: string | null
-    message: string
 }
 
 // User Profile Types

@@ -41,8 +41,8 @@ apiClient.interceptors.request.use(
     
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-    } else if (!isAnonymousEndpoint) {
-      // Only warn for endpoints that typically require authentication
+    } else if (!isAnonymousEndpoint && import.meta.env.DEV) {
+      // Only warn in development for endpoints that typically require authentication
       console.warn("No auth token found for request:", config.url);
     }
     
@@ -66,12 +66,16 @@ apiClient.interceptors.response.use(
       
       if (error.response.status === 401) {
         // Token expired or invalid, clear it
+        if (import.meta.env.DEV) {
+          const token = getAuthToken();
+          console.warn("401 Unauthorized - Token may be expired or invalid. Token exists:", !!token);
+        }
         setAuthToken(null);
         // Don't redirect for login/register endpoints (they handle their own errors)
         // Don't redirect for upload requests to allow error handling
         const isAuthEndpoint = error.config?.url?.includes('/account/login') || 
                               error.config?.url?.includes('/account/register');
-        const isUploadRequest = error.config?.url?.includes('/upload');
+        const isUploadRequest = error.config?.url?.includes('/upload') || error.config?.url?.includes('/upload-url');
         if (typeof window !== "undefined" && !isAuthEndpoint && !isUploadRequest) {
           window.location.href = "/login";
         }

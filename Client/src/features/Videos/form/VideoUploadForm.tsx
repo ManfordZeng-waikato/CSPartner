@@ -63,10 +63,7 @@ const VideoUploadForm: React.FC = () => {
 
     const description = values.description?.trim();
     const payload: CreateVideoDto = {
-      videoStream: values.videoFile as File,
-      videoFileName: (values.videoFile as File).name,
-      thumbnailStream: null,
-      thumbnailFileName: null,
+      videoFile: values.videoFile as File,
       title: values.title.trim(),
       description: description ? description : null,
       visibility: values.visibility as VideoVisibility

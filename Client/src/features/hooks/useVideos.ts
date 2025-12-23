@@ -10,31 +10,61 @@ export const useCreateVideo = (
 
   return useMutation({
     mutationFn: async (video: CreateVideoDto): Promise<VideoDto> => {
-      const formData = new FormData();
-      formData.append('VideoFile', video.videoStream);
+      const presignResponse = await apiClient.post<VideoUploadUrlResponseDto>('/api/videos/upload-url', {
+        fileName: video.videoFile.name,
+        contentType: video.videoFile.type || 'video/mp4'
+      });
 
-      if (video.thumbnailStream) {
-        formData.append('ThumbnailFile', video.thumbnailStream);
-      }
+      const { uploadUrl, objectKey, contentType } = presignResponse.data;
 
-      formData.append('Title', video.title);
-
-      if (video.description !== undefined && video.description !== null) {
-        formData.append('Description', video.description);
-      }
-
-      formData.append('Visibility', video.visibility.toString());
-
-      const response = await apiClient.post<VideoDto>('/api/videos/upload', formData, {
-        onUploadProgress: (progressEvent) => {
-          if (progressEvent.total && onProgress) {
+      // Use XMLHttpRequest for direct upload to R2 to handle CORS and track progress
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        
+        xhr.upload.addEventListener('progress', (event) => {
+          if (event.lengthComputable && onProgress) {
             const percentCompleted = Math.round(
-              (progressEvent.loaded * 100) / progressEvent.total
+              (event.loaded * 100) / event.total
             );
             onProgress(percentCompleted);
           }
-        }
+        });
+
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve();
+          } else {
+            reject(new Error(`Upload failed: ${xhr.status} ${xhr.statusText}`));
+          }
+        });
+
+        xhr.addEventListener('error', () => {
+          reject(new Error('Network error during upload'));
+        });
+
+        xhr.addEventListener('abort', () => {
+          reject(new Error('Upload aborted'));
+        });
+
+        xhr.open('PUT', uploadUrl);
+        xhr.setRequestHeader('Content-Type', contentType || video.videoFile.type || 'application/octet-stream');
+        xhr.send(video.videoFile);
       });
+
+      const createPayload: CreateVideoRequestDto = {
+        title: video.title,
+        description: video.description ?? null,
+        visibility: video.visibility,
+        videoObjectKey: objectKey,
+        thumbnailObjectKey: null
+      };
+
+      const response = await apiClient.post<VideoDto>('/api/videos', createPayload);
+
+      if (onProgress) {
+        onProgress(100);
+      }
+
       return response.data;
     },
     onSuccess: async () => {
@@ -290,10 +320,10 @@ export const useToggleLike = () => {
       // Also update in videos list (infinite query)
       queryClient.setQueriesData(
         { queryKey: ['videos'] },
-        (old: any) => {
+        (old: InfiniteData<CursorPagedResult<VideoDto>> | CursorPagedResult<VideoDto> | undefined) => {
           if (!old) return old;
           // Handle infinite query structure
-          if (old.pages) {
+          if ('pages' in old) {
             return {
               ...old,
               pages: old.pages.map((page: CursorPagedResult<VideoDto>) => ({
