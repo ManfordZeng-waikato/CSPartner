@@ -35,7 +35,7 @@ public class CommentConfiguration : IEntityTypeConfiguration<Comment>
             .HasForeignKey(x => x.UserId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // ✅ 楼中楼自关联：禁止级联删除
+        // ✅ Nested comment self-reference: prevent cascade delete
         b.HasOne(x => x.ParentComment)
             .WithMany(p => p.Replies)
             .HasForeignKey(x => x.ParentCommentId)

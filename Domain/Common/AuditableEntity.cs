@@ -3,7 +3,7 @@ using System;
 namespace Domain.Common;
 
 /// <summary>
-/// 审计字段：创建/更新时间
+/// Audit fields: creation/update time
 /// </summary>
 public abstract class AuditableEntity : BaseEntity
 {

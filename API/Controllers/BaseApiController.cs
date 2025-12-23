@@ -7,17 +7,17 @@ using Microsoft.AspNetCore.Mvc;
 public class BaseApiController : ControllerBase
 {
     /// <summary>
-    /// 从当前用户的 Claims 中提取用户 ID
-    /// 优先使用 JWT 标准 claim (sub)，回退到 NameIdentifier
-    /// 仅在已认证时尝试提取，返回 null 表示未认证或提取失败
+    /// Extract user ID from current user's Claims
+    /// Prefer JWT standard claim (sub), fallback to NameIdentifier
+    /// Only attempts extraction when authenticated, returns null if not authenticated or extraction fails
     /// </summary>
     protected Guid? GetCurrentUserId()
     {
         if (User.Identity?.IsAuthenticated != true)
             return null;
 
-        // 优先使用 JWT 标准 claim (sub)
-        // JWT Bearer 中间件可能将 sub 映射到不同的 claim type
+        // Prefer JWT standard claim (sub)
+        // JWT Bearer middleware may map sub to different claim type
         var userIdClaim = User.FindFirst(JwtRegisteredClaimNames.Sub)
                           ?? User.FindFirst(ClaimTypes.NameIdentifier)
                           ?? User.FindFirst("sub");
@@ -25,7 +25,7 @@ public class BaseApiController : ControllerBase
         if (userIdClaim == null || string.IsNullOrWhiteSpace(userIdClaim.Value))
             return null;
 
-        // 尝试解析为 Guid
+        // Try to parse as Guid
         if (Guid.TryParse(userIdClaim.Value, out var userId))
             return userId;
 

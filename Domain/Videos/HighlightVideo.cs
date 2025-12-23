@@ -15,11 +15,11 @@ public class HighlightVideo : AuditableEntity
     public string Title { get; private set; } = default!;
     public string? Description { get; private set; }
 
-    // DB只存 URL：对象存储地址
+    // DB only stores URL: object storage address
     public string VideoUrl { get; private set; } = default!;
     public string? ThumbnailUrl { get; private set; }
 
-    // 冗余计数（MVP 可先放着）
+    // Redundant counts (can keep for MVP)
     public int LikeCount { get; private set; }
     public int CommentCount { get; private set; }
     public long ViewCount { get; private set; }
@@ -45,7 +45,7 @@ public class HighlightVideo : AuditableEntity
     public void SetTitle(string title)
     {
         if (string.IsNullOrWhiteSpace(title))
-            throw new ArgumentException("标题不能为空", nameof(title));
+            throw new ArgumentException("Title cannot be empty", nameof(title));
 
         Title = title.Trim().Length <= 120 ? title.Trim() : title.Trim()[..120];
         Touch();
@@ -68,7 +68,7 @@ public class HighlightVideo : AuditableEntity
     public void SetVideoUrl(string url)
     {
         if (string.IsNullOrWhiteSpace(url))
-            throw new ArgumentException("VideoUrl 不能为空", nameof(url));
+            throw new ArgumentException("VideoUrl cannot be empty", nameof(url));
 
         VideoUrl = url.Trim();
         Touch();

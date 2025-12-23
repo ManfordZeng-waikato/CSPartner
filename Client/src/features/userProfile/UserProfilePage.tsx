@@ -17,7 +17,7 @@ function UserProfilePage() {
   const { profile, isLoading } = useUserProfile(id);
   const { session } = useAuthSession();
   
-  // 判断是否是查看自己的主页
+  // Check if viewing own profile
   const isViewingOwnProfile = session?.userId === id;
   
   const visibleVideos = profile?.videos.filter(video => {
@@ -25,7 +25,7 @@ function UserProfilePage() {
      
       return true;
     }
-    // 查看他人主页，只显示 Public 视频
+    // Viewing others' profiles, only show Public videos
     return video.visibility === 1; // VideoVisibility.Public = 1
   }) ?? [];
 
@@ -59,7 +59,7 @@ function UserProfilePage() {
         isOwnProfile={isViewingOwnProfile}
       />
 
-      {/* 视频列表 */}
+      {/* Video list */}
       <Box>
         {visibleVideos.length === 0 ? (
           <Paper sx={{ p: 4, textAlign: "center" }}>

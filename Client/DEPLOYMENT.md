@@ -1,78 +1,78 @@
-# 生产部署指南
+# Production Deployment Guide
 
-本文档说明如何准备和部署 CSPartner 客户端应用到生产环境。
+This document explains how to prepare and deploy the CSPartner client application to production.
 
-## 前置要求
+## Prerequisites
 
-- Node.js 18+ 和 npm
-- 生产环境 API 服务器地址
+- Node.js 18+ and npm
+- Production API server address
 
-## 构建步骤
+## Build Steps
 
-### 1. 安装依赖
+### 1. Install Dependencies
 
 ```bash
 npm install
 ```
 
-### 2. 配置环境变量
+### 2. Configure Environment Variables
 
-复制 `.env.example` 文件并创建 `.env` 文件：
+Copy the `.env.example` file and create an `.env` file:
 
 ```bash
 cp .env.example .env
 ```
 
-编辑 `.env` 文件，设置生产环境的 API 基础 URL：
+Edit the `.env` file and set the production API base URL:
 
 ```env
 VITE_API_BASE_URL=https://api.yourdomain.com
 ```
 
-**重要提示：**
-- 确保 API URL 包含协议（https://）
-- 不要包含尾部斜杠
-- API 服务器需要支持 CORS（如果前端和 API 不在同一域名下）
+**Important Notes:**
+- Ensure the API URL includes the protocol (https://)
+- Do not include a trailing slash
+- The API server needs to support CORS (if frontend and API are not on the same domain)
 
-### 3. 运行类型检查
+### 3. Run Type Check
 
 ```bash
 npm run lint
 ```
 
-### 4. 构建生产版本
+### 4. Build Production Version
 
 ```bash
 npm run build
-# 或使用明确的生产模式
+# Or use explicit production mode
 npm run build:prod
 ```
 
-构建完成后：
-- **与后端一起部署**: 文件将输出到 `../API/wwwroot` 目录
-- **独立部署**: 文件将位于 `dist/` 目录中
+After building:
+- **Deploy with backend**: Files will be output to `../API/wwwroot` directory
+- **Standalone deployment**: Files will be in the `dist/` directory
 
-## 构建产物说明
+## Build Artifacts
 
-构建完成后，`dist/` 目录包含：
+After building, the `dist/` directory contains:
 
-- `index.html` - 入口 HTML 文件
-- `assets/` - 静态资源（JS、CSS、图片等）
-  - 文件名称包含哈希值用于缓存控制
-  - 已自动进行代码分割和优化
+- `index.html` - Entry HTML file
+- `assets/` - Static resources (JS, CSS, images, etc.)
+  - File names include hash values for cache control
+  - Automatic code splitting and optimization
 
-## 部署选项
+## Deployment Options
 
-### 选项 1: 静态文件服务器
+### Option 1: Static File Server
 
-将 `dist/` 目录的内容部署到任何静态文件服务器，例如：
+Deploy the contents of the `dist/` directory to any static file server, such as:
 
-- **Nginx**: 配置指向 `dist/` 目录
-- **Apache**: 配置 DocumentRoot 为 `dist/` 目录
-- **IIS**: 配置网站根目录为 `dist/` 目录
-- **CDN**: 上传到云存储（AWS S3、Azure Blob、阿里云 OSS 等）
+- **Nginx**: Configure to point to `dist/` directory
+- **Apache**: Configure DocumentRoot to `dist/` directory
+- **IIS**: Configure website root directory to `dist/` directory
+- **CDN**: Upload to cloud storage (AWS S3, Azure Blob, Alibaba Cloud OSS, etc.)
 
-#### Nginx 配置示例
+#### Nginx Configuration Example
 
 ```nginx
 server {
@@ -82,19 +82,19 @@ server {
     root /path/to/dist;
     index index.html;
     
-    # 处理客户端路由（SPA）
+    # Handle client-side routing (SPA)
     location / {
         try_files $uri $uri/ /index.html;
     }
     
-    # API 代理（可选，如果需要）
+    # API proxy (optional, if needed)
     location /api {
         proxy_pass https://api.yourdomain.com;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
     }
     
-    # 静态资源缓存
+    # Static resource caching
     location /assets {
         expires 1y;
         add_header Cache-Control "public, immutable";
@@ -102,38 +102,38 @@ server {
 }
 ```
 
-### 选项 2: 与后端一起部署（推荐）
+### Option 2: Deploy with Backend (Recommended)
 
-如果你的后端是 ASP.NET Core，可以将前端构建产物直接输出到后端的 `wwwroot` 目录，实现前后端一体化部署。
+If your backend is ASP.NET Core, you can output the frontend build artifacts directly to the backend's `wwwroot` directory for integrated frontend-backend deployment.
 
-#### 优势
+#### Advantages
 
-- ✅ 单点部署，简化部署流程
-- ✅ 无需配置 CORS（前后端同源）
-- ✅ 统一域名和 HTTPS 配置
-- ✅ 更简单的反向代理配置
+- ✅ Single deployment point, simplified deployment process
+- ✅ No CORS configuration needed (frontend and backend same origin)
+- ✅ Unified domain and HTTPS configuration
+- ✅ Simpler reverse proxy configuration
 
-#### 构建步骤
+#### Build Steps
 
-1. **配置环境变量**
+1. **Configure Environment Variables**
 
-   与后端一起部署时，前端使用相对路径调用 API，因此 `VITE_API_BASE_URL` 应该留空：
+   When deploying with the backend, the frontend uses relative paths to call the API, so `VITE_API_BASE_URL` should be left empty:
 
    ```env
-   # .env 或 .env.production
+   # .env or .env.production
    VITE_API_BASE_URL=
    ```
 
-2. **构建前端**
+2. **Build Frontend**
 
    ```bash
    cd Client
    npm run build
    ```
 
-   构建完成后，文件会自动输出到 `../API/wwwroot` 目录。
+   After building, files will be automatically output to the `../API/wwwroot` directory.
 
-3. **构建和运行后端**
+3. **Build and Run Backend**
 
    ```bash
    cd API
@@ -141,11 +141,11 @@ server {
    dotnet run
    ```
 
-   后端启动后，前端应用将自动从 `wwwroot` 目录提供。
+   After the backend starts, the frontend application will be automatically served from the `wwwroot` directory.
 
-#### 构建配置说明
+#### Build Configuration
 
-前端 `vite.config.ts` 已配置为在生产构建时自动输出到 `API/wwwroot` 目录：
+The frontend `vite.config.ts` is configured to automatically output to the `API/wwwroot` directory during production builds:
 
 ```typescript
 build: {
@@ -154,45 +154,45 @@ build: {
 }
 ```
 
-#### 后端配置
+#### Backend Configuration
 
-后端 `Program.cs` 已配置：
+The backend `Program.cs` is configured:
 
-1. **静态文件服务**: `app.UseStaticFiles()` 从 `wwwroot` 目录提供静态文件
-2. **SPA 回退**: 所有非 API 路由返回 `index.html`，支持客户端路由
-3. **CORS**: 生产环境不需要 CORS（前后端同源）
+1. **Static File Service**: `app.UseStaticFiles()` serves static files from the `wwwroot` directory
+2. **SPA Fallback**: All non-API routes return `index.html`, supporting client-side routing
+3. **CORS**: Not needed in production (frontend and backend same origin)
 
-#### 完整部署流程
+#### Complete Deployment Process
 
 ```bash
-# 1. 安装前端依赖
+# 1. Install frontend dependencies
 cd Client
 npm install
 
-# 2. 构建前端（输出到 API/wwwroot）
+# 2. Build frontend (output to API/wwwroot)
 npm run build
 
-# 3. 构建后端
+# 3. Build backend
 cd ../API
 dotnet build -c Release
 
-# 4. 发布后端（可选）
+# 4. Publish backend (optional)
 dotnet publish -c Release -o ./publish
 
-# 5. 运行
+# 5. Run
 dotnet run
-# 或使用发布版本
+# Or use published version
 # cd publish
 # dotnet API.dll
 ```
 
-#### 目录结构
+#### Directory Structure
 
-部署后的目录结构：
+Directory structure after deployment:
 
 ```
 API/
-├── wwwroot/              # 前端构建产物（自动生成）
+├── wwwroot/              # Frontend build artifacts (auto-generated)
 │   ├── index.html
 │   ├── assets/
 │   │   ├── index-[hash].js
@@ -203,105 +203,105 @@ API/
 └── ...
 ```
 
-#### 注意事项
+#### Notes
 
-- ⚠️ 确保 `API/wwwroot` 目录在构建时存在（ASP.NET Core 项目默认会自动创建）
-- ⚠️ 每次前端更新后需要重新运行 `npm run build`
-- ⚠️ 建议在 CI/CD 流程中先构建前端，再构建后端
-- ⚠️ `wwwroot` 目录在 `.gitignore` 中通常已被忽略，构建产物不会提交到代码库
+- ⚠️ Ensure the `API/wwwroot` directory exists when building (ASP.NET Core projects create it by default)
+- ⚠️ Re-run `npm run build` after each frontend update
+- ⚠️ Recommend building frontend first, then backend in CI/CD pipeline
+- ⚠️ The `wwwroot` directory is typically ignored in `.gitignore`, build artifacts will not be committed to the repository
 
-#### 开发模式
+#### Development Mode
 
-在开发模式下，前端仍然使用独立的开发服务器（`npm run dev`），通过代理连接到后端 API。只有在构建生产版本时，前端才会输出到 `wwwroot`。
+In development mode, the frontend still uses an independent development server (`npm run dev`), connecting to the backend API through a proxy. Only when building production versions will the frontend output to `wwwroot`.
 
-## 环境变量配置
+## Environment Variable Configuration
 
-### 开发环境
+### Development Environment
 
-开发环境可以不设置 `VITE_API_BASE_URL`，使用 vite 的代理功能：
+In development, you can leave `VITE_API_BASE_URL` unset and use Vite's proxy functionality:
 
 ```env
-# .env.development（可选）
+# .env.development (optional)
 VITE_API_BASE_URL=
 ```
 
-### 生产环境 - 与后端一起部署（推荐）
+### Production Environment - Deploy with Backend (Recommended)
 
-当与 ASP.NET Core 后端一起部署时，使用相对路径：
+When deploying with ASP.NET Core backend, use relative paths:
 
 ```env
 # .env.production
 VITE_API_BASE_URL=
 ```
 
-### 生产环境 - 独立部署
+### Production Environment - Standalone Deployment
 
-如果前端和后端部署在不同的服务器，需要设置完整的 API URL：
+If frontend and backend are deployed on different servers, set the complete API URL:
 
 ```env
 # .env.production
 VITE_API_BASE_URL=https://api.yourdomain.com
 ```
 
-**注意：** Vite 的环境变量必须以 `VITE_` 开头才能在客户端代码中访问。
+**Note:** Vite environment variables must start with `VITE_` to be accessible in client code.
 
-## 构建优化说明
+## Build Optimization
 
-生产构建已配置以下优化：
+Production builds are configured with the following optimizations:
 
-1. **代码分割**: 自动将大型依赖库拆分为独立的 chunk
-   - React 相关库
-   - Material-UI 组件库
+1. **Code Splitting**: Automatically splits large dependency libraries into independent chunks
+   - React-related libraries
+   - Material-UI component library
    - TanStack Query
    - SignalR
-   - 表单验证库
+   - Form validation libraries
 
-2. **资源优化**:
-   - ESBuild 压缩
-   - Tree-shaking 移除未使用代码
-   - 资源文件包含哈希值用于缓存
+2. **Resource Optimization**:
+   - ESBuild minification
+   - Tree-shaking to remove unused code
+   - Resource files include hash values for caching
 
-3. **开发工具移除**:
-   - 生产构建自动移除开发相关插件（如 mkcert）
+3. **Development Tools Removal**:
+   - Production builds automatically remove development-related plugins (such as mkcert)
 
-## 验证部署
+## Deployment Verification
 
-部署后，检查以下内容：
+After deployment, check the following:
 
-1. ✅ 应用可以正常加载
-2. ✅ API 调用正常工作（检查网络请求）
-3. ✅ SignalR 连接正常（评论功能）
-4. ✅ 路由跳转正常（刷新页面不会 404）
-5. ✅ 静态资源加载正常
-6. ✅ HTTPS 配置正确（生产环境推荐）
+1. ✅ Application loads normally
+2. ✅ API calls work correctly (check network requests)
+3. ✅ SignalR connection works (comment functionality)
+4. ✅ Route navigation works (page refresh doesn't result in 404)
+5. ✅ Static resources load correctly
+6. ✅ HTTPS is configured correctly (recommended for production)
 
-## 故障排除
+## Troubleshooting
 
-### 问题：API 请求失败
+### Issue: API Requests Fail
 
-- 检查 `VITE_API_BASE_URL` 是否正确设置
-- 检查 API 服务器的 CORS 配置
-- 检查浏览器控制台的网络错误
+- Check if `VITE_API_BASE_URL` is set correctly
+- Check API server's CORS configuration
+- Check browser console for network errors
 
-### 问题：页面刷新后 404
+### Issue: 404 After Page Refresh
 
-- 确保服务器配置了 SPA 路由重定向（见 Nginx 配置示例）
+- Ensure the server is configured with SPA route redirection (see Nginx configuration example)
 
-### 问题：SignalR 连接失败
+### Issue: SignalR Connection Fails
 
-- 检查 API 服务器是否支持 WebSocket
-- 检查 SignalR Hub 路径是否正确（`/api/hubs/comments`）
-- 检查防火墙/代理是否允许 WebSocket 连接
+- Check if the API server supports WebSocket
+- Check if the SignalR Hub path is correct (`/api/hubs/comments`)
+- Check if firewall/proxy allows WebSocket connections
 
-### 问题：构建文件过大
+### Issue: Build Files Too Large
 
-- 检查是否启用了代码分割
-- 检查是否移除了 sourcemap（生产构建已自动禁用）
-- 考虑使用 CDN 加载大型库（如 Material-UI）
+- Check if code splitting is enabled
+- Check if sourcemaps are removed (production builds automatically disable them)
+- Consider using CDN to load large libraries (such as Material-UI)
 
-## 持续集成/持续部署 (CI/CD)
+## Continuous Integration/Continuous Deployment (CI/CD)
 
-### GitHub Actions 示例
+### GitHub Actions Example
 
 ```yaml
 name: Build and Deploy
@@ -328,27 +328,26 @@ jobs:
           VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
       
       - name: Deploy
-        # 添加你的部署步骤
+        # Add your deployment steps
 ```
 
-## 安全注意事项
+## Security Considerations
 
-1. **不要在客户端代码中暴露敏感信息**（API keys、密钥等）
-2. **使用 HTTPS** 在生产环境强制使用 HTTPS
-3. **设置适当的 CSP 头**（内容安全策略）
-4. **定期更新依赖** 运行 `npm audit` 检查安全漏洞
+1. **Do not expose sensitive information in client code** (API keys, secrets, etc.)
+2. **Use HTTPS** Enforce HTTPS in production
+3. **Set appropriate CSP headers** (Content Security Policy)
+4. **Regularly update dependencies** Run `npm audit` to check for security vulnerabilities
 
-## 性能优化建议
+## Performance Optimization Recommendations
 
-1. **启用 Gzip/Brotli 压缩** 在服务器层面
-2. **使用 CDN** 加速静态资源加载
-3. **配置适当的缓存策略**
-4. **监控和优化** 使用 Lighthouse 等工具分析性能
+1. **Enable Gzip/Brotli compression** at the server level
+2. **Use CDN** to accelerate static resource loading
+3. **Configure appropriate caching strategies**
+4. **Monitor and optimize** Use tools like Lighthouse to analyze performance
 
-## 支持
+## Support
 
-如有问题，请查看：
-- [Vite 文档](https://vite.dev/)
-- [React 文档](https://react.dev/)
-- 项目 README.md
-
+For issues, please refer to:
+- [Vite Documentation](https://vite.dev/)
+- [React Documentation](https://react.dev/)
+- Project README.md

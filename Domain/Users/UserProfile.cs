@@ -3,11 +3,11 @@ using Domain.Common;
 namespace Domain.Users;
 
 /// <summary>
-/// 用户业务资料（Identity User 的扩展）
+/// User business profile (extension of Identity User)
 /// </summary>
 public class UserProfile : AuditableEntity
 {
-    public Guid UserId { get; private set; }   // 对应 AspNetUsers.Id
+    public Guid UserId { get; private set; }   // Corresponds to AspNetUsers.Id
 
     public string? DisplayName { get; private set; }
     public string? Bio { get; private set; }

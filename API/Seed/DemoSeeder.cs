@@ -17,12 +17,12 @@ public static class DemoSeeder
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
 
-        // 0) 幂等开关：只在你启用时才跑
-        // 也可以把这个判断放 Program.cs 外层
+        // 0) Idempotent switch: only runs when enabled
+        // You can also put this check outside Program.cs
         var enabled = config.GetValue<bool>("Seed:DemoData");
         if (!enabled) return;
 
-        // 1) Roles（可选）
+        // 1) Roles (optional)
         string[] roles = ["User", "Admin"];
         foreach (var role in roles)
         {
@@ -30,7 +30,7 @@ public static class DemoSeeder
                 await roleManager.CreateAsync(new ApplicationRole { Name = role });
         }
 
-        // 2) 确保 uploader 用户存在
+        // 2) Ensure uploader user exists
         var demoEmail = "demo@highlighthub.local";
         var demoUser = await userManager.FindByEmailAsync(demoEmail);
 
@@ -43,7 +43,7 @@ public static class DemoSeeder
                 EmailConfirmed = true
             };
 
-            // 密码不要硬编码，建议环境变量配置
+            // Do not hardcode password, recommend using environment variable configuration
             var pwd = config["Seed:DemoUserPassword"] ?? "Demo@12345";
             var result = await userManager.CreateAsync(demoUser, pwd);
             if (!result.Succeeded)
@@ -51,7 +51,7 @@ public static class DemoSeeder
 
             await userManager.AddToRoleAsync(demoUser, "User");
 
-            // 同步创建 UserProfile（你的业务资料表）
+            // Synchronously create UserProfile (your business profile table)
             var profile = new UserProfile(demoUser.Id);
             profile.Update("DemoPlayer", "Seeded demo profile", null,
                 "https://steamcommunity.com/profiles/76561198828107858/",
@@ -61,7 +61,7 @@ public static class DemoSeeder
             await db.SaveChangesAsync();
         }
 
-        // 3) 插入 demo 视频（幂等：用 VideoUrl 去重）
+        // 3) Insert demo videos (idempotent: deduplicate by VideoUrl)
         var demoVideos = new List<HighlightVideo>
         {
             new(demoUser.Id, "CS2 1v3 Clutch",
@@ -82,7 +82,7 @@ public static class DemoSeeder
                 ),
         };
 
-        // 只插入不存在的（以 VideoUrl 为唯一标F识）
+        // Only insert non-existent ones (using VideoUrl as unique identifier)
         var existingUrls = await db.Videos.Select(v => v.VideoUrl).ToListAsync();
         var toInsert = demoVideos.Where(v => !existingUrls.Contains(v.VideoUrl)).ToList();
 

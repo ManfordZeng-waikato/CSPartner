@@ -127,12 +127,12 @@ public class R2StorageService : IStorageService, IDisposable
             
             var errorMessage = s3Ex.ErrorCode switch
             {
-                "AccessDenied" => "访问被拒绝。请检查：1) AccessKeyId 和 SecretAccessKey 是否正确 2) API Token 是否有写入权限 3) Bucket 名称是否正确",
-                "NoSuchBucket" => $"Bucket '{_bucketName}' 不存在。请检查 Bucket 名称是否正确",
-                "InvalidAccessKeyId" => "AccessKeyId 无效。请检查配置是否正确",
-                "SignatureDoesNotMatch" => "签名不匹配。请检查 SecretAccessKey 是否正确",
-                "PermanentRedirect" => $"Endpoint 配置错误。当前使用的 S3ServiceUrl: {_s3ServiceUrl}。错误消息: {s3Ex.Message}。请检查：1) 确保 S3ServiceUrl 中的 Account ID ({_accountId}) 与 API Token 所属账户匹配 2) 在 Cloudflare Dashboard 的 R2 API Tokens 页面确认 Token 所属的 Account ID 3) 如果 Account ID 不同，请创建新 Token 或更新 S3ServiceUrl 配置",
-                _ => $"上传失败: {s3Ex.ErrorCode} - {s3Ex.Message}"
+                "AccessDenied" => "Access denied. Please check: 1) AccessKeyId and SecretAccessKey are correct 2) API Token has write permissions 3) Bucket name is correct",
+                "NoSuchBucket" => $"Bucket '{_bucketName}' does not exist. Please check if the Bucket name is correct",
+                "InvalidAccessKeyId" => "AccessKeyId is invalid. Please check if the configuration is correct",
+                "SignatureDoesNotMatch" => "Signature mismatch. Please check if SecretAccessKey is correct",
+                "PermanentRedirect" => $"Endpoint configuration error. Current S3ServiceUrl: {_s3ServiceUrl}. Error message: {s3Ex.Message}. Please check: 1) Ensure the Account ID ({_accountId}) in S3ServiceUrl matches the account of the API Token 2) Confirm the Token's Account ID on the Cloudflare Dashboard R2 API Tokens page 3) If Account ID differs, create a new Token or update S3ServiceUrl configuration",
+                _ => $"Upload failed: {s3Ex.ErrorCode} - {s3Ex.Message}"
             };
             
             throw new InvalidOperationException(errorMessage, s3Ex);

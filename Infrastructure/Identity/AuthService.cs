@@ -68,14 +68,14 @@ public class AuthService : IAuthService
         var profile = new UserProfile(user.Id);
         profile.Update(displayName, null, dto.AvatarUrl, null, null);
 
-        _logger.LogInformation("用户 {Email} 注册成功，头像URL: {AvatarUrl}", user.Email, profile.AvatarUrl ?? "未设置");
+        _logger.LogInformation("User {Email} registered successfully, Avatar URL: {AvatarUrl}", user.Email, profile.AvatarUrl ?? "Not set");
 
         await _context.UserProfiles.AddAsync(profile);
         await _context.SaveChangesAsync();
 
         var roles = await _userManager.GetRolesAsync(user);
 
-        _logger.LogInformation("用户 {Email} 注册成功", user.Email);
+        _logger.LogInformation("User {Email} registered successfully", user.Email);
         return Success(user, displayName, roles);
     }
 
@@ -84,7 +84,7 @@ public class AuthService : IAuthService
         var user = await _userManager.FindByEmailAsync(dto.Email);
         if (user is null)
         {
-            _logger.LogWarning("用户 {Email} 登录失败：用户不存在", dto.Email);
+            _logger.LogWarning("User {Email} login failed: user does not exist", dto.Email);
             return Failure("The email address you entered does not exist. Please check your email and try again.");
         }
 
@@ -93,7 +93,7 @@ public class AuthService : IAuthService
 
         if (!signInResult.Succeeded)
         {
-            _logger.LogWarning("用户 {Email} 登录失败：密码错误", dto.Email);
+            _logger.LogWarning("User {Email} login failed: incorrect password", dto.Email);
             return Failure("The password you entered is incorrect. Please try again.");
         }
 
@@ -102,7 +102,7 @@ public class AuthService : IAuthService
         var displayName = profile?.DisplayName ?? user.Email;
         var roles = await _userManager.GetRolesAsync(user);
 
-        _logger.LogInformation("用户 {Email} 登录成功", user.Email);
+        _logger.LogInformation("User {Email} logged in successfully", user.Email);
         return Success(user, displayName, roles);
     }
 

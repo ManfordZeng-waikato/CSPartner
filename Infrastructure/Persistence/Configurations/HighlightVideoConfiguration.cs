@@ -37,7 +37,7 @@ public class HighlightVideoConfiguration : IEntityTypeConfiguration<HighlightVid
         b.HasIndex(x => x.CreatedAtUtc);
         b.HasIndex(x => x.UploaderUserId);
 
-        // ✅ 关联到 Identity 用户（不需要 Domain.User）
+        // ✅ Reference to Identity user (no Domain.User needed)
         b.HasOne<ApplicationUser>()
             .WithMany()
             .HasForeignKey(x => x.UploaderUserId)

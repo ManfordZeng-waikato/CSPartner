@@ -11,11 +11,11 @@ public class UserProfileConfiguration : IEntityTypeConfiguration<UserProfile>
     {
         b.ToTable("UserProfiles");
 
-        // ✅ 主键：Id（来自 AuditableEntity）
+        // ✅ Primary key: Id (from AuditableEntity)
         b.HasKey(x => x.Id);
         b.Property(x => x.Id).ValueGeneratedNever();
 
-        // ✅ 外键：UserId（对应 AspNetUsers.Id）
+        // ✅ Foreign key: UserId (corresponds to AspNetUsers.Id)
         b.Property(x => x.UserId).IsRequired();
         b.HasIndex(x => x.UserId).IsUnique();
 

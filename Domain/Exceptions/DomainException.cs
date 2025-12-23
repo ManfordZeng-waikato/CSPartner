@@ -1,7 +1,7 @@
 namespace Domain.Exceptions;
 
 /// <summary>
-/// 领域异常基类
+/// Domain exception base class
 /// </summary>
 public abstract class DomainException : Exception
 {

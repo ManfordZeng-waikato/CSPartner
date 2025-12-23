@@ -166,7 +166,6 @@ app.UseAuthorization();
 // Map API controllers and SignalR Hub - endpoint mapping happens after static files
 app.MapControllers();
 app.MapHub<API.SignalR.CommentHub>("/api/hubs/comments");
-
 app.MapFallbackToFile("index.html");
 
 // SPA fallback: serve index.html for all non-API routes
@@ -181,10 +180,10 @@ try
     var logger = services.GetRequiredService<ILogger<Program>>();
     var db = services.GetRequiredService<AppDbContext>();
 
-    // ✅ 自动迁移
+    // ✅ Auto migration
     await db.Database.MigrateAsync();
 
-    // ✅ Seed（带开关）
+    // ✅ Seed (with switch)
     await API.Seed.DemoSeeder.SeedAsync(app.Services, app.Configuration);
 
     logger.LogInformation("Database migrated & demo data seeded.");
@@ -193,7 +192,7 @@ catch (Exception ex)
 {
     var logger = services.GetRequiredService<ILogger<Program>>();
     logger.LogError(ex, "Database migration/seed failed.");
-    // 生产环境你可以选择：直接 throw 让容器重启；或继续启动
+    // In production, you can choose to: directly throw to restart the container; or continue startup
     // throw;
 }
 

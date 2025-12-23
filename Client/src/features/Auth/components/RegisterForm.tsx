@@ -55,7 +55,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
   const password = useWatch({ control, name: "password" });
   const confirmPassword = useWatch({ control, name: "confirmPassword" });
 
-  // 密码强度验证
+  // Password strength validation
   const passwordRequirements = useMemo(() => {
     if (!password) return null;
     

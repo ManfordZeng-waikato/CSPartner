@@ -5,14 +5,14 @@ namespace API.DTOs;
 
 public class UploadVideoFormRequest
 {
-    [Required(ErrorMessage = "视频文件不能为空")]
+    [Required(ErrorMessage = "Video file cannot be empty")]
     public IFormFile VideoFile { get; set; } = default!;
 
-    [Required(ErrorMessage = "视频标题不能为空")]
-    [StringLength(120, ErrorMessage = "标题长度不能超过120个字符")]
+    [Required(ErrorMessage = "Video title cannot be empty")]
+    [StringLength(120, ErrorMessage = "Title cannot exceed 120 characters")]
     public string Title { get; set; } = default!;
 
-    [StringLength(2000, ErrorMessage = "描述长度不能超过2000个字符")]
+    [StringLength(2000, ErrorMessage = "Description cannot exceed 2000 characters")]
     public string? Description { get; set; }
 
     public IFormFile? ThumbnailFile { get; set; }

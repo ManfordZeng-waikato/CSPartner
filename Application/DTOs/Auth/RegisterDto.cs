@@ -13,7 +13,7 @@ public class RegisterDto
     [JsonPropertyName("password")]
     public string Password { get; set; } = string.Empty;
 
-    [Required, Compare(nameof(Password), ErrorMessage = "两次密码输入需一致")]
+    [Required, Compare(nameof(Password), ErrorMessage = "Passwords do not match")]
     [JsonPropertyName("confirmPassword")]
     public string ConfirmPassword { get; set; } = string.Empty;
 

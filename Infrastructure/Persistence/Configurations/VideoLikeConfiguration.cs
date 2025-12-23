@@ -11,7 +11,7 @@ public class VideoLikeConfiguration : IEntityTypeConfiguration<VideoLike>
     {
         b.ToTable("VideoLikes");
 
-        // ✅ 复合主键：防止重复点赞
+        // ✅ Composite primary key: prevent duplicate likes
         b.HasKey(x => new { x.VideoId, x.UserId });
 
         b.Property(x => x.VideoId).IsRequired();

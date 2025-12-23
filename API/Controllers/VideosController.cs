@@ -107,7 +107,7 @@ public class VideosController : BaseApiController
     {
         // Basic validation
         if (formRequest.VideoFile == null || formRequest.VideoFile.Length == 0)
-            return BadRequest(new { error = "视频文件不能为空" });
+            return BadRequest(new { error = "Video file cannot be empty" });
 
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
@@ -153,7 +153,7 @@ public class VideosController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Video upload failed");
-            return BadRequest(new { error = $"上传失败: {ex.Message}" });
+            return BadRequest(new { error = $"Upload failed: {ex.Message}" });
         }
     }
 
