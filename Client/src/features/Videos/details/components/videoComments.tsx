@@ -60,7 +60,7 @@ const VideoComments: React.FC<VideoCommentsProps> = ({ videoId, commentCount }) 
   }, [videoId, queryClient]);
 
   // Connect to SignalR hub for real-time updates
-  const { isConnected } = useCommentHub({
+  useCommentHub({
     videoId,
     onCommentsReceived: handleCommentsReceived,
     onNewCommentReceived: handleNewCommentReceived,

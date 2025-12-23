@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { Box, TextField, Button, Alert, IconButton } from "@mui/material";
+import { Box, TextField, Alert, IconButton } from "@mui/material";
 import { Send, Close } from "@mui/icons-material";
-import { useCreateComment, useVideoComments } from "../../../hooks/useVideos";
+import { useCreateComment } from "../../../hooks/useVideos";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface ReplyFormProps {

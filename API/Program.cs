@@ -28,14 +28,28 @@ builder.Services.AddMediatR(cfg =>
 // Add MediatR Pipeline Behaviors
 builder.Services.AddScoped(typeof(IPipelineBehavior<,>), typeof(TransactionBehavior<,>));
 
+// CORS configuration - only needed when frontend is served separately
+// When frontend is served from wwwroot, CORS is not needed (same origin)
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactClient", policy =>
     {
-        policy.WithOrigins("http://localhost:3000", "https://localhost:3000")
-            .AllowAnyMethod()
-            .AllowAnyHeader()
-            .AllowCredentials(); // If frontend needs to send credentials (cookies, auth headers)
+        if (builder.Environment.IsDevelopment())
+        {
+            // In development, allow separate frontend dev server
+            policy.WithOrigins("http://localhost:3000", "https://localhost:3000")
+                .AllowAnyMethod()
+                .AllowAnyHeader()
+                .AllowCredentials();
+        }
+        else
+        {
+            // In production, if frontend is served from wwwroot, CORS is not needed
+            // This policy can be removed or adjusted based on your deployment scenario
+            policy.AllowAnyOrigin()
+                .AllowAnyMethod()
+                .AllowAnyHeader();
+        }
     });
 });
 
@@ -116,13 +130,11 @@ builder.Services.AddSignalR();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
-// Global auth fallback: require authenticated by default
-builder.Services.AddAuthorization(options =>
-{
-    options.FallbackPolicy = new AuthorizationPolicyBuilder()
-        .RequireAuthenticatedUser()
-        .Build();
-});
+// Authorization is configured per-controller/action using [Authorize] or [AllowAnonymous] attributes
+// Static files and SPA routes are served without authentication requirements
+builder.Services.AddAuthorization();
+
+// Static files will be served from wwwroot directory (no additional service registration needed)
 
 var app = builder.Build();
 
@@ -134,19 +146,32 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+// Serve static files from wwwroot (frontend build output)
+// Placed before UseRouting for better performance - static files are served directly
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 app.UseRouting();
 
 // CORS must be after UseRouting and before UseAuthorization and MapControllers
-app.UseCors("AllowReactClient");
+// Only use CORS in development when frontend is served separately
+if (app.Environment.IsDevelopment())
+{
+    app.UseCors("AllowReactClient");
+}
 
 app.UseAuthentication();
 app.UseAuthorization();
 
+// Map API controllers and SignalR Hub - endpoint mapping happens after static files
 app.MapControllers();
-
-// Map SignalR Hub - Allow anonymous access for viewing comments
-// Use /api prefix to match API controller routing convention
 app.MapHub<API.SignalR.CommentHub>("/api/hubs/comments");
+
+app.MapFallbackToFile("index.html");
+
+// SPA fallback: serve index.html for all non-API routes
+// This must be last in the middleware pipeline (except for error handling)
+
 
 using var scope = app.Services.CreateScope();
 var services = scope.ServiceProvider;

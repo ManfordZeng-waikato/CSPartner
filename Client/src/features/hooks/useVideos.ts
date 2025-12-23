@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, useInfiniteQuery, type InfiniteData } from "@tanstack/react-query";
 import { useRef } from "react";
 import apiClient from "../../lib/api/axios";
 import { useAuthSession } from "./useAuthSession";
@@ -124,7 +124,7 @@ export const useDeleteComment = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ commentId, videoId }: { commentId: string; videoId: string }): Promise<void> => {
+    mutationFn: async ({ commentId }: { commentId: string; videoId: string }): Promise<void> => {
       await apiClient.delete(`/api/comments/${commentId}`);
     },
     onSuccess: async (_, variables) => {
@@ -198,12 +198,6 @@ const addPendingLike = (videoId: string) => {
   }
 };
 
-const removePendingLike = (videoId: string) => {
-  if (typeof window === 'undefined') return;
-  const pending = getPendingLikes();
-  const filtered = pending.filter(id => id !== videoId);
-  localStorage.setItem(PENDING_LIKES_KEY, JSON.stringify(filtered));
-};
 
 export const processPendingLikes = async () => {
   const pending = getPendingLikes();
@@ -255,10 +249,10 @@ export const useToggleLike = () => {
           return Promise.resolve(currentVideo);
         }
         // Fallback: return from videos list if available
-        const videosData = queryClient.getQueryData<{ pages?: CursorPagedResult<VideoDto>[] }>({ queryKey: ['videos'] });
+        const videosData = queryClient.getQueryData<InfiniteData<CursorPagedResult<VideoDto>>>(['videos', 20]);
         if (videosData?.pages) {
           for (const page of videosData.pages) {
-            const video = page.items.find(v => v.videoId === videoId);
+            const video = page.items.find((v: VideoDto) => v.videoId === videoId);
             if (video) {
               return Promise.resolve(video);
             }
