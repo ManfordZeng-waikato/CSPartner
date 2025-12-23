@@ -432,8 +432,8 @@ test-results/
 .AppleDouble
 .LSOverride
 
-# Icon must end with two \r
-Icon
+# Icon must end with two \r (only ignore root-level Icon file, not subdirectories)
+/Icon
 
 
 # Thumbnails

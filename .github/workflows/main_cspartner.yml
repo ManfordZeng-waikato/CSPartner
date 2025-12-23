@@ -23,11 +23,26 @@ jobs:
         with:
           node-version: '20.x'
       
+      - name: Backup Icon directory before build
+        run: |
+          if (Test-Path "API/wwwroot/Icon") {
+            Copy-Item -Path "API/wwwroot/Icon" -Destination "API/wwwroot/Icon.backup" -Recurse -Force
+          }
+      
       - name: Install deps and build react app
         working-directory: ./Client
         run: |
           npm ci
           npm run build:prod
+      
+      - name: Restore Icon directory after build
+        run: |
+          if (Test-Path "API/wwwroot/Icon.backup") {
+            if (Test-Path "API/wwwroot/Icon") {
+              Remove-Item -Path "API/wwwroot/Icon" -Recurse -Force
+            }
+            Move-Item -Path "API/wwwroot/Icon.backup" -Destination "API/wwwroot/Icon" -Force
+          }
 
       - name: Set up .NET Core
         uses: actions/setup-dotnet@v4
