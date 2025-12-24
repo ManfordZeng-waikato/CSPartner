@@ -31,8 +31,11 @@ public class AccountController : BaseApiController
     public async Task<IActionResult> Login([FromBody] LoginDto dto)
     {
         var result = await _authService.LoginAsync(dto);
-        // Always return HTTP 200 with succeeded: false in the body for failed attempts
-        // This allows the client to properly handle special cases like EMAIL_NOT_CONFIRMED
+        if (!result.Succeeded)
+        {
+            return Unauthorized(new { errors = result.Errors });
+        }
+
         return Ok(result);
     }
 
@@ -80,4 +83,3 @@ public class AccountController : BaseApiController
         return Ok(result);
     }
 }
-
