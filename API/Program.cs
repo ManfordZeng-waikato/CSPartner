@@ -156,6 +156,17 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
+app.Use(async (context, next) =>
+{
+    if (context.Request.Host.Host.Equals("cspartner.org", StringComparison.OrdinalIgnoreCase))
+    {
+        var newUrl = $"https://www.cspartner.org{context.Request.Path}{context.Request.QueryString}";
+        context.Response.Redirect(newUrl, permanent: true);
+        return;
+    }
+
+    await next();
+});
 
 app.UseHttpsRedirection();
 
