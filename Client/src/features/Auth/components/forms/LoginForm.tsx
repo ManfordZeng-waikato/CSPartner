@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Alert,
   Box,
@@ -15,9 +15,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   loginSchema,
   type LoginFormValues
-} from "../../../lib/schemas/loginSchema";
-import { handleApiError, useLogin } from "../../hooks/useAccount";
-import { processPendingLikes } from "../../hooks/useVideos";
+} from "../../../../lib/schemas/loginSchema";
+import { handleApiError, useLogin } from "../../../hooks/useAccount";
+import { processPendingLikes } from "../../../hooks/useVideos";
 import { Link, useNavigate, useLocation } from "react-router";
 import type { Location } from "react-router";
 
@@ -30,6 +30,17 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
   const location = useLocation();
   const loginMutation = useLogin();
   const [serverError, setServerError] = useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
+
+  // Check for message from location state (e.g., from registration or email confirmation)
+  useEffect(() => {
+    const stateMessage = (location.state as { message?: string })?.message;
+    if (stateMessage) {
+      setInfoMessage(stateMessage);
+      // Clear the state to prevent showing the message again on refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location]);
 
   const {
     register,
@@ -67,7 +78,17 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
         navigate(redirectTo);
       }
     } catch (error) {
-      setServerError(handleApiError(error));
+      // Check if error is due to unconfirmed email
+      if (error instanceof Error && error.message === "EMAIL_NOT_CONFIRMED") {
+        // Get email from the error response or use the form email
+        const email = (error as any).response?.data?.email || values.email;
+        // Redirect to check email page with autoSend flag
+        navigate(`/check-email?email=${encodeURIComponent(email)}&autoSend=true`, {
+          replace: true
+        });
+      } else {
+        setServerError(handleApiError(error));
+      }
     }
   };
 
@@ -81,6 +102,11 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
           Enter your account credentials to continue.
         </Typography>
 
+        {infoMessage && (
+          <Alert severity="info" sx={{ mb: 2 }} onClose={() => setInfoMessage(null)}>
+            {infoMessage}
+          </Alert>
+        )}
         {serverError && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {serverError}

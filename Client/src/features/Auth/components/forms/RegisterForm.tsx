@@ -16,11 +16,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   registerSchema,
   type RegisterFormValues
-} from "../../../lib/schemas/loginSchema";
-import { handleApiError, useRegister } from "../../hooks/useAccount";
+} from "../../../../lib/schemas/loginSchema";
+import { handleApiError, useRegister } from "../../../hooks/useAccount";
 import { Link, useNavigate, useLocation } from "react-router";
 import type { Location } from "react-router";
-import { AVAILABLE_AVATARS } from "../../../lib/constants/avatars";
+import { AVAILABLE_AVATARS } from "../../../../lib/constants/avatars";
 
 type RegisterFormProps = {
   onSuccess?: () => void;
@@ -96,14 +96,12 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
           if (onSuccess) onSuccess();
           setTimeout(() => navigate(redirectTo), 300);
         } else {
-          // Email not confirmed - redirect to login page with message
+          // Email not confirmed - redirect to check email page
           setTimeout(() => {
-            navigate("/login", { 
-              state: { 
-                message: result.errors?.[0] || "Please check your email to confirm your account before logging in." 
-              } 
+            navigate(`/check-email?email=${encodeURIComponent(values.email)}`, { 
+              replace: true
             });
-          }, 2000);
+          }, 1000);
         }
       }
     } catch (error) {
@@ -126,11 +124,9 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
             {serverError}
           </Alert>
         )}
-        {isSuccess && (
+        {isSuccess && !registerMutation.data?.token && (
           <Alert severity="success" sx={{ mb: 2 }}>
-            {registerMutation.data?.token 
-              ? "Account created successfully. Redirecting..." 
-              : "Account created successfully. Please check your email to confirm your account before logging in. Redirecting to sign in..."}
+            Account created successfully. Redirecting to check your email...
           </Alert>
         )}
 

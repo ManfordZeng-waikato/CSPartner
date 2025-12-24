@@ -63,7 +63,18 @@ public class AuthService : IAuthService
         {
             return Failure(createResult.Errors.Select(e => e.Description));
         }
-        await SendConfirmationEmailAsync(user, user.Email);
+        
+        // Send confirmation email, but don't fail registration if email sending fails
+        // User can resend email from check-email page
+        try
+        {
+            await SendConfirmationEmailAsync(user, user.Email);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send confirmation email for user {Email} during registration", user.Email);
+            // Continue with registration even if email sending failed
+        }
 
         if (await _roleManager.RoleExistsAsync("User"))
         {
@@ -120,13 +131,7 @@ public class AuthService : IAuthService
             return Failure("The email address you entered does not exist. Please check your email and try again.");
         }
 
-        // Check if email is confirmed (explicit check to enforce RequireConfirmedEmail setting)
-        if (!user.EmailConfirmed)
-        {
-            _logger.LogWarning("User {Email} login failed: email not confirmed", dto.Email);
-            return Failure("Your email address has not been confirmed. Please check your email and confirm your account before logging in.");
-        }
-
+        // Check password first before checking email confirmation
         var signInResult = await _signInManager.CheckPasswordSignInAsync(
             user, dto.Password, lockoutOnFailure: false);
 
@@ -134,6 +139,31 @@ public class AuthService : IAuthService
         {
             _logger.LogWarning("User {Email} login failed: incorrect password", dto.Email);
             return Failure("The password you entered is incorrect. Please try again.");
+        }
+
+        // Check if email is confirmed (explicit check to enforce RequireConfirmedEmail setting)
+        if (!user.EmailConfirmed)
+        {
+            _logger.LogWarning("User {Email} login failed: email not confirmed, sending confirmation email", dto.Email);
+            // Send confirmation email automatically
+            // Wrap in try-catch to ensure we always return EMAIL_NOT_CONFIRMED response
+            // even if email sending fails, so user can still access check-email page
+            try
+            {
+                await SendConfirmationEmailAsync(user, user.Email!);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send confirmation email for user {Email} during login", dto.Email);
+                // Continue to return EMAIL_NOT_CONFIRMED response even if email sending failed
+            }
+            // Return failure with email address so frontend can redirect to check email page
+            return new AuthResultDto
+            {
+                Succeeded = false,
+                Email = user.Email,
+                Errors = new[] { "EMAIL_NOT_CONFIRMED" }
+            };
         }
 
         var profile = await _context.UserProfiles
@@ -182,6 +212,66 @@ public class AuthService : IAuthService
         {
             _logger.LogError(ex, "Failed to resend confirmation email for user {Email}", email);
             return (false, "Failed to send confirmation email. Please try again later.");
+        }
+    }
+
+    public async Task<AuthResultDto> ConfirmEmailAsync(Guid userId, string code)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user == null)
+        {
+            return Failure("Invalid confirmation link. User not found.");
+        }
+
+        if (user.EmailConfirmed)
+        {
+            // Email already confirmed, return success with token for auto-login
+            _logger.LogInformation("Email already confirmed for user {Email}, returning token", user.Email);
+            var profile = await _context.UserProfiles
+                .FirstOrDefaultAsync(p => p.UserId == user.Id);
+            var displayName = profile?.DisplayName ?? user.Email;
+            var roles = await _userManager.GetRolesAsync(user);
+            return Success(user, displayName, roles);
+        }
+
+        try
+        {
+            // Decode the base64 URL encoded code
+            var decodedCode = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(code));
+            
+            var result = await _userManager.ConfirmEmailAsync(user, decodedCode);
+            if (result.Succeeded)
+            {
+                _logger.LogInformation("Email confirmed for user {Email}", user.Email);
+                
+                // Reload user to get the latest EmailConfirmed status
+                var reloadedUser = await _userManager.FindByIdAsync(userId.ToString());
+                if (reloadedUser == null)
+                {
+                    _logger.LogError("Failed to reload user {UserId} after email confirmation", userId);
+                    return Failure("Email confirmed but failed to complete login. Please try logging in.");
+                }
+
+                // Get user profile and roles
+                var profile = await _context.UserProfiles
+                    .FirstOrDefaultAsync(p => p.UserId == reloadedUser.Id);
+                var displayName = profile?.DisplayName ?? reloadedUser.Email;
+                var roles = await _userManager.GetRolesAsync(reloadedUser);
+                
+                // Return success with token for auto-login
+                return Success(reloadedUser, displayName, roles);
+            }
+            else
+            {
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                _logger.LogWarning("Email confirmation failed for user {Email}: {Errors}", user.Email, errors);
+                return Failure($"Email confirmation failed: {errors}");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to confirm email for user {UserId}", userId);
+            return Failure("Invalid or expired confirmation link. Please request a new one.");
         }
     }
 

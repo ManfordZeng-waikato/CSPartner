@@ -72,7 +72,13 @@ export const useLogin = () => {
       );
 
       if (!response.data.succeeded) {
-        throw new Error(response.data.errors?.[0] ?? "Login failed");
+        // Create error with email information for EMAIL_NOT_CONFIRMED case
+        const error = new Error(response.data.errors?.[0] ?? "Login failed");
+        if (response.data.errors?.[0] === "EMAIL_NOT_CONFIRMED" && response.data.email) {
+          (error as any).email = response.data.email;
+          (error as any).response = { data: { email: response.data.email } };
+        }
+        throw error;
       }
       // Save JWT token
       if (response.data.token) {
@@ -158,6 +164,60 @@ export const useLogout = () =>
       clearSession();
     }
   });
+
+export const useConfirmEmail = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ userId, code }: { userId: string; code: string }): Promise<AuthResult> => {
+      const response = await apiClient.post<AuthResult>(
+        `/api/account/confirmEmail?userId=${userId}&code=${encodeURIComponent(code)}`
+      );
+
+      if (!response.data.succeeded) {
+        throw new Error(response.data.errors?.[0] ?? "Email confirmation failed");
+      }
+
+      // Save JWT token if present (for auto-login after confirmation)
+      if (response.data.token) {
+        setAuthToken(response.data.token);
+      }
+      
+      // Persist session info for UI
+      const userIdFromResponse = response.data.userId ?? "";
+      if (userIdFromResponse) {
+        saveSession({
+          userId: userIdFromResponse,
+          email: response.data.email,
+          displayName: response.data.displayName
+        });
+        
+        // Invalidate and refetch user profile to get latest avatar
+        await queryClient.invalidateQueries({ queryKey: ['userProfile', userIdFromResponse] });
+        await queryClient.refetchQueries({ queryKey: ['userProfile', userIdFromResponse] });
+      }
+      
+      return response.data;
+    },
+    onError: (error) => {
+      console.error("Email confirmation failed:", error);
+    }
+  });
+};
+
+export const useResendConfirmationEmail = () => {
+  return useMutation({
+    mutationFn: async (email: string): Promise<{ message: string }> => {
+      const response = await apiClient.get<{ message: string }>(
+        `/api/account/resendConfirmationEmail?email=${encodeURIComponent(email)}`
+      );
+      return response.data;
+    },
+    onError: (error) => {
+      console.error("Resend confirmation email failed:", error);
+    }
+  });
+};
 
 export const handleApiError = (error: unknown): string =>
   extractErrorMessage(error);
