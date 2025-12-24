@@ -88,10 +88,23 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
       const result = await registerMutation.mutateAsync(values);
       if (result.succeeded) {
         setIsSuccess(true);
-        const redirectTo =
-          ((location.state as { from?: Location })?.from?.pathname) ?? "/videos";
-        if (onSuccess) onSuccess();
-        setTimeout(() => navigate(redirectTo), 300);
+        // Only redirect to videos if token is present (email confirmed)
+        // If no token, show success message and redirect to login page
+        if (result.token) {
+          const redirectTo =
+            ((location.state as { from?: Location })?.from?.pathname) ?? "/videos";
+          if (onSuccess) onSuccess();
+          setTimeout(() => navigate(redirectTo), 300);
+        } else {
+          // Email not confirmed - redirect to login page with message
+          setTimeout(() => {
+            navigate("/login", { 
+              state: { 
+                message: result.errors?.[0] || "Please check your email to confirm your account before logging in." 
+              } 
+            });
+          }, 2000);
+        }
       }
     } catch (error) {
       setServerError(handleApiError(error));
@@ -115,7 +128,9 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
         )}
         {isSuccess && (
           <Alert severity="success" sx={{ mb: 2 }}>
-            Account created successfully. Redirecting to sign in...
+            {registerMutation.data?.token 
+              ? "Account created successfully. Redirecting..." 
+              : "Account created successfully. Please check your email to confirm your account before logging in. Redirecting to sign in..."}
           </Alert>
         )}
 

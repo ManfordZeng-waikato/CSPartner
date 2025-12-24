@@ -13,6 +13,7 @@ using System.IdentityModel.Tokens.Jwt;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
 using System.Text;
+using Resend;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,6 +25,12 @@ builder.Services.AddMediatR(cfg =>
 {
     cfg.RegisterServicesFromAssembly(typeof(Application.Behaviors.TransactionBehavior<,>).Assembly);
 });
+builder.Services.AddHttpClient<ResendClient>();
+builder.Services.Configure<ResendClientOptions>(opt =>
+{
+  opt.ApiToken = builder.Configuration["Resend:ApiToken"]!;
+});
+builder.Services.AddTransient<IResend,ResendClient>();
 
 // Add MediatR Pipeline Behaviors
 builder.Services.AddScoped(typeof(IPipelineBehavior<,>), typeof(TransactionBehavior<,>));
@@ -53,11 +60,17 @@ builder.Services.AddCors(options =>
     });
 });
 
+// Register email services
+builder.Services.AddTransient<IEmailSender<ApplicationUser>, EmailSenderService>();
+builder.Services.AddTransient<Application.Interfaces.Services.IEmailService, Infrastructure.Identity.EmailService>();
+
 builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
 {
     options.Password.RequireDigit = true;
     options.Password.RequiredLength = 8;
     options.Password.RequireUppercase = true;
+    options.User.RequireUniqueEmail = true;
+    options.SignIn.RequireConfirmedEmail = true;
 })
 .AddEntityFrameworkStores<AppDbContext>()
 .AddDefaultTokenProviders();
@@ -68,8 +81,8 @@ var jwtIssuer = builder.Configuration["Jwt:Issuer"];
 var jwtAudience = builder.Configuration["Jwt:Audience"];
 
 // Verify all required JWT configuration values are present
-if (!string.IsNullOrEmpty(jwtSecretKey) && 
-    !string.IsNullOrEmpty(jwtIssuer) && 
+if (!string.IsNullOrEmpty(jwtSecretKey) &&
+    !string.IsNullOrEmpty(jwtIssuer) &&
     !string.IsNullOrEmpty(jwtAudience))
 {
     builder.Services.AddAuthentication(options =>
@@ -116,7 +129,7 @@ else
         "Jwt:SecretKey, Jwt:Issuer, and Jwt:Audience. " +
         "Please check your appsettings.json file.");
 }
- 
+
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {

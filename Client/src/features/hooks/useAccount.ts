@@ -114,24 +114,27 @@ export const useRegister = () => {
       if (!response.data.succeeded) {
         throw new Error(response.data.errors?.[0] ?? "Registration failed");
       }
-      // Save JWT token
+      
+      // Only save token and session if token is present (email confirmed)
+      // If token is null, user needs to confirm email before logging in
       if (response.data.token) {
         setAuthToken(response.data.token);
+        // Persist minimal session info for UI only when token exists
+        const userId = response.data.userId ?? "";
+        saveSession({
+          userId,
+          email: response.data.email,
+          displayName: response.data.displayName
+        });
+        
+        // Invalidate and refetch user profile to get latest avatar
+        if (userId) {
+          await queryClient.invalidateQueries({ queryKey: ['userProfile', userId] });
+          // Force refetch immediately
+          await queryClient.refetchQueries({ queryKey: ['userProfile', userId] });
+        }
       }
-      // Persist minimal session info for UI
-      const userId = response.data.userId ?? "";
-      saveSession({
-        userId,
-        email: response.data.email,
-        displayName: response.data.displayName
-      });
-      
-      // Invalidate and refetch user profile to get latest avatar
-      if (userId) {
-        await queryClient.invalidateQueries({ queryKey: ['userProfile', userId] });
-        // Force refetch immediately
-        await queryClient.refetchQueries({ queryKey: ['userProfile', userId] });
-      }
+      // If no token, don't save session - user needs to confirm email first
       
       return response.data;
     },

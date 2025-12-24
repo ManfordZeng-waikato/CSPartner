@@ -45,5 +45,21 @@ public class AccountController : BaseApiController
         await _authService.LogoutAsync();
         return Ok(new { succeeded = true });
     }
+
+    /// <summary>
+    /// Resend email confirmation link
+    /// </summary>
+    [HttpGet("resendConfirmationEmail")]
+    public async Task<IActionResult> ResendConfirmationEmail(string email)
+    {
+        var (succeeded, message) = await _authService.ResendConfirmationEmailAsync(email);
+        
+        if (!succeeded)
+        {
+            return BadRequest(new { error = message });
+        }
+
+        return Ok(new { message });
+    }
 }
 
