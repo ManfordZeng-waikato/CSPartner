@@ -57,27 +57,30 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
 
   // Password strength validation
   const passwordRequirements = useMemo(() => {
-    if (!password) return null;
-    
+    // Always return requirements object, even when password is empty
+    // This ensures UI feedback is always visible
     return {
-      minLength: password.length >= 8,
-      hasNumber: /[0-9]/.test(password),
-      hasUppercase: /[A-Z]/.test(password)
+      minLength: password ? password.length >= 8 : false,
+      hasNumber: password ? /[0-9]/.test(password) : false,
+      hasUppercase: password ? /[A-Z]/.test(password) : false,
+      hasSpecialChar: password ? /[^a-zA-Z0-9]/.test(password) : false
     };
   }, [password]);
 
   const passwordStrength = useMemo(() => {
     if (!password) return 0;
     let strength = 0;
-    if (password.length >= 8) strength += 33;
-    if (/[0-9]/.test(password)) strength += 33;
-    if (/[A-Z]/.test(password)) strength += 34;
+    if (password.length >= 8) strength += 25;
+    if (/[0-9]/.test(password)) strength += 25;
+    if (/[A-Z]/.test(password)) strength += 25;
+    if (/[^a-zA-Z0-9]/.test(password)) strength += 25;
     return strength;
   }, [password]);
 
   const getPasswordStrengthColor = () => {
-    if (passwordStrength < 33) return "error";
-    if (passwordStrength < 66) return "warning";
+    if (passwordStrength < 25) return "error";
+    if (passwordStrength < 50) return "warning";
+    if (passwordStrength < 75) return "warning";
     return "success";
   };
 
@@ -146,12 +149,12 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
                 type="password"
                 fullWidth
                 {...register("password")}
-                error={!!errors.password || (!!password && passwordRequirements !== null && !Object.values(passwordRequirements).every(v => v))}
+                error={!!errors.password || (!!password && !Object.values(passwordRequirements).every(v => v))}
                 helperText={errors.password?.message}
                 disabled={registerMutation.isPending}
               />
-              {password && (
-                <Box sx={{ mt: 1 }}>
+              <Box sx={{ mt: 1 }}>
+                {password && (
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
                     <LinearProgress
                       variant="determinate"
@@ -163,39 +166,47 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
                       {passwordStrength}%
                     </Typography>
                   </Box>
-                  <Box sx={{ mt: 1 }}>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
-                      Password requirements:
-                    </Typography>
-                    <Box component="ul" sx={{ m: 0, pl: 2, fontSize: "0.75rem" }}>
-                      <Box
-                        component="li"
-                        sx={{
-                          color: passwordRequirements?.minLength ? "success.main" : "error.main"
-                        }}
-                      >
-                        At least 8 characters
-                      </Box>
-                      <Box
-                        component="li"
-                        sx={{
-                          color: passwordRequirements?.hasNumber ? "success.main" : "error.main"
-                        }}
-                      >
-                        At least one number
-                      </Box>
-                      <Box
-                        component="li"
-                        sx={{
-                          color: passwordRequirements?.hasUppercase ? "success.main" : "error.main"
-                        }}
-                      >
-                        At least one uppercase letter
-                      </Box>
+                )}
+                <Box sx={{ mt: password ? 1 : 0 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                    Password requirements:
+                  </Typography>
+                  <Box component="ul" sx={{ m: 0, pl: 2, fontSize: "0.75rem" }}>
+                    <Box
+                      component="li"
+                      sx={{
+                        color: passwordRequirements.minLength ? "success.main" : "error.main"
+                      }}
+                    >
+                      At least 8 characters
+                    </Box>
+                    <Box
+                      component="li"
+                      sx={{
+                        color: passwordRequirements.hasNumber ? "success.main" : "error.main"
+                      }}
+                    >
+                      At least one number
+                    </Box>
+                    <Box
+                      component="li"
+                      sx={{
+                        color: passwordRequirements.hasUppercase ? "success.main" : "error.main"
+                      }}
+                    >
+                      At least one uppercase letter
+                    </Box>
+                    <Box
+                      component="li"
+                      sx={{
+                        color: passwordRequirements.hasSpecialChar ? "success.main" : "error.main"
+                      }}
+                    >
+                      At least one special character
                     </Box>
                   </Box>
                 </Box>
-              )}
+              </Box>
             </Box>
             <TextField
               label="Confirm password"
