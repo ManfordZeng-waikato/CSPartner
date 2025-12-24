@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   Alert,
   Box,
@@ -7,7 +7,7 @@ import {
   TextField,
   Typography
 } from "@mui/material";
-import { UseMutationResult } from "@tanstack/react-query";
+import type { UseMutationResult } from "@tanstack/react-query";
 
 type ResendEmailFormProps = {
   email: string | null;
