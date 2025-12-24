@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Infrastructure.Persistence.Identity;
+using Microsoft.Extensions.Configuration;
 using Resend;
 
 namespace Infrastructure.Identity;
@@ -7,9 +8,12 @@ namespace Infrastructure.Identity;
 public class EmailSenderService : IEmailSender<ApplicationUser>
 {
     private readonly IResend _resend;
-    public EmailSenderService(IResend resend)
+    private readonly string _fromEmail;
+    
+    public EmailSenderService(IResend resend, IConfiguration configuration)
     {
         _resend = resend;
+        _fromEmail = configuration["Resend:FromEmail"] ?? "onboarding@resend.dev";
     }
 
     public async Task SendConfirmationLinkAsync(ApplicationUser user, string email, string link)
@@ -39,15 +43,15 @@ public class EmailSenderService : IEmailSender<ApplicationUser>
 
     public async Task SendEmailAsync(string email, string subject, string htmlMessage)
     {
-        var message = new EmailMessage{
-            From = "noreply@highlighthub.local",
+        var message = new EmailMessage
+        {
+            From = _fromEmail,
             To = email,
             Subject = subject,
             HtmlBody = htmlMessage
         };
-        message.To.Add(email);
+        Console.WriteLine($"Sending email from {_fromEmail} to {email}");
         Console.WriteLine(message.HtmlBody);
-        // await _resend.EmailSendAsync(message);
-        await Task.CompletedTask;
+        await _resend.EmailSendAsync(message);
     }
 }

@@ -1,6 +1,7 @@
 using Application.Interfaces.Services;
 using Infrastructure.Persistence.Identity;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Configuration;
 using Resend;
 
 namespace Infrastructure.Identity;
@@ -12,12 +13,16 @@ public class EmailService : IEmailService
 {
     private readonly IEmailSender<ApplicationUser> _emailSender;
     private readonly IResend _resend;
-    private const string FromEmail = "noreply@highlighthub.local";
+    private readonly string _fromEmail;
 
-    public EmailService(IEmailSender<ApplicationUser> emailSender, IResend resend)
+    public EmailService(
+        IEmailSender<ApplicationUser> emailSender, 
+        IResend resend,
+        IConfiguration configuration)
     {
         _emailSender = emailSender;
         _resend = resend;
+        _fromEmail = configuration["Resend:FromEmail"] ?? "onboarding@resend.dev";
     }
 
     public async Task SendConfirmationLinkAsync(string email, string userName, string link)
@@ -44,12 +49,12 @@ public class EmailService : IEmailService
         // Directly implement SendEmailAsync using Resend
         var message = new EmailMessage
         {
-            From = FromEmail,
+            From = _fromEmail,
             To = email,
             Subject = subject,
             HtmlBody = htmlMessage
         };
-        message.To.Add(email);
+        Console.WriteLine($"Sending email from {_fromEmail} to {email}");
         Console.WriteLine(message.HtmlBody);
         // TODO: Uncomment when Resend API is properly configured
         // await _resend.EmailSendAsync(message);
