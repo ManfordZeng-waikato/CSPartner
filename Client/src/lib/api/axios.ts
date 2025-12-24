@@ -32,6 +32,8 @@ apiClient.interceptors.request.use(
     const anonymousEndpoints = [
       '/api/account/login',
       '/api/account/register',
+      '/api/account/confirmEmail',
+      '/api/account/resendConfirmationEmail',
       '/api/userprofiles'
     ];
     

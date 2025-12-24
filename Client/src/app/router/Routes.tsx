@@ -2,11 +2,14 @@
 import { createBrowserRouter } from "react-router";
 import LoginPage from "../../features/Auth/LoginPage";
 import SigninPage from "../../features/Auth/SigninPage";
+import ConfirmEmailPage from "../../features/Auth/ConfirmEmailPage";
+import CheckEmailPage from "../../features/Auth/CheckEmailPage";
 import VideoDetailPage from "../../features/Videos/details/videoDetailPage";
 import App from "../../app/layout/App";
 import VideoDashboard from "../../features/Videos/dashboard/VideoDashboard";
 import VideoUploadPage from "../../features/Videos/VideoUploadPage";
 import RequireAuth from "../shared/components/RequireAuth.tsx";
+import RequireGuest from "../shared/components/RequireGuest.tsx";
 import UserProfilePage from "../../features/userProfile/UserProfilePage";
 import EditProfilePage from "../../features/userProfile/EditProfilePage";
 
@@ -18,13 +21,36 @@ export const router = createBrowserRouter([
 
             {
                 path: 'login',
-                element: <LoginPage />
+                element: (
+                    <RequireGuest>
+                        <LoginPage />
+                    </RequireGuest>
+                )
             },
             {
                 path: 'signup',
-                element: <SigninPage />
+                element: (
+                    <RequireGuest>
+                        <SigninPage />
+                    </RequireGuest>
+                )
             },
-           
+            {
+                path: 'confirm-email',
+                element: (
+                    <RequireGuest>
+                        <ConfirmEmailPage />
+                    </RequireGuest>
+                )
+            },
+            {
+                path: 'check-email',
+                element: (
+                    <RequireGuest>
+                        <CheckEmailPage />
+                    </RequireGuest>
+                )
+            },
             {
                 path: 'videos',
                 element: <VideoDashboard />

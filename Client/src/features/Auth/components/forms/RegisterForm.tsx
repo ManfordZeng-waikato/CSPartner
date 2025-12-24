@@ -16,11 +16,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   registerSchema,
   type RegisterFormValues
-} from "../../../lib/schemas/loginSchema";
-import { handleApiError, useRegister } from "../../hooks/useAccount";
+} from "../../../../lib/schemas/loginSchema";
+import { handleApiError, useRegister } from "../../../hooks/useAccount";
 import { Link, useNavigate, useLocation } from "react-router";
 import type { Location } from "react-router";
-import { AVAILABLE_AVATARS } from "../../../lib/constants/avatars";
+import { AVAILABLE_AVATARS } from "../../../../lib/constants/avatars";
 
 type RegisterFormProps = {
   onSuccess?: () => void;
@@ -88,10 +88,21 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
       const result = await registerMutation.mutateAsync(values);
       if (result.succeeded) {
         setIsSuccess(true);
-        const redirectTo =
-          ((location.state as { from?: Location })?.from?.pathname) ?? "/videos";
-        if (onSuccess) onSuccess();
-        setTimeout(() => navigate(redirectTo), 300);
+        // Only redirect to videos if token is present (email confirmed)
+        // If no token, show success message and redirect to login page
+        if (result.token) {
+          const redirectTo =
+            ((location.state as { from?: Location })?.from?.pathname) ?? "/videos";
+          if (onSuccess) onSuccess();
+          setTimeout(() => navigate(redirectTo), 300);
+        } else {
+          // Email not confirmed - redirect to check email page
+          setTimeout(() => {
+            navigate(`/check-email?email=${encodeURIComponent(values.email)}`, { 
+              replace: true
+            });
+          }, 1000);
+        }
       }
     } catch (error) {
       setServerError(handleApiError(error));
@@ -113,9 +124,9 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
             {serverError}
           </Alert>
         )}
-        {isSuccess && (
+        {isSuccess && !registerMutation.data?.token && (
           <Alert severity="success" sx={{ mb: 2 }}>
-            Account created successfully. Redirecting to sign in...
+            Account created successfully. Redirecting to check your email...
           </Alert>
         )}
 
