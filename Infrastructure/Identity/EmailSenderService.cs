@@ -50,8 +50,6 @@ public class EmailSenderService : IEmailSender<ApplicationUser>
             Subject = subject,
             HtmlBody = htmlMessage
         };
-        Console.WriteLine($"Sending email from {_fromEmail} to {email}");
-        Console.WriteLine(message.HtmlBody);
         await _resend.EmailSendAsync(message);
     }
 }

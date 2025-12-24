@@ -54,8 +54,6 @@ public class EmailService : IEmailService
             Subject = subject,
             HtmlBody = htmlMessage
         };
-        Console.WriteLine($"Sending email from {_fromEmail} to {email}");
-        Console.WriteLine(message.HtmlBody);
         // TODO: Uncomment when Resend API is properly configured
         // await _resend.EmailSendAsync(message);
         await Task.CompletedTask;
