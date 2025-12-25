@@ -30,6 +30,7 @@ function EditProfilePage() {
     register,
     handleSubmit,
     reset,
+    setValue,
     control,
     formState: { errors }
   } = useForm<UpdateProfileFormValues>({
