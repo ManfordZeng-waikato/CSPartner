@@ -219,6 +219,41 @@ export const useResendConfirmationEmail = () => {
   });
 };
 
+export const useRequestPasswordReset = () => {
+  return useMutation({
+    mutationFn: async (email: string): Promise<{ message: string }> => {
+      const response = await apiClient.post<{ message: string }>(
+        "/api/account/requestPasswordReset",
+        { email }
+      );
+      return response.data;
+    },
+    onError: (error) => {
+      console.error("Request password reset failed:", error);
+    }
+  });
+};
+
+export const useResetPassword = () => {
+  return useMutation({
+    mutationFn: async (payload: {
+      email: string;
+      newPassword: string;
+      confirmPassword: string;
+      code: string;
+    }): Promise<{ message: string }> => {
+      const response = await apiClient.post<{ message: string }>(
+        "/api/account/resetPassword",
+        payload
+      );
+      return response.data;
+    },
+    onError: (error) => {
+      console.error("Reset password failed:", error);
+    }
+  });
+};
+
 export const handleApiError = (error: unknown): string =>
   extractErrorMessage(error);
 

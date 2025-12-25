@@ -4,6 +4,8 @@ import LoginPage from "../../features/Auth/LoginPage";
 import SigninPage from "../../features/Auth/SigninPage";
 import ConfirmEmailPage from "../../features/Auth/ConfirmEmailPage";
 import CheckEmailPage from "../../features/Auth/CheckEmailPage";
+import ForgotPasswordPage from "../../features/Auth/ForgotPasswordPage";
+import ResetPasswordPage from "../../features/Auth/ResetPasswordPage";
 import VideoDetailPage from "../../features/Videos/details/videoDetailPage";
 import App from "../../app/layout/App";
 import VideoDashboard from "../../features/Videos/dashboard/VideoDashboard";
@@ -48,6 +50,22 @@ export const router = createBrowserRouter([
                 element: (
                     <RequireGuest>
                         <CheckEmailPage />
+                    </RequireGuest>
+                )
+            },
+            {
+                path: 'forgot-password',
+                element: (
+                    <RequireGuest>
+                        <ForgotPasswordPage />
+                    </RequireGuest>
+                )
+            },
+            {
+                path: 'reset-password',
+                element: (
+                    <RequireGuest>
+                        <ResetPasswordPage />
                     </RequireGuest>
                 )
             },

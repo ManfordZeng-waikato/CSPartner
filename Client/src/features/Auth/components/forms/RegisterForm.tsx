@@ -1,15 +1,11 @@
-import React, { useState, useMemo } from "react";
+import React, { useState } from "react";
 import {
-  Alert,
   Box,
   Button,
-  Paper,
   Stack,
-  TextField,
   Typography,
   Avatar,
-  Grid,
-  LinearProgress
+  Grid
 } from "@mui/material";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -21,6 +17,7 @@ import { handleApiError, useRegister } from "../../../hooks/useAccount";
 import { Link, useNavigate, useLocation } from "react-router";
 import type { Location } from "react-router";
 import { AVAILABLE_AVATARS } from "../../../../lib/constants/avatars";
+import { FormContainer, FormTextField, PasswordFieldWithStrength } from "../../../../app/shared/components";
 
 type RegisterFormProps = {
   onSuccess?: () => void;
@@ -55,35 +52,6 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
   const password = useWatch({ control, name: "password" });
   const confirmPassword = useWatch({ control, name: "confirmPassword" });
 
-  // Password strength validation
-  const passwordRequirements = useMemo(() => {
-    // Always return requirements object, even when password is empty
-    // This ensures UI feedback is always visible
-    return {
-      minLength: password ? password.length >= 8 : false,
-      hasNumber: password ? /[0-9]/.test(password) : false,
-      hasUppercase: password ? /[A-Z]/.test(password) : false,
-      hasSpecialChar: password ? /[^a-zA-Z0-9]/.test(password) : false
-    };
-  }, [password]);
-
-  const passwordStrength = useMemo(() => {
-    if (!password) return 0;
-    let strength = 0;
-    if (password.length >= 8) strength += 25;
-    if (/[0-9]/.test(password)) strength += 25;
-    if (/[A-Z]/.test(password)) strength += 25;
-    if (/[^a-zA-Z0-9]/.test(password)) strength += 25;
-    return strength;
-  }, [password]);
-
-  const getPasswordStrengthColor = () => {
-    if (passwordStrength < 25) return "error";
-    if (passwordStrength < 50) return "warning";
-    if (passwordStrength < 75) return "warning";
-    return "success";
-  };
-
   const onSubmit = async (values: RegisterFormValues) => {
     setServerError(null);
     setIsSuccess(false);
@@ -112,124 +80,55 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
     }
   };
 
+  const successMessage = isSuccess && !registerMutation.data?.token
+    ? "Account created successfully. Redirecting to check your email..."
+    : null;
+
   return (
-    <Box sx={{ display: "flex", justifyContent: "center", mt: 8, px: 2 }}>
-      <Paper sx={{ p: 4, maxWidth: 520, width: "100%" }} elevation={3}>
-        <Typography variant="h5" fontWeight={700} gutterBottom>
-          Create account
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Sign up with your email and password to get started.
-        </Typography>
-
-        {serverError && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {serverError}
-          </Alert>
-        )}
-        {isSuccess && !registerMutation.data?.token && (
-          <Alert severity="success" sx={{ mb: 2 }}>
-            Account created successfully. Redirecting to check your email...
-          </Alert>
-        )}
-
-        <Box component="form" noValidate onSubmit={handleSubmit(onSubmit)}>
-          <Stack spacing={2}>
-            <TextField
-              label="Email"
-              fullWidth
-              {...register("email")}
-              error={!!errors.email}
-              helperText={errors.email?.message}
-              disabled={registerMutation.isPending}
-            />
-            <Box>
-              <TextField
-                label="Password"
-                type="password"
-                fullWidth
-                {...register("password")}
-                error={!!errors.password || (!!password && !Object.values(passwordRequirements).every(v => v))}
-                helperText={errors.password?.message}
-                disabled={registerMutation.isPending}
-              />
-              <Box sx={{ mt: 1 }}>
-                {password && (
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-                    <LinearProgress
-                      variant="determinate"
-                      value={passwordStrength}
-                      color={getPasswordStrengthColor()}
-                      sx={{ flexGrow: 1, height: 6, borderRadius: 3 }}
-                    />
-                    <Typography variant="caption" color="text.secondary" sx={{ minWidth: 40 }}>
-                      {passwordStrength}%
-                    </Typography>
-                  </Box>
-                )}
-                <Box sx={{ mt: password ? 1 : 0 }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
-                    Password requirements:
-                  </Typography>
-                  <Box component="ul" sx={{ m: 0, pl: 2, fontSize: "0.75rem" }}>
-                    <Box
-                      component="li"
-                      sx={{
-                        color: passwordRequirements.minLength ? "success.main" : "error.main"
-                      }}
-                    >
-                      At least 8 characters
-                    </Box>
-                    <Box
-                      component="li"
-                      sx={{
-                        color: passwordRequirements.hasNumber ? "success.main" : "error.main"
-                      }}
-                    >
-                      At least one number
-                    </Box>
-                    <Box
-                      component="li"
-                      sx={{
-                        color: passwordRequirements.hasUppercase ? "success.main" : "error.main"
-                      }}
-                    >
-                      At least one uppercase letter
-                    </Box>
-                    <Box
-                      component="li"
-                      sx={{
-                        color: passwordRequirements.hasSpecialChar ? "success.main" : "error.main"
-                      }}
-                    >
-                      At least one special character
-                    </Box>
-                  </Box>
-                </Box>
-              </Box>
-            </Box>
-            <TextField
-              label="Confirm password"
-              type="password"
-              fullWidth
-              {...register("confirmPassword")}
-              error={!!errors.confirmPassword || (!!confirmPassword && !!password && confirmPassword !== password)}
-              helperText={
-                errors.confirmPassword?.message ||
-                (confirmPassword && password && confirmPassword !== password
-                  ? "Passwords do not match"
-                  : "")
-              }
-              disabled={registerMutation.isPending}
-            />
-            <TextField
-              label="Display name (optional)"
-              fullWidth
-              {...register("displayName")}
-              error={!!errors.displayName}
-              helperText={errors.displayName?.message}
-              disabled={registerMutation.isPending}
-            />
+    <FormContainer
+      title="Create account"
+      subtitle="Sign up with your email and password to get started."
+      maxWidth={520}
+      errorMessage={serverError}
+      successMessage={successMessage}
+    >
+      <Box component="form" noValidate onSubmit={handleSubmit(onSubmit)}>
+        <Stack spacing={2}>
+          <FormTextField
+            label="Email"
+            fullWidth
+            register={register("email")}
+            error={errors.email}
+            disabled={registerMutation.isPending}
+          />
+          <PasswordFieldWithStrength
+            register={register("password")}
+            control={control}
+            passwordFieldName="password"
+            label="Password"
+            error={errors.password}
+            disabled={registerMutation.isPending}
+          />
+          <FormTextField
+            label="Confirm password"
+            type="password"
+            fullWidth
+            register={register("confirmPassword")}
+            error={errors.confirmPassword}
+            helperText={
+              confirmPassword && password && confirmPassword !== password
+                ? "Passwords do not match"
+                : undefined
+            }
+            disabled={registerMutation.isPending}
+          />
+          <FormTextField
+            label="Display name (optional)"
+            fullWidth
+            register={register("displayName")}
+            error={errors.displayName}
+            disabled={registerMutation.isPending}
+          />
 
             <Box>
               <Typography variant="body2" sx={{ mb: 1, fontWeight: 500 }}>
@@ -269,21 +168,20 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
               </Grid>
             </Box>
 
-            <Button
-              type="submit"
-              variant="contained"
-              disabled={registerMutation.isPending}
-            >
-              {registerMutation.isPending ? "Creating..." : "Create account"}
-            </Button>
-          </Stack>
-        </Box>
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={registerMutation.isPending}
+          >
+            {registerMutation.isPending ? "Creating..." : "Create account"}
+          </Button>
+        </Stack>
+      </Box>
 
-        <Typography variant="body2" sx={{ mt: 2 }}>
-          Already have an account? <Link to="/login">Sign in</Link>
-        </Typography>
-      </Paper>
-    </Box>
+      <Typography variant="body2" sx={{ mt: 2 }}>
+        Already have an account? <Link to="/login">Sign in</Link>
+      </Typography>
+    </FormContainer>
   );
 };
 

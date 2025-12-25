@@ -3,13 +3,11 @@ import { useParams, useNavigate } from "react-router";
 import {
   Container,
   Paper,
-  TextField,
   Button,
   Box,
   Typography,
   Avatar,
   Grid,
-  Alert,
   CircularProgress
 } from "@mui/material";
 import { useForm, useWatch } from "react-hook-form";
@@ -19,6 +17,7 @@ import { useAuthSession } from "../hooks/useAuthSession";
 import { updateProfileSchema, type UpdateProfileFormValues } from "../../lib/schemas/userProfileSchema";
 import { AVAILABLE_AVATARS } from "../../lib/constants/avatars";
 import RequireAuth from "../../app/shared/components/RequireAuth";
+import { FormTextField } from "../../app/shared/components";
 
 function EditProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -30,7 +29,7 @@ function EditProfilePage() {
   const {
     register,
     handleSubmit,
-    setValue,
+    reset,
     control,
     formState: { errors }
   } = useForm<UpdateProfileFormValues>({
@@ -50,16 +49,18 @@ function EditProfilePage() {
   // Check if user is viewing their own profile
   const isOwnProfile = session?.userId === id;
 
-  // Load profile data into form
+  // Load profile data into form - use reset to avoid cascading renders
   useEffect(() => {
     if (profile) {
-      setValue("displayName", profile.displayName || "");
-      setValue("bio", profile.bio || "");
-      setValue("avatarUrl", profile.avatarUrl || AVAILABLE_AVATARS[0]);
-      setValue("steamProfileUrl", profile.steamProfileUrl || "");
-      setValue("faceitProfileUrl", profile.faceitProfileUrl || "");
+      reset({
+        displayName: profile.displayName || "",
+        bio: profile.bio || "",
+        avatarUrl: profile.avatarUrl || AVAILABLE_AVATARS[0],
+        steamProfileUrl: profile.steamProfileUrl || "",
+        faceitProfileUrl: profile.faceitProfileUrl || ""
+      });
     }
-  }, [profile, setValue]);
+  }, [profile, reset]);
 
   const onSubmit = async (values: UpdateProfileFormValues) => {
     if (!id || !isOwnProfile) {
@@ -125,9 +126,9 @@ function EditProfilePage() {
           </Typography>
 
           {serverError && (
-            <Alert severity="error" sx={{ mb: 3 }}>
+            <Box sx={{ mb: 3, p: 2, bgcolor: "error.light", color: "error.contrastText", borderRadius: 1 }}>
               {serverError}
-            </Alert>
+            </Box>
           )}
 
           <form onSubmit={handleSubmit(onSubmit)}>
@@ -172,46 +173,43 @@ function EditProfilePage() {
               </Box>
 
               {/* Display Name */}
-              <TextField
+              <FormTextField
                 label="Display Name"
                 fullWidth
-                {...register("displayName")}
-                error={!!errors.displayName}
-                helperText={errors.displayName?.message}
+                register={register("displayName")}
+                error={errors.displayName}
                 disabled={updateProfile.isPending}
               />
 
               {/* Bio */}
-              <TextField
+              <FormTextField
                 label="Bio"
                 fullWidth
                 multiline
                 rows={4}
-                {...register("bio")}
-                error={!!errors.bio}
-                helperText={errors.bio?.message || "Maximum 500 characters"}
+                register={register("bio")}
+                error={errors.bio}
+                helperText="Maximum 500 characters"
                 disabled={updateProfile.isPending}
               />
 
               {/* Steam Profile URL */}
-              <TextField
+              <FormTextField
                 label="Steam Profile URL"
                 fullWidth
                 placeholder="https://steamcommunity.com/profiles/..."
-                {...register("steamProfileUrl")}
-                error={!!errors.steamProfileUrl}
-                helperText={errors.steamProfileUrl?.message}
+                register={register("steamProfileUrl")}
+                error={errors.steamProfileUrl}
                 disabled={updateProfile.isPending}
               />
 
               {/* FACEIT Profile URL */}
-              <TextField
+              <FormTextField
                 label="FACEIT Profile URL"
                 fullWidth
                 placeholder="https://www.faceit.com/en/players/..."
-                {...register("faceitProfileUrl")}
-                error={!!errors.faceitProfileUrl}
-                helperText={errors.faceitProfileUrl?.message}
+                register={register("faceitProfileUrl")}
+                error={errors.faceitProfileUrl}
                 disabled={updateProfile.isPending}
               />
 

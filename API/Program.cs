@@ -28,7 +28,13 @@ builder.Services.AddMediatR(cfg =>
 builder.Services.AddHttpClient<ResendClient>();
 builder.Services.Configure<ResendClientOptions>(opt =>
 {
-  opt.ApiToken = builder.Configuration["Resend:ApiToken"]!;
+  var apiToken = builder.Configuration["Resend:ApiToken"];
+  if (string.IsNullOrWhiteSpace(apiToken))
+  {
+    throw new InvalidOperationException(
+      "Resend API token is not configured. Please set 'Resend:ApiToken' in appsettings.json or environment variables.");
+  }
+  opt.ApiToken = apiToken;
 });
 builder.Services.AddTransient<IResend,ResendClient>();
 
@@ -61,8 +67,10 @@ builder.Services.AddCors(options =>
 });
 
 // Register email services
+// EmailSenderService implements both IEmailSender<ApplicationUser> (for ASP.NET Core Identity)
+// and IEmailService (for Application layer), following clean architecture principles
 builder.Services.AddTransient<IEmailSender<ApplicationUser>, EmailSenderService>();
-builder.Services.AddTransient<Application.Interfaces.Services.IEmailService, Infrastructure.Identity.EmailService>();
+builder.Services.AddTransient<Application.Interfaces.Services.IEmailService, EmailSenderService>();
 
 builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
 {

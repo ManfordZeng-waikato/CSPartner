@@ -31,9 +31,14 @@ public class AccountController : BaseApiController
     public async Task<IActionResult> Login([FromBody] LoginDto dto)
     {
         var result = await _authService.LoginAsync(dto);
+        
+        // Always return HTTP 200 with succeeded: false in the body for failed attempts
+        // This allows the client to properly handle special cases like EMAIL_NOT_CONFIRMED
+        // where credentials are valid but email is not confirmed - this is a workflow state,
+        // not an authentication failure, so we return 200 to allow client-side handling
         if (!result.Succeeded)
         {
-            return Unauthorized(new { errors = result.Errors });
+            return Ok(result);
         }
 
         return Ok(result);
@@ -81,5 +86,37 @@ public class AccountController : BaseApiController
         }
 
         return Ok(result);
+    }
+
+    /// <summary>
+    /// Request password reset - sends reset code to user's email
+    /// </summary>
+    [HttpPost("requestPasswordReset")]
+    public async Task<IActionResult> RequestPasswordReset([FromBody] RequestPasswordResetDto dto)
+    {
+        var (succeeded, message) = await _authService.RequestPasswordResetAsync(dto);
+        
+        if (!succeeded)
+        {
+            return BadRequest(new { error = message });
+        }
+
+        return Ok(new { message });
+    }
+
+    /// <summary>
+    /// Reset password using reset code
+    /// </summary>
+    [HttpPost("resetPassword")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto dto)
+    {
+        var (succeeded, message) = await _authService.ResetPasswordAsync(dto);
+        
+        if (!succeeded)
+        {
+            return BadRequest(new { error = message });
+        }
+
+        return Ok(new { message });
     }
 }

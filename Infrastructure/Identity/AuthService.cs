@@ -118,7 +118,7 @@ public class AuthService : IAuthService
         var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);
         code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
 
-        var confirmEmailUrl = $"{_configuration["ClientAppUrl:ClientUrl"]}/confirm-email?userId={user.Id}&code={code}";
+        var confirmEmailUrl = $"{_configuration["ClientApp:ClientUrl"]}/confirm-email?userId={user.Id}&code={code}";
         await _emailService.SendConfirmationLinkAsync(email, user.UserName ?? email, confirmEmailUrl);
     }
 
@@ -312,5 +312,102 @@ public class AuthService : IAuthService
             Token = null,  // No token until email is confirmed
             Errors = new[] { "Registration successful. Please check your email to confirm your account before logging in." }
         };
+
+    public async Task<(bool Succeeded, string Message)> RequestPasswordResetAsync(RequestPasswordResetDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Email))
+        {
+            return (false, "Email is required");
+        }
+
+        var user = await _userManager.FindByEmailAsync(dto.Email);
+        if (user == null)
+        {
+            // Tell user that email is not registered
+            _logger.LogWarning("Password reset requested for non-existent email: {Email}", dto.Email);
+            return (false, "This email address is not registered. Please check your email or sign up for a new account.");
+        }
+
+        if (!user.EmailConfirmed)
+        {
+            // Tell user that email is not confirmed
+            _logger.LogWarning("Password reset requested for unconfirmed email: {Email}", dto.Email);
+            return (false, "This email address has not been confirmed. Please confirm your email first before resetting your password.");
+        }
+
+        try
+        {
+            // Generate password reset token
+            var resetToken = await _userManager.GeneratePasswordResetTokenAsync(user);
+            // Encode the token for URL safety
+            var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(resetToken));
+
+            // Send password reset email
+            await _emailService.SendPasswordResetCodeAsync(
+                user.Email!,
+                user.UserName ?? user.Email!,
+                encodedToken);
+
+            _logger.LogInformation("Password reset email sent for user {Email}", dto.Email);
+            return (true, "A password reset link has been sent to your email. Please check your inbox.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send password reset email for user {Email}", dto.Email);
+            return (false, "Failed to send password reset email. Please try again later.");
+        }
+    }
+
+    public async Task<(bool Succeeded, string Message)> ResetPasswordAsync(ResetPasswordDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Email))
+        {
+            return (false, "Email is required");
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.Code))
+        {
+            return (false, "Reset code is required");
+        }
+
+        if (dto.NewPassword != dto.ConfirmPassword)
+        {
+            return (false, "Passwords do not match");
+        }
+
+        var user = await _userManager.FindByEmailAsync(dto.Email);
+        if (user == null)
+        {
+            // Don't reveal if email exists or not for security reasons
+            _logger.LogWarning("Password reset attempted for non-existent email: {Email}", dto.Email);
+            return (false, "Invalid reset code or email address.");
+        }
+
+        try
+        {
+            // Decode the base64 URL encoded token
+            var decodedToken = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(dto.Code));
+
+            // Reset the password
+            var result = await _userManager.ResetPasswordAsync(user, decodedToken, dto.NewPassword);
+
+            if (result.Succeeded)
+            {
+                _logger.LogInformation("Password reset successful for user {Email}", dto.Email);
+                return (true, "Password has been reset successfully. You can now login with your new password.");
+            }
+            else
+            {
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                _logger.LogWarning("Password reset failed for user {Email}: {Errors}", dto.Email, errors);
+                return (false, $"Password reset failed: {errors}");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to reset password for user {Email}", dto.Email);
+            return (false, "Invalid or expired reset code. Please request a new password reset.");
+        }
+    }
 }
 

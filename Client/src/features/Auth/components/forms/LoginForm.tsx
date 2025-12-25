@@ -1,13 +1,10 @@
 import React, { useState, useEffect } from "react";
 import {
-  Alert,
   Box,
   Button,
   Checkbox,
   FormControlLabel,
-  Paper,
   Stack,
-  TextField,
   Typography
 } from "@mui/material";
 import { useForm } from "react-hook-form";
@@ -20,6 +17,7 @@ import { handleApiError, useLogin } from "../../../hooks/useAccount";
 import { processPendingLikes } from "../../../hooks/useVideos";
 import { Link, useNavigate, useLocation } from "react-router";
 import type { Location } from "react-router";
+import { FormContainer, FormTextField } from "../../../../app/shared/components";
 
 type LoginFormProps = {
   onSuccess?: () => void;
@@ -30,17 +28,17 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
   const location = useLocation();
   const loginMutation = useLogin();
   const [serverError, setServerError] = useState<string | null>(null);
-  const [infoMessage, setInfoMessage] = useState<string | null>(null);
+  
+  // Get message from location state - compute directly instead of using effect
+  const stateMessage = (location.state as { message?: string })?.message;
+  const [infoMessage, setInfoMessage] = useState<string | null>(stateMessage || null);
 
-  // Check for message from location state (e.g., from registration or email confirmation)
+  // Clear location state after reading it to prevent showing the message again on refresh
   useEffect(() => {
-    const stateMessage = (location.state as { message?: string })?.message;
     if (stateMessage) {
-      setInfoMessage(stateMessage);
-      // Clear the state to prevent showing the message again on refresh
       window.history.replaceState({}, document.title);
     }
-  }, [location]);
+  }, [stateMessage]);
 
   const {
     register,
@@ -81,7 +79,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
       // Check if error is due to unconfirmed email
       if (error instanceof Error && error.message === "EMAIL_NOT_CONFIRMED") {
         // Get email from the error response or use the form email
-        const email = (error as any).response?.data?.email || values.email;
+        const email = (error as { response?: { data?: { email?: string } } }).response?.data?.email || values.email;
         // Redirect to check email page with autoSend flag
         navigate(`/check-email?email=${encodeURIComponent(email)}&autoSend=true`, {
           replace: true
@@ -93,45 +91,31 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
   };
 
   return (
-    <Box sx={{ display: "flex", justifyContent: "center", mt: 8, px: 2 }}>
-      <Paper sx={{ p: 4, maxWidth: 420, width: "100%" }} elevation={3}>
-        <Typography variant="h5" fontWeight={700} gutterBottom>
-          Sign in
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Enter your account credentials to continue.
-        </Typography>
-
-        {infoMessage && (
-          <Alert severity="info" sx={{ mb: 2 }} onClose={() => setInfoMessage(null)}>
-            {infoMessage}
-          </Alert>
-        )}
-        {serverError && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {serverError}
-          </Alert>
-        )}
-
-        <Box component="form" noValidate onSubmit={handleSubmit(onSubmit)}>
-          <Stack spacing={2}>
-            <TextField
-              label="Email"
-              fullWidth
-              {...register("email")}
-              error={!!errors.email}
-              helperText={errors.email?.message}
-              disabled={loginMutation.isPending}
-            />
-            <TextField
-              label="Password"
-              type="password"
-              fullWidth
-              {...register("password")}
-              error={!!errors.password}
-              helperText={errors.password?.message}
-              disabled={loginMutation.isPending}
-            />
+    <FormContainer
+      title="Sign in"
+      subtitle="Enter your account credentials to continue."
+      errorMessage={serverError}
+      infoMessage={infoMessage}
+      onCloseInfo={() => setInfoMessage(null)}
+    >
+      <Box component="form" noValidate onSubmit={handleSubmit(onSubmit)}>
+        <Stack spacing={2}>
+          <FormTextField
+            label="Email"
+            fullWidth
+            register={register("email")}
+            error={errors.email}
+            disabled={loginMutation.isPending}
+          />
+          <FormTextField
+            label="Password"
+            type="password"
+            fullWidth
+            register={register("password")}
+            error={errors.password}
+            disabled={loginMutation.isPending}
+          />
+          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <FormControlLabel
               control={
                 <Checkbox
@@ -141,22 +125,28 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
               }
               label="Remember me"
             />
-            <Button
-              type="submit"
-              variant="contained"
-              disabled={loginMutation.isPending}
+            <Link
+              to="/forgot-password"
+              style={{ textDecoration: "none", fontSize: "0.875rem" }}
             >
-              {loginMutation.isPending ? "Signing in..." : "Sign in"}
-            </Button>
-          </Stack>
-        </Box>
+              Forgot password?
+            </Link>
+          </Box>
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={loginMutation.isPending}
+          >
+            {loginMutation.isPending ? "Signing in..." : "Sign in"}
+          </Button>
+        </Stack>
+      </Box>
 
-        <Typography variant="body2" sx={{ mt: 2 }}>
-          Don&apos;t have an account?{" "}
-          <Link to="/signup">Create one</Link>
-        </Typography>
-      </Paper>
-    </Box>
+      <Typography variant="body2" sx={{ mt: 2 }}>
+        Don&apos;t have an account?{" "}
+        <Link to="/signup">Create one</Link>
+      </Typography>
+    </FormContainer>
   );
 };
 
