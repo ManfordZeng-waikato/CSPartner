@@ -16,7 +16,7 @@ export default function HomePage() {
             bottom: 0,
             width: '100vw',
             height: '100vh',
-            backgroundImage: 'url(/homeB.jpg)',
+            backgroundImage: 'url(/Home.png)',
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             backgroundRepeat: 'no-repeat',
@@ -81,30 +81,7 @@ export default function HomePage() {
                </Button>
              </Box>
             </Box>
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-              <Typography 
-                variant="h2" 
-                sx={{
-                  fontWeight: 700,
-                  textShadow: '2px 2px 6px rgba(0, 0, 0, 0.7), 0 0 15px rgba(0, 0, 0, 0.4)',
-                  color: '#FFFFFF',
-                  textAlign: 'center'
-                }}
-              >
-                  Watch Highlights & Find Your Squad
-              </Typography>
-              <Typography 
-                variant="h4" 
-                sx={{
-                  fontWeight: 500,
-                  textShadow: '1px 1px 4px rgba(0, 0, 0, 0.6)',
-                  color: '#FFFFFF',
-                  textAlign: 'center'
-                }}
-              >
-                  Connect with players who match your playstyle and level
-              </Typography>
-            </Box>
+           
         </Paper>
     )
 }  
