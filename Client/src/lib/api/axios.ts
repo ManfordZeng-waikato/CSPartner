@@ -34,7 +34,8 @@ apiClient.interceptors.request.use(
       '/api/account/register',
       '/api/account/confirmEmail',
       '/api/account/resendConfirmationEmail',
-      '/api/userprofiles'
+      '/api/userprofiles',
+      '/api/videos'
     ];
     
     const isAnonymousEndpoint = config.url && anonymousEndpoints.some(
