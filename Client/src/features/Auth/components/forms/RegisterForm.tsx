@@ -2,11 +2,13 @@ import React, { useState } from "react";
 import {
   Box,
   Button,
+  Divider,
   Stack,
   Typography,
   Avatar,
   Grid
 } from "@mui/material";
+import GitHubIcon from "@mui/icons-material/GitHub";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -51,6 +53,15 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
   const selectedAvatar = useWatch({ control, name: "avatarUrl" });
   const password = useWatch({ control, name: "password" });
   const confirmPassword = useWatch({ control, name: "confirmPassword" });
+
+  const handleGitHubLogin = () => {
+    // Get API base URL from environment or use current origin
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || window.location.origin;
+    // Redirect to backend GitHub OAuth login endpoint
+    // The backend will handle the entire OAuth flow using ASP.NET Core authentication middleware
+    // This ensures proper state management and security
+    window.location.href = `${apiBaseUrl}/api/account/github-login`;
+  };
 
   const onSubmit = async (values: RegisterFormValues) => {
     setServerError(null);
@@ -172,8 +183,30 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
             type="submit"
             variant="contained"
             disabled={registerMutation.isPending}
+            fullWidth
           >
             {registerMutation.isPending ? "Creating..." : "Create account"}
+          </Button>
+          
+          <Divider sx={{ my: 2 }}>
+            <Typography variant="body2" color="text.secondary">
+              OR
+            </Typography>
+          </Divider>
+          
+          <Button
+            type="button"
+            variant="outlined"
+            fullWidth
+            startIcon={<GitHubIcon />}
+            onClick={handleGitHubLogin}
+            disabled={registerMutation.isPending}
+            sx={{
+              textTransform: "none",
+              py: 1.5
+            }}
+          >
+            Continue with GitHub
           </Button>
         </Stack>
       </Box>

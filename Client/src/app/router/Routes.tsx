@@ -6,6 +6,7 @@ import ConfirmEmailPage from "../../features/Auth/ConfirmEmailPage";
 import CheckEmailPage from "../../features/Auth/CheckEmailPage";
 import ForgotPasswordPage from "../../features/Auth/ForgotPasswordPage";
 import ResetPasswordPage from "../../features/Auth/ResetPasswordPage";
+import GitHubCallbackPage from "../../features/Auth/GitHubCallbackPage";
 import VideoDetailPage from "../../features/Videos/details/videoDetailPage";
 import App from "../../app/layout/App";
 import VideoDashboard from "../../features/Videos/dashboard/VideoDashboard";
@@ -68,6 +69,10 @@ export const router = createBrowserRouter([
                         <ResetPasswordPage />
                     </RequireGuest>
                 )
+            },
+            {
+                path: 'auth/callback',
+                element: <GitHubCallbackPage />
             },
             {
                 path: 'videos',

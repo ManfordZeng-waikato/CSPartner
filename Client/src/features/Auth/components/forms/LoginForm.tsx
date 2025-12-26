@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Box,
   Button,
   Checkbox,
+  Divider,
   FormControlLabel,
   Stack,
   Typography
 } from "@mui/material";
+import GitHubIcon from "@mui/icons-material/GitHub";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -33,6 +35,31 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
   const stateMessage = (location.state as { message?: string })?.message;
   const [infoMessage, setInfoMessage] = useState<string | null>(stateMessage || null);
 
+  // Check for error in URL query parameters (from GitHub OAuth callback)
+  const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const errorParam = useMemo(() => searchParams.get('error'), [searchParams]);
+  
+  // Initialize error from URL on mount only
+  useEffect(() => {
+    if (errorParam) {
+      const errorMessage = decodeURIComponent(errorParam);
+      // Use setTimeout to avoid synchronous setState in effect
+      setTimeout(() => {
+        setServerError(errorMessage);
+      }, 0);
+      
+      // Clean up URL by removing error parameter
+      const newSearchParams = new URLSearchParams(searchParams);
+      newSearchParams.delete('error');
+      const newSearch = newSearchParams.toString();
+      const newUrl = newSearch 
+        ? `${location.pathname}?${newSearch}` 
+        : location.pathname;
+      window.history.replaceState({}, '', newUrl);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount
+
   // Clear location state after reading it to prevent showing the message again on refresh
   useEffect(() => {
     if (stateMessage) {
@@ -53,6 +80,15 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
       rememberMe: false
     }
   });
+
+  const handleGitHubLogin = () => {
+    // Get API base URL from environment or use current origin
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || window.location.origin;
+    // Redirect to backend GitHub OAuth login endpoint
+    // The backend will handle the entire OAuth flow using ASP.NET Core authentication middleware
+    // This ensures proper state management and security
+    window.location.href = `${apiBaseUrl}/api/account/github-login`;
+  };
 
   const onSubmit = async (values: LoginFormValues) => {
     setServerError(null);
@@ -136,8 +172,30 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
             type="submit"
             variant="contained"
             disabled={loginMutation.isPending}
+            fullWidth
           >
             {loginMutation.isPending ? "Signing in..." : "Sign in"}
+          </Button>
+          
+          <Divider sx={{ my: 2 }}>
+            <Typography variant="body2" color="text.secondary">
+              OR
+            </Typography>
+          </Divider>
+          
+          <Button
+            type="button"
+            variant="outlined"
+            fullWidth
+            startIcon={<GitHubIcon />}
+            onClick={handleGitHubLogin}
+            disabled={loginMutation.isPending}
+            sx={{
+              textTransform: "none",
+              py: 1.5
+            }}
+          >
+            Continue with GitHub
           </Button>
         </Stack>
       </Box>

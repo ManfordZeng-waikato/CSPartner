@@ -11,5 +11,6 @@ public interface IAuthService
     Task<AuthResultDto> ConfirmEmailAsync(Guid userId, string code);
     Task<(bool Succeeded, string Message)> RequestPasswordResetAsync(RequestPasswordResetDto dto);
     Task<(bool Succeeded, string Message)> ResetPasswordAsync(ResetPasswordDto dto);
+    Task<AuthResultDto> LoginWithGitHubAsync(string email, string name, string? avatarUrl, string githubId);
 }
 

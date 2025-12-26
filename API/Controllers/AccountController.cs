@@ -2,6 +2,9 @@ using Application.DTOs.Auth;
 using Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.Extensions.Configuration;
 
 namespace API.Controllers;
 
@@ -118,5 +121,85 @@ public class AccountController : BaseApiController
         }
 
         return Ok(new { message });
+    }
+
+    /// <summary>
+    /// Initiate GitHub OAuth login - redirects to GitHub
+    /// </summary>
+    [HttpGet("github-login")]
+    public IActionResult GitHubLogin()
+    {
+        var properties = new Microsoft.AspNetCore.Authentication.AuthenticationProperties 
+        { 
+            RedirectUri = "/api/account/github-callback-handler"
+        };
+        return Challenge(properties, "GitHub");
+    }
+
+    /// <summary>
+    /// Handle GitHub OAuth callback - processes authentication and redirects to frontend
+    /// </summary>
+    [HttpGet("github-callback-handler")]
+    public async Task<IActionResult> GitHubCallbackHandler()
+    {
+        var authenticateResult = await HttpContext.AuthenticateAsync("GitHub");
+        
+        if (!authenticateResult.Succeeded)
+        {
+            var config = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
+            var clientUrl = config["ClientApp:ClientUrl"] ?? $"{Request.Scheme}://{Request.Host}";
+            return Redirect($"{clientUrl}/login?error=github_auth_failed");
+        }
+
+        var claims = authenticateResult.Principal?.Claims;
+        if (claims == null)
+        {
+            var config = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
+            var clientUrl = config["ClientApp:ClientUrl"] ?? $"{Request.Scheme}://{Request.Host}";
+            return Redirect($"{clientUrl}/login?error=github_auth_failed");
+        }
+
+        // Extract GitHub user information
+        var githubId = claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value
+            ?? claims.FirstOrDefault(c => c.Type == "sub")?.Value
+            ?? claims.FirstOrDefault(c => c.Type == "id")?.Value;
+        var email = claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value
+            ?? claims.FirstOrDefault(c => c.Type == "email")?.Value
+            ?? claims.FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress")?.Value;
+        var name = claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value
+            ?? claims.FirstOrDefault(c => c.Type == "name")?.Value
+            ?? claims.FirstOrDefault(c => c.Type == "login")?.Value
+            ?? claims.FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name")?.Value;
+        var avatarUrl = claims.FirstOrDefault(c => c.Type == "avatar_url")?.Value
+            ?? claims.FirstOrDefault(c => c.Type == "picture")?.Value
+            ?? claims.FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/uri")?.Value;
+
+        var config2 = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
+        var clientUrl2 = config2["ClientApp:ClientUrl"] ?? $"{Request.Scheme}://{Request.Host}";
+
+        if (string.IsNullOrWhiteSpace(githubId))
+        {
+            return Redirect($"{clientUrl2}/login?error=github_id_missing");
+        }
+
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return Redirect($"{clientUrl2}/login?error=github_email_required");
+        }
+
+        // Note: We don't need to sign out the GitHub scheme as it's only used temporarily
+        // for OAuth flow. We'll use JWT tokens for actual authentication.
+
+        // Process GitHub login
+        var result = await _authService.LoginWithGitHubAsync(email, name ?? email, avatarUrl, githubId);
+
+        if (!result.Succeeded)
+        {
+            var errorMessage = result.Errors?.FirstOrDefault() ?? "GitHub login failed";
+            return Redirect($"{clientUrl2}/login?error={Uri.EscapeDataString(errorMessage)}");
+        }
+
+        // Redirect to frontend with token in query string
+        return Redirect($"{clientUrl2}/auth/callback?token={Uri.EscapeDataString(result.Token ?? string.Empty)}&userId={result.UserId}&email={Uri.EscapeDataString(result.Email ?? string.Empty)}&displayName={Uri.EscapeDataString(result.DisplayName ?? string.Empty)}");
     }
 }
