@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace API.Controllers;
 
@@ -12,10 +13,12 @@ namespace API.Controllers;
 public class AccountController : BaseApiController
 {
     private readonly IAuthService _authService;
+    private readonly ILogger<AccountController> _logger;
 
-    public AccountController(IAuthService authService)
+    public AccountController(IAuthService authService, ILogger<AccountController> logger)
     {
         _authService = authService;
+        _logger = logger;
     }
 
     [HttpPost("register")]
@@ -129,77 +132,91 @@ public class AccountController : BaseApiController
     [HttpGet("github-login")]
     public IActionResult GitHubLogin()
     {
-        var properties = new Microsoft.AspNetCore.Authentication.AuthenticationProperties 
-        { 
-            RedirectUri = "/api/account/github-callback-handler"
-        };
-        return Challenge(properties, "GitHub");
+        // Challenge without custom properties - let OAuth middleware handle state cookies
+        // The CallbackPath is configured in AddGitHub, and the callback handler will
+        // redirect to the frontend after processing
+        return Challenge("GitHub");
     }
 
     /// <summary>
     /// Handle GitHub OAuth callback - processes authentication and redirects to frontend
+    /// This endpoint is called after OAuth middleware processes the callback at /signin-github
     /// </summary>
-    [HttpGet("github-callback-handler")]
-    public async Task<IActionResult> GitHubCallbackHandler()
+    [HttpGet("github-callback")]
+    public async Task<IActionResult> GitHubCallback()
     {
-        var authenticateResult = await HttpContext.AuthenticateAsync("GitHub");
-        
-        if (!authenticateResult.Succeeded)
+        var config = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
+        var clientUrl = config["ClientApp:ClientUrl"] ?? $"{Request.Scheme}://{Request.Host}";
+
+        try
         {
-            var config = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
-            var clientUrl = config["ClientApp:ClientUrl"] ?? $"{Request.Scheme}://{Request.Host}";
-            return Redirect($"{clientUrl}/login?error=github_auth_failed");
-        }
+            // Authenticate using the GitHub scheme (OAuth middleware should have set this)
+            var authenticateResult = await HttpContext.AuthenticateAsync("GitHub");
+            
+            if (!authenticateResult.Succeeded)
+            {
+                _logger.LogWarning("GitHub authentication failed: {FailureMessage}", 
+                    authenticateResult.Failure?.Message ?? "Unknown error");
+                // GitHub scheme doesn't support SignOut - it's only for OAuth flow
+                // Just redirect on failure
+                return Redirect($"{clientUrl}/login?error=github_auth_failed");
+            }
 
-        var claims = authenticateResult.Principal?.Claims;
-        if (claims == null)
+            var claims = authenticateResult.Principal?.Claims;
+            if (claims == null)
+            {
+                _logger.LogWarning("GitHub authentication succeeded but no claims found");
+                return Redirect($"{clientUrl}/login?error=github_auth_failed");
+            }
+
+            // Extract GitHub user information
+            var githubId = claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value
+                ?? claims.FirstOrDefault(c => c.Type == "sub")?.Value
+                ?? claims.FirstOrDefault(c => c.Type == "id")?.Value;
+            var email = claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value
+                ?? claims.FirstOrDefault(c => c.Type == "email")?.Value
+                ?? claims.FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress")?.Value;
+            var name = claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value
+                ?? claims.FirstOrDefault(c => c.Type == "name")?.Value
+                ?? claims.FirstOrDefault(c => c.Type == "login")?.Value
+                ?? claims.FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name")?.Value;
+            var avatarUrl = claims.FirstOrDefault(c => c.Type == "avatar_url")?.Value
+                ?? claims.FirstOrDefault(c => c.Type == "picture")?.Value
+                ?? claims.FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/uri")?.Value;
+
+            // Note: GitHub scheme doesn't need to be signed out - it's only used temporarily
+            // for OAuth flow. The OAuth middleware handles cleanup automatically.
+
+            if (string.IsNullOrWhiteSpace(githubId))
+            {
+                _logger.LogWarning("GitHub ID is missing from claims");
+                return Redirect($"{clientUrl}/login?error=github_id_missing");
+            }
+
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                _logger.LogWarning("GitHub email is missing from claims");
+                return Redirect($"{clientUrl}/login?error=github_email_required");
+            }
+
+            // Process GitHub login
+            var result = await _authService.LoginWithGitHubAsync(email, name ?? email, avatarUrl, githubId);
+
+            if (!result.Succeeded)
+            {
+                var errorMessage = result.Errors?.FirstOrDefault() ?? "GitHub login failed";
+                _logger.LogWarning("GitHub login failed: {Error}", errorMessage);
+                return Redirect($"{clientUrl}/login?error={Uri.EscapeDataString(errorMessage)}");
+            }
+
+            // Redirect to frontend with token in query string
+            return Redirect($"{clientUrl}/auth/callback?token={Uri.EscapeDataString(result.Token ?? string.Empty)}&userId={result.UserId}&email={Uri.EscapeDataString(result.Email ?? string.Empty)}&displayName={Uri.EscapeDataString(result.DisplayName ?? string.Empty)}");
+        }
+        catch (Exception ex)
         {
-            var config = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
-            var clientUrl = config["ClientApp:ClientUrl"] ?? $"{Request.Scheme}://{Request.Host}";
-            return Redirect($"{clientUrl}/login?error=github_auth_failed");
+            _logger.LogError(ex, "Unexpected error during GitHub OAuth callback handling");
+            // GitHub scheme doesn't support SignOut - just redirect on error
+            return Redirect($"{clientUrl}/login?error=github_auth_error");
         }
-
-        // Extract GitHub user information
-        var githubId = claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value
-            ?? claims.FirstOrDefault(c => c.Type == "sub")?.Value
-            ?? claims.FirstOrDefault(c => c.Type == "id")?.Value;
-        var email = claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value
-            ?? claims.FirstOrDefault(c => c.Type == "email")?.Value
-            ?? claims.FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress")?.Value;
-        var name = claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value
-            ?? claims.FirstOrDefault(c => c.Type == "name")?.Value
-            ?? claims.FirstOrDefault(c => c.Type == "login")?.Value
-            ?? claims.FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name")?.Value;
-        var avatarUrl = claims.FirstOrDefault(c => c.Type == "avatar_url")?.Value
-            ?? claims.FirstOrDefault(c => c.Type == "picture")?.Value
-            ?? claims.FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/uri")?.Value;
-
-        var config2 = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
-        var clientUrl2 = config2["ClientApp:ClientUrl"] ?? $"{Request.Scheme}://{Request.Host}";
-
-        if (string.IsNullOrWhiteSpace(githubId))
-        {
-            return Redirect($"{clientUrl2}/login?error=github_id_missing");
-        }
-
-        if (string.IsNullOrWhiteSpace(email))
-        {
-            return Redirect($"{clientUrl2}/login?error=github_email_required");
-        }
-
-        // Note: We don't need to sign out the GitHub scheme as it's only used temporarily
-        // for OAuth flow. We'll use JWT tokens for actual authentication.
-
-        // Process GitHub login
-        var result = await _authService.LoginWithGitHubAsync(email, name ?? email, avatarUrl, githubId);
-
-        if (!result.Succeeded)
-        {
-            var errorMessage = result.Errors?.FirstOrDefault() ?? "GitHub login failed";
-            return Redirect($"{clientUrl2}/login?error={Uri.EscapeDataString(errorMessage)}");
-        }
-
-        // Redirect to frontend with token in query string
-        return Redirect($"{clientUrl2}/auth/callback?token={Uri.EscapeDataString(result.Token ?? string.Empty)}&userId={result.UserId}&email={Uri.EscapeDataString(result.Email ?? string.Empty)}&displayName={Uri.EscapeDataString(result.DisplayName ?? string.Empty)}");
     }
 }

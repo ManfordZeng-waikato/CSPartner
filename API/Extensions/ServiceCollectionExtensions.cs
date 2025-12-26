@@ -247,22 +247,49 @@ public static class ServiceCollectionExtensions
 
             options.ClientId = githubClientId;
             options.ClientSecret = githubClientSecret;
-            options.CallbackPath = "/api/account/github-callback-handler";
+            // Use default callback path - OAuth middleware handles this
+            // After successful callback, redirect to our controller handler
+            options.CallbackPath = "/signin-github";
             options.Scope.Add("user:email");
             options.SaveTokens = true;
 
-            // Configure cookie settings based on environment
-            if (!environment.IsDevelopment())
+            // Configure cookie settings for OAuth state management
+            // The OAuth correlation cookie stores the state parameter used to prevent CSRF attacks
+            // For localhost development with different ports, we need None + Secure for cross-origin cookies
+            if (environment.IsDevelopment())
             {
+                // Development: Use None + Always Secure for localhost cross-port scenarios
+                // Both frontend (3000) and backend (5001) use HTTPS, so Secure is required
                 options.CorrelationCookie.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.None;
                 options.CorrelationCookie.SecurePolicy = Microsoft.AspNetCore.Http.CookieSecurePolicy.Always;
                 options.CorrelationCookie.HttpOnly = true;
             }
             else
             {
-                options.CorrelationCookie.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.Lax;
-                options.CorrelationCookie.SecurePolicy = Microsoft.AspNetCore.Http.CookieSecurePolicy.SameAsRequest;
+                // Production: Use None + Always Secure for cross-site scenarios
+                options.CorrelationCookie.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.None;
+                options.CorrelationCookie.SecurePolicy = Microsoft.AspNetCore.Http.CookieSecurePolicy.Always;
+                options.CorrelationCookie.HttpOnly = true;
             }
+
+            // Handle successful OAuth callback - redirect to our controller
+            options.Events.OnTicketReceived = context =>
+            {
+                // OAuth middleware has successfully authenticated
+                // Redirect to our controller handler which will extract claims and create JWT
+                context.Response.Redirect("/api/account/github-callback");
+                context.HandleResponse();
+                return Task.CompletedTask;
+            };
+
+            // Handle OAuth failures
+            options.Events.OnRemoteFailure = context =>
+            {
+                var clientUrl = configuration["ClientApp:ClientUrl"] ?? "https://localhost:3000";
+                context.Response.Redirect($"{clientUrl}/login?error=github_auth_failed");
+                context.HandleResponse();
+                return Task.CompletedTask;
+            };
         });
 
         return services;
