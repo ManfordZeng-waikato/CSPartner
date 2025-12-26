@@ -45,6 +45,11 @@ export const clearSession = () => {
 type ApiErrorData = { errors?: string[]; error?: string };
 type ApiErrorResponse = { response?: { data?: ApiErrorData } };
 
+interface ErrorWithEmail extends Error {
+  email?: string;
+  response?: { data?: { email?: string } };
+}
+
 const isApiErrorResponse = (value: unknown): value is ApiErrorResponse =>
   typeof value === "object" &&
   value !== null &&
@@ -73,10 +78,10 @@ export const useLogin = () => {
 
       if (!response.data.succeeded) {
         // Create error with email information for EMAIL_NOT_CONFIRMED case
-        const error = new Error(response.data.errors?.[0] ?? "Login failed");
+        const error = new Error(response.data.errors?.[0] ?? "Login failed") as ErrorWithEmail;
         if (response.data.errors?.[0] === "EMAIL_NOT_CONFIRMED" && response.data.email) {
-          (error as any).email = response.data.email;
-          (error as any).response = { data: { email: response.data.email } };
+          error.email = response.data.email;
+          error.response = { data: { email: response.data.email } };
         }
         throw error;
       }

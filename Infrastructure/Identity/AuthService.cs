@@ -63,7 +63,7 @@ public class AuthService : IAuthService
         {
             return Failure(createResult.Errors.Select(e => e.Description));
         }
-        
+
         // Send confirmation email, but don't fail registration if email sending fails
         // User can resend email from check-email page
         try
@@ -238,12 +238,12 @@ public class AuthService : IAuthService
         {
             // Decode the base64 URL encoded code
             var decodedCode = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(code));
-            
+
             var result = await _userManager.ConfirmEmailAsync(user, decodedCode);
             if (result.Succeeded)
             {
                 _logger.LogInformation("Email confirmed for user {Email}", user.Email);
-                
+
                 // Reload user to get the latest EmailConfirmed status
                 var reloadedUser = await _userManager.FindByIdAsync(userId.ToString());
                 if (reloadedUser == null)
@@ -257,7 +257,7 @@ public class AuthService : IAuthService
                     .FirstOrDefaultAsync(p => p.UserId == reloadedUser.Id);
                 var displayName = profile?.DisplayName ?? reloadedUser.Email;
                 var roles = await _userManager.GetRolesAsync(reloadedUser);
-                
+
                 // Return success with token for auto-login
                 return Success(reloadedUser, displayName, roles);
             }
@@ -410,120 +410,125 @@ public class AuthService : IAuthService
         }
     }
 
-    public async Task<AuthResultDto> LoginWithGitHubAsync(string email, string name, string? avatarUrl, string githubId)
+    public async Task<AuthResultDto> LoginWithGitHubAsync(
+    string? email,
+    string name,
+    string? avatarUrl,
+    string githubId)
     {
-        if (string.IsNullOrWhiteSpace(email))
-        {
-            return Failure("Email is required for GitHub login");
-        }
-
         if (string.IsNullOrWhiteSpace(githubId))
-        {
             return Failure("GitHub ID is required");
-        }
 
-        // Try to find existing user by email
-        var user = await _userManager.FindByEmailAsync(email);
-        
+        var user = await _userManager.FindByLoginAsync("GitHub", githubId);
+
         if (user == null)
         {
-            // Create new user for GitHub login
-            user = new ApplicationUser
+            if (!string.IsNullOrWhiteSpace(email))
             {
-                UserName = email,
-                Email = email,
-                EmailConfirmed = true // GitHub email is already verified
-            };
-
-            var createResult = await _userManager.CreateAsync(user);
-            if (!createResult.Succeeded)
-            {
-                _logger.LogError("Failed to create user for GitHub login: {Errors}", 
-                    string.Join(", ", createResult.Errors.Select(e => e.Description)));
-                return Failure(createResult.Errors.Select(e => e.Description));
+                user = await _userManager.FindByEmailAsync(email);
             }
 
-            // Add user to User role
-            if (await _roleManager.RoleExistsAsync("User"))
+            if (user == null)
             {
+                user = new ApplicationUser
+                {
+                    UserName = email ?? $"github_{githubId}",
+                    Email = email,
+                    EmailConfirmed = !string.IsNullOrWhiteSpace(email)
+                };
+
+                var createResult = await _userManager.CreateAsync(user);
+                if (!createResult.Succeeded)
+                {
+                    _logger.LogError("Create user failed: {Errors}",
+                        string.Join(", ", createResult.Errors.Select(e => e.Description)));
+                    return Failure(createResult.Errors.Select(e => e.Description));
+                }
+
                 await _userManager.AddToRoleAsync(user, "User");
             }
 
-            // Create user profile
-            var displayName = string.IsNullOrWhiteSpace(name) ? email : name.Trim();
-            var profile = new UserProfile(user.Id);
-            profile.Update(displayName, null, avatarUrl, null, null);
+            var addLoginResult = await _userManager.AddLoginAsync(
+                user,
+                new UserLoginInfo("GitHub", githubId, "GitHub"));
+
+            if (!addLoginResult.Succeeded)
+            {
+                _logger.LogError("Add GitHub login failed: {Errors}",
+                    string.Join(", ", addLoginResult.Errors.Select(e => e.Description)));
+                return Failure(addLoginResult.Errors.Select(e => e.Description));
+            }
+        }
+
+        await EnsureUserProfileAsync(user, name, avatarUrl);
+
+        var roles = await _userManager.GetRolesAsync(user);
+        return Success(user, name, roles);
+    }
+
+
+    private async Task EnsureUserProfileAsync(
+     ApplicationUser user,
+     string? name,
+     string? avatarUrl)
+    { 
+        var profile = await _context.UserProfiles
+            .FirstOrDefaultAsync(p => p.UserId == user.Id);
+
+        var displayName = string.IsNullOrWhiteSpace(name)
+            ? user.Email ?? user.UserName ?? "GitHub User"
+            : name.Trim();
+
+        if (profile == null)
+        {
+            profile = new UserProfile(user.Id);
+
+            profile.Update(
+                displayName,
+                bio: null,
+                avatarUrl: avatarUrl,
+                steamUrl: null,
+                faceitUrl: null
+            );
 
             await _context.UserProfiles.AddAsync(profile);
-            await _context.SaveChangesAsync();
-
-            _logger.LogInformation("Created new user {Email} via GitHub OAuth", email);
         }
         else
         {
-            // User exists, update profile if needed
-            var profile = await _context.UserProfiles
-                .FirstOrDefaultAsync(p => p.UserId == user.Id);
+            var shouldUpdate = false;
 
-            if (profile == null)
+            if (string.IsNullOrWhiteSpace(profile.DisplayName))
             {
-                // Create profile if it doesn't exist
-                var displayName = string.IsNullOrWhiteSpace(name) ? email : name.Trim();
-                profile = new UserProfile(user.Id);
-                profile.Update(displayName, null, avatarUrl, null, null);
-                await _context.UserProfiles.AddAsync(profile);
+                profile.Update(
+                    displayName,
+                    profile.Bio,
+                    avatarUrl ?? profile.AvatarUrl,
+                    profile.SteamProfileUrl,
+                    profile.FaceitProfileUrl
+                );
+                shouldUpdate = true;
             }
-            else
+               
+            else if (!string.IsNullOrWhiteSpace(avatarUrl)
+                     && string.IsNullOrWhiteSpace(profile.AvatarUrl))
             {
-                // Update existing profile with GitHub info if not already set
-                var displayName = string.IsNullOrWhiteSpace(name) ? email : name.Trim();
-                if (string.IsNullOrWhiteSpace(profile.DisplayName))
-                {
-                    profile.Update(displayName, profile.Bio, avatarUrl ?? profile.AvatarUrl, 
-                        profile.SteamProfileUrl, profile.FaceitProfileUrl);
-                }
-                else if (!string.IsNullOrWhiteSpace(avatarUrl) && string.IsNullOrWhiteSpace(profile.AvatarUrl))
-                {
-                    profile.Update(profile.DisplayName, profile.Bio, avatarUrl, 
-                        profile.SteamProfileUrl, profile.FaceitProfileUrl);
-                }
+                profile.Update(
+                    profile.DisplayName,
+                    profile.Bio,
+                    avatarUrl,
+                    profile.SteamProfileUrl,
+                    profile.FaceitProfileUrl
+                );
+                shouldUpdate = true;
             }
-
-            // Ensure email is confirmed for existing users logging in via GitHub
-            if (!user.EmailConfirmed)
+    
+            if (shouldUpdate)
             {
-                user.EmailConfirmed = true;
-                await _userManager.UpdateAsync(user);
-            }
-
-            await _context.SaveChangesAsync();
-            _logger.LogInformation("User {Email} logged in via GitHub OAuth", email);
-        }
-
-        // Associate GitHub login with user account (for future reference)
-        try
-        {
-            var existingLogins = await _userManager.GetLoginsAsync(user);
-            var githubLogin = existingLogins.FirstOrDefault(l => l.LoginProvider == "GitHub");
-            
-            if (githubLogin == null)
-            {
-                await _userManager.AddLoginAsync(user, new UserLoginInfo("GitHub", githubId, "GitHub"));
+                _context.UserProfiles.Update(profile);
             }
         }
-        catch (Exception ex)
-        {
-            // Log but don't fail - login association is optional
-            _logger.LogWarning(ex, "Failed to associate GitHub login with user {Email}", email);
-        }
 
-        // Get user profile and roles
-        var finalProfile = await _context.UserProfiles
-            .FirstOrDefaultAsync(p => p.UserId == user.Id);
-        var displayNameFinal = finalProfile?.DisplayName ?? name ?? email;
-        var roles = await _userManager.GetRolesAsync(user);
-
-        return Success(user, displayNameFinal, roles);
+        await _context.SaveChangesAsync();
     }
 }
 

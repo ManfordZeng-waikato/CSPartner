@@ -31,6 +31,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
   const registerMutation = useRegister();
   const [serverError, setServerError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isGitHubRedirecting, setIsGitHubRedirecting] = useState(false);
 
   const {
     register,
@@ -55,6 +56,10 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
   const confirmPassword = useWatch({ control, name: "confirmPassword" });
 
   const handleGitHubLogin = () => {
+    // Prevent multiple clicks
+    if (isGitHubRedirecting) return;
+    
+    setIsGitHubRedirecting(true);
     // Get API base URL from environment or use current origin
     const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || window.location.origin;
     // Redirect to backend GitHub OAuth login endpoint
@@ -200,13 +205,13 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
             fullWidth
             startIcon={<GitHubIcon />}
             onClick={handleGitHubLogin}
-            disabled={registerMutation.isPending}
+            disabled={registerMutation.isPending || isGitHubRedirecting}
             sx={{
               textTransform: "none",
               py: 1.5
             }}
           >
-            Continue with GitHub
+            {isGitHubRedirecting ? "Redirecting..." : "Continue with GitHub"}
           </Button>
         </Stack>
       </Box>

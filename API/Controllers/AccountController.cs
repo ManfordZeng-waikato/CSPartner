@@ -37,7 +37,7 @@ public class AccountController : BaseApiController
     public async Task<IActionResult> Login([FromBody] LoginDto dto)
     {
         var result = await _authService.LoginAsync(dto);
-        
+
         // Always return HTTP 200 with succeeded: false in the body for failed attempts
         // This allows the client to properly handle special cases like EMAIL_NOT_CONFIRMED
         // where credentials are valid but email is not confirmed - this is a workflow state,
@@ -64,7 +64,7 @@ public class AccountController : BaseApiController
     public async Task<IActionResult> ResendConfirmationEmail(string email)
     {
         var (succeeded, message) = await _authService.ResendConfirmationEmailAsync(email);
-        
+
         if (!succeeded)
         {
             return BadRequest(new { error = message });
@@ -85,7 +85,7 @@ public class AccountController : BaseApiController
         }
 
         var result = await _authService.ConfirmEmailAsync(userId, code);
-        
+
         if (!result.Succeeded)
         {
             return BadRequest(result);
@@ -101,7 +101,7 @@ public class AccountController : BaseApiController
     public async Task<IActionResult> RequestPasswordReset([FromBody] RequestPasswordResetDto dto)
     {
         var (succeeded, message) = await _authService.RequestPasswordResetAsync(dto);
-        
+
         if (!succeeded)
         {
             return BadRequest(new { error = message });
@@ -117,7 +117,7 @@ public class AccountController : BaseApiController
     public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto dto)
     {
         var (succeeded, message) = await _authService.ResetPasswordAsync(dto);
-        
+
         if (!succeeded)
         {
             return BadRequest(new { error = message });
@@ -129,19 +129,27 @@ public class AccountController : BaseApiController
     /// <summary>
     /// Initiate GitHub OAuth login - redirects to GitHub
     /// </summary>
+    [AllowAnonymous]
     [HttpGet("github-login")]
     public IActionResult GitHubLogin()
     {
-        // Challenge without custom properties - let OAuth middleware handle state cookies
-        // The CallbackPath is configured in AddGitHub, and the callback handler will
-        // redirect to the frontend after processing
-        return Challenge("GitHub");
+        // Set ReturnUrl so OAuth middleware redirects to our callback handler after authentication
+        var config = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
+        var clientUrl = config["ClientApp:ClientUrl"] ?? $"{Request.Scheme}://{Request.Host}";
+        var returnUrl = $"{clientUrl}/api/account/github-callback";
+        
+        var properties = new AuthenticationProperties { RedirectUri = returnUrl };
+        return Challenge(properties, "GitHub");
     }
+
 
     /// <summary>
     /// Handle GitHub OAuth callback - processes authentication and redirects to frontend
     /// This endpoint is called after OAuth middleware processes the callback at /signin-github
+    /// The OAuth middleware automatically handles /signin-github and signs in to External scheme,
+    /// then redirects here for business logic processing
     /// </summary>
+    [AllowAnonymous]
     [HttpGet("github-callback")]
     public async Task<IActionResult> GitHubCallback()
     {
@@ -150,73 +158,86 @@ public class AccountController : BaseApiController
 
         try
         {
-            // Authenticate using the GitHub scheme (OAuth middleware should have set this)
-            var authenticateResult = await HttpContext.AuthenticateAsync("GitHub");
-            
-            if (!authenticateResult.Succeeded)
+            // Read GitHub authentication result from External Cookie
+            var result = await HttpContext.AuthenticateAsync("External");
+
+            if (!result.Succeeded || result.Principal == null)
             {
-                _logger.LogWarning("GitHub authentication failed: {FailureMessage}", 
-                    authenticateResult.Failure?.Message ?? "Unknown error");
-                // GitHub scheme doesn't support SignOut - it's only for OAuth flow
-                // Just redirect on failure
+                _logger.LogWarning("Failed to read External Cookie in GitHub callback: {Message}",
+                    result.Failure?.Message ?? "Principal is null");
                 return Redirect($"{clientUrl}/login?error=github_auth_failed");
             }
 
-            var claims = authenticateResult.Principal?.Claims;
-            if (claims == null)
-            {
-                _logger.LogWarning("GitHub authentication succeeded but no claims found");
-                return Redirect($"{clientUrl}/login?error=github_auth_failed");
-            }
+            var claims = result.Principal.Claims.ToList();
 
-            // Extract GitHub user information
-            var githubId = claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value
+            // GitHub user unique identifier (most reliable)
+            var githubId =
+                claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value
                 ?? claims.FirstOrDefault(c => c.Type == "sub")?.Value
                 ?? claims.FirstOrDefault(c => c.Type == "id")?.Value;
-            var email = claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value
-                ?? claims.FirstOrDefault(c => c.Type == "email")?.Value
-                ?? claims.FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress")?.Value;
-            var name = claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value
-                ?? claims.FirstOrDefault(c => c.Type == "name")?.Value
-                ?? claims.FirstOrDefault(c => c.Type == "login")?.Value
-                ?? claims.FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name")?.Value;
-            var avatarUrl = claims.FirstOrDefault(c => c.Type == "avatar_url")?.Value
-                ?? claims.FirstOrDefault(c => c.Type == "picture")?.Value
-                ?? claims.FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/uri")?.Value;
 
-            // Note: GitHub scheme doesn't need to be signed out - it's only used temporarily
-            // for OAuth flow. The OAuth middleware handles cleanup automatically.
+            var name =
+                claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value
+                ?? claims.FirstOrDefault(c => c.Type == "name")?.Value
+                ?? claims.FirstOrDefault(c => c.Type == "login")?.Value;
+
+            var avatarUrl =
+                claims.FirstOrDefault(c => c.Type == "avatar_url")?.Value
+                ?? claims.FirstOrDefault(c => c.Type == "picture")?.Value;
+
+            // Email may not be available (GitHub allows users to hide it), try claims first
+            var email =
+                claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value
+                ?? claims.FirstOrDefault(c => c.Type == "email")?.Value;
 
             if (string.IsNullOrWhiteSpace(githubId))
             {
-                _logger.LogWarning("GitHub ID is missing from claims");
+                _logger.LogWarning("GitHub callback missing githubId");
+                await HttpContext.SignOutAsync("External");
                 return Redirect($"{clientUrl}/login?error=github_id_missing");
             }
 
+            // Email is required for this application
+            // Note: GitHub may not provide email if user has hidden it or scope is insufficient
             if (string.IsNullOrWhiteSpace(email))
             {
-                _logger.LogWarning("GitHub email is missing from claims");
+                _logger.LogWarning("GitHub callback missing email (user may have hidden it or scope is insufficient)");
+                await HttpContext.SignOutAsync("External");
                 return Redirect($"{clientUrl}/login?error=github_email_required");
             }
 
-            // Process GitHub login
-            var result = await _authService.LoginWithGitHubAsync(email, name ?? email, avatarUrl, githubId);
+            var auth = await _authService.LoginWithGitHubAsync(
+                email,
+                name ?? email,
+                avatarUrl,
+                githubId
+            );
 
-            if (!result.Succeeded)
+            // Clean up External Cookie immediately to avoid polluting subsequent logins
+            await HttpContext.SignOutAsync("External");
+
+            if (!auth.Succeeded)
             {
-                var errorMessage = result.Errors?.FirstOrDefault() ?? "GitHub login failed";
-                _logger.LogWarning("GitHub login failed: {Error}", errorMessage);
-                return Redirect($"{clientUrl}/login?error={Uri.EscapeDataString(errorMessage)}");
+                var err = auth.Errors?.FirstOrDefault() ?? "GitHub login failed";
+                _logger.LogWarning("GitHub login failed: {Error}", err);
+                return Redirect($"{clientUrl}/login?error={Uri.EscapeDataString(err)}");
             }
 
-            // Redirect to frontend with token in query string
-            return Redirect($"{clientUrl}/auth/callback?token={Uri.EscapeDataString(result.Token ?? string.Empty)}&userId={result.UserId}&email={Uri.EscapeDataString(result.Email ?? string.Empty)}&displayName={Uri.EscapeDataString(result.DisplayName ?? string.Empty)}");
+            return Redirect(
+                $"{clientUrl}/auth/callback" +
+                $"?token={Uri.EscapeDataString(auth.Token ?? string.Empty)}" +
+                $"&userId={auth.UserId}" +
+                $"&email={Uri.EscapeDataString(auth.Email ?? string.Empty)}" +
+                $"&displayName={Uri.EscapeDataString(auth.DisplayName ?? string.Empty)}"
+            );
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unexpected error during GitHub OAuth callback handling");
-            // GitHub scheme doesn't support SignOut - just redirect on error
+            _logger.LogError(ex, "Exception occurred while processing GitHub callback");
+            // Try to clean up External Cookie
+            try { await HttpContext.SignOutAsync("External"); } catch { /* Ignore */ }
             return Redirect($"{clientUrl}/login?error=github_auth_error");
         }
     }
+
 }

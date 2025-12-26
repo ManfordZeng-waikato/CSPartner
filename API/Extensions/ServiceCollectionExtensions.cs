@@ -5,6 +5,7 @@ using Infrastructure.Identity;
 using Infrastructure.Persistence.Context;
 using Infrastructure.Persistence.Identity;
 using MediatR;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
@@ -178,122 +179,130 @@ public static class ServiceCollectionExtensions
     /// <summary>
     /// Configure JWT and GitHub OAuth authentication
     /// </summary>
-    public static IServiceCollection AddAuthenticationConfiguration(
-        this IServiceCollection services,
-        IConfiguration configuration,
-        IWebHostEnvironment environment)
-    {
-        var jwtSecretKey = configuration["Jwt:SecretKey"];
-        var jwtIssuer = configuration["Jwt:Issuer"];
-        var jwtAudience = configuration["Jwt:Audience"];
 
-        if (string.IsNullOrEmpty(jwtSecretKey) ||
-            string.IsNullOrEmpty(jwtIssuer) ||
-            string.IsNullOrEmpty(jwtAudience))
+public static IServiceCollection AddAuthenticationConfiguration(
+    this IServiceCollection services,
+    IConfiguration configuration,
+    IWebHostEnvironment environment)
+{
+    var jwtSecretKey = configuration["Jwt:SecretKey"];
+    var jwtIssuer = configuration["Jwt:Issuer"];
+    var jwtAudience = configuration["Jwt:Audience"];
+
+    if (string.IsNullOrEmpty(jwtSecretKey) ||
+        string.IsNullOrEmpty(jwtIssuer) ||
+        string.IsNullOrEmpty(jwtAudience))
+    {
+        throw new InvalidOperationException(
+            "JWT authentication requires configuration: Jwt:SecretKey, Jwt:Issuer, Jwt:Audience");
+    }
+
+    // External login Cookie scheme (only used during GitHub OAuth callback)
+    const string ExternalScheme = "External";
+
+    services.AddAuthentication(options =>
+    {
+        // API defaults to JWT
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
         {
-            throw new InvalidOperationException(
-                "JWT authentication requires all of the following configuration values: " +
-                "Jwt:SecretKey, Jwt:Issuer, and Jwt:Audience. " +
-                "Please check your appsettings.json file.");
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtIssuer,
+            ValidAudience = jwtAudience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecretKey)),
+            ClockSkew = TimeSpan.Zero,
+            NameClaimType = JwtRegisteredClaimNames.Sub,
+            RoleClaimType = ClaimTypes.Role
+        };
+
+        // SignalR reads token from query string
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            }
+        };
+    })
+    .AddCookie(ExternalScheme, options =>
+    {
+        // This Cookie only exists briefly during OAuth callback
+        options.Cookie.Name = "__Host-cspartner-external";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+        options.Cookie.SameSite = SameSiteMode.None; // Required for cross-port/cross-domain scenarios
+        options.ExpireTimeSpan = TimeSpan.FromMinutes(5);
+        options.SlidingExpiration = false;
+    })
+    .AddGitHub(options =>
+    {
+        var githubClientId = configuration["Authentication:Github:ClientId"];
+        var githubClientSecret = configuration["Authentication:Github:ClientSecret"];
+
+        if (string.IsNullOrEmpty(githubClientId) || string.IsNullOrEmpty(githubClientSecret))
+        {
+            throw new InvalidOperationException("GitHub OAuth requires Authentication:Github:ClientId and ClientSecret to be configured");
         }
 
-        services.AddAuthentication(options =>
+        options.ClientId = githubClientId;
+        options.ClientSecret = githubClientSecret;
+
+        // Write GitHub OAuth login result to External Cookie
+        options.SignInScheme = ExternalScheme;
+
+        // OAuth callback path (must be configured in GitHub App)
+        options.CallbackPath = "/signin-github";
+
+        // Request email permission (may still not be available, need fallback)
+        options.Scope.Add("user:email");
+
+        // Save access_token for fetching email from GitHub API if needed
+        options.SaveTokens = true;
+
+        // Correlation cookie: must be None + Secure for cross-site/cross-port scenarios
+        options.CorrelationCookie.SameSite = SameSiteMode.None;
+        options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
+        options.CorrelationCookie.HttpOnly = true;
+
+        // Redirect to business logic handler after successful login
+        options.Events.OnTicketReceived = context =>
         {
-            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-        })
-        .AddJwtBearer(options =>
+            // Note: ReturnUri should be set in GitHubLogin method instead
+            return Task.CompletedTask;
+        };
+
+        // Log real error on failure (critical to avoid "Unknown error")
+        options.Events.OnRemoteFailure = context =>
         {
-            options.TokenValidationParameters = new TokenValidationParameters
-            {
-                ValidateIssuer = true,
-                ValidateAudience = true,
-                ValidateLifetime = true,
-                ValidateIssuerSigningKey = true,
-                ValidIssuer = jwtIssuer,
-                ValidAudience = jwtAudience,
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecretKey)),
-                ClockSkew = TimeSpan.Zero,
-                NameClaimType = JwtRegisteredClaimNames.Sub,
-                RoleClaimType = ClaimTypes.Role
-            };
+            var logger = context.HttpContext.RequestServices
+                .GetRequiredService<ILoggerFactory>()
+                .CreateLogger("GitHubOAuth");
 
-            // Support JWT token in query string for SignalR
-            options.Events = new JwtBearerEvents
-            {
-                OnMessageReceived = context =>
-                {
-                    var accessToken = context.Request.Query["access_token"];
-                    var path = context.HttpContext.Request.Path;
-                    if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
-                    {
-                        context.Token = accessToken;
-                    }
-                    return Task.CompletedTask;
-                }
-            };
-        })
-        .AddGitHub(options =>
-        {
-            var githubClientId = configuration["Authentication:Github:ClientId"];
-            var githubClientSecret = configuration["Authentication:Github:ClientSecret"];
+            logger.LogError(context.Failure, "GitHub OAuth remote authentication failed");
 
-            if (string.IsNullOrEmpty(githubClientId) || string.IsNullOrEmpty(githubClientSecret))
-            {
-                throw new InvalidOperationException(
-                    "GitHub OAuth requires 'Authentication:Github:ClientId' and 'Authentication:Github:ClientSecret' " +
-                    "to be configured in appsettings.json or environment variables.");
-            }
+            var clientUrl = configuration["ClientApp:ClientUrl"] ?? "https://localhost:3000";
+            context.Response.Redirect($"{clientUrl}/login?error=github_auth_failed");
+            context.HandleResponse();
+            return Task.CompletedTask;
+        };
+    });
 
-            options.ClientId = githubClientId;
-            options.ClientSecret = githubClientSecret;
-            // Use default callback path - OAuth middleware handles this
-            // After successful callback, redirect to our controller handler
-            options.CallbackPath = "/signin-github";
-            options.Scope.Add("user:email");
-            options.SaveTokens = true;
+    return services;
+}
 
-            // Configure cookie settings for OAuth state management
-            // The OAuth correlation cookie stores the state parameter used to prevent CSRF attacks
-            // For localhost development with different ports, we need None + Secure for cross-origin cookies
-            if (environment.IsDevelopment())
-            {
-                // Development: Use None + Always Secure for localhost cross-port scenarios
-                // Both frontend (3000) and backend (5001) use HTTPS, so Secure is required
-                options.CorrelationCookie.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.None;
-                options.CorrelationCookie.SecurePolicy = Microsoft.AspNetCore.Http.CookieSecurePolicy.Always;
-                options.CorrelationCookie.HttpOnly = true;
-            }
-            else
-            {
-                // Production: Use None + Always Secure for cross-site scenarios
-                options.CorrelationCookie.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.None;
-                options.CorrelationCookie.SecurePolicy = Microsoft.AspNetCore.Http.CookieSecurePolicy.Always;
-                options.CorrelationCookie.HttpOnly = true;
-            }
-
-            // Handle successful OAuth callback - redirect to our controller
-            options.Events.OnTicketReceived = context =>
-            {
-                // OAuth middleware has successfully authenticated
-                // Redirect to our controller handler which will extract claims and create JWT
-                context.Response.Redirect("/api/account/github-callback");
-                context.HandleResponse();
-                return Task.CompletedTask;
-            };
-
-            // Handle OAuth failures
-            options.Events.OnRemoteFailure = context =>
-            {
-                var clientUrl = configuration["ClientApp:ClientUrl"] ?? "https://localhost:3000";
-                context.Response.Redirect($"{clientUrl}/login?error=github_auth_failed");
-                context.HandleResponse();
-                return Task.CompletedTask;
-            };
-        });
-
-        return services;
-    }
 
     /// <summary>
     /// Configure controllers, SignalR, and OpenAPI

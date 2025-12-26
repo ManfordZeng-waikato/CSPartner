@@ -81,7 +81,13 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
     }
   });
 
+  const [isGitHubRedirecting, setIsGitHubRedirecting] = useState(false);
+
   const handleGitHubLogin = () => {
+    // Prevent multiple clicks
+    if (isGitHubRedirecting) return;
+    
+    setIsGitHubRedirecting(true);
     // Get API base URL from environment or use current origin
     const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || window.location.origin;
     // Redirect to backend GitHub OAuth login endpoint
@@ -189,13 +195,13 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
             fullWidth
             startIcon={<GitHubIcon />}
             onClick={handleGitHubLogin}
-            disabled={loginMutation.isPending}
+            disabled={loginMutation.isPending || isGitHubRedirecting}
             sx={{
               textTransform: "none",
               py: 1.5
             }}
           >
-            Continue with GitHub
+            {isGitHubRedirecting ? "Redirecting..." : "Continue with GitHub"}
           </Button>
         </Stack>
       </Box>

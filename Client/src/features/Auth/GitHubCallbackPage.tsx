@@ -12,8 +12,12 @@ const GitHubCallbackPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [processed, setProcessed] = useState(false);
 
   useEffect(() => {
+    // Prevent multiple executions
+    if (processed) return;
+
     const handleCallback = async () => {
       try {
         // Extract token and user info from URL query parameters
@@ -22,6 +26,9 @@ const GitHubCallbackPage: React.FC = () => {
         const email = searchParams.get("email");
         const displayName = searchParams.get("displayName");
         const errorParam = searchParams.get("error");
+
+        // Mark as processed immediately to prevent re-execution
+        setProcessed(true);
 
         // Check for error first
         if (errorParam) {
@@ -66,7 +73,6 @@ const GitHubCallbackPage: React.FC = () => {
         // Redirect to videos page
         navigate("/videos", { replace: true });
       } catch (err) {
-        console.error("GitHub callback error:", err);
         setError(err instanceof Error ? err.message : "An unexpected error occurred");
         setLoading(false);
         setTimeout(() => {
@@ -76,7 +82,8 @@ const GitHubCallbackPage: React.FC = () => {
     };
 
     handleCallback();
-  }, [searchParams, navigate, queryClient]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
   if (loading) {
     return (
