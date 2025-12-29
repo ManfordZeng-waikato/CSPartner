@@ -1,5 +1,5 @@
 using Application.Behaviors;
-using Application.Interfaces.Services;
+using Application.Common.Interfaces;
 using Infrastructure;
 using Infrastructure.Identity;
 using Infrastructure.Persistence.Context;
@@ -121,7 +121,7 @@ public static class ServiceCollectionExtensions
 
         // Register email services
         services.AddTransient<IEmailSender<ApplicationUser>, EmailSenderService>();
-        services.AddTransient<Application.Interfaces.Services.IEmailService, EmailSenderService>();
+        services.AddTransient<IEmailService, EmailSenderService>();
 
         return services;
     }

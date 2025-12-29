@@ -2,7 +2,6 @@ using System.Linq;
 using System.Text;
 using Application.Common.Interfaces;
 using Application.DTOs.Auth;
-using Application.Interfaces.Services;
 using Domain.Users;
 using Infrastructure.Persistence.Identity;
 using Microsoft.AspNetCore.Identity;

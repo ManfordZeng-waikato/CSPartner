@@ -19,7 +19,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using API.SignalR;
-using Application.Interfaces.Services;
 
 namespace API.Controllers;
 

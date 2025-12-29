@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Infrastructure.Persistence.Identity;
 using Microsoft.Extensions.Configuration;
-using Application.Interfaces.Services;
+using Application.Common.Interfaces;
 using Microsoft.Extensions.Logging;
 using Resend;
 

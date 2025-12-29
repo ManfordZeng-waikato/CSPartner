@@ -1,6 +1,6 @@
 using Application.DTOs.Storage;
 
-namespace Application.Interfaces.Services;
+namespace Application.Common.Interfaces;
 
 public interface IStorageService
 {
@@ -22,3 +22,4 @@ public interface IStorageService
     /// </summary>
     Task<bool> FileExistsAsync(string objectKey, CancellationToken cancellationToken = default);
 }
+

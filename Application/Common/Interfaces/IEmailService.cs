@@ -1,4 +1,4 @@
-namespace Application.Interfaces.Services;
+namespace Application.Common.Interfaces;
 
 /// <summary>
 /// Email service interface for sending various types of emails
