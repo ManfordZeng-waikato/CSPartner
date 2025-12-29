@@ -2,6 +2,7 @@ using Application.DTOs.Auth;
 using Application.Common.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Configuration;
@@ -22,6 +23,7 @@ public class AccountController : BaseApiController
     }
 
     [HttpPost("register")]
+    [EnableRateLimiting("register")]
     public async Task<IActionResult> Register([FromBody] RegisterDto dto)
     {
         var result = await _authService.RegisterAsync(dto);
@@ -34,17 +36,29 @@ public class AccountController : BaseApiController
     }
 
     [HttpPost("login")]
+    [EnableRateLimiting("login")]
     public async Task<IActionResult> Login([FromBody] LoginDto dto)
     {
         var result = await _authService.LoginAsync(dto);
 
-        // Always return HTTP 200 with succeeded: false in the body for failed attempts
-        // This allows the client to properly handle special cases like EMAIL_NOT_CONFIRMED
-        // where credentials are valid but email is not confirmed - this is a workflow state,
-        // not an authentication failure, so we return 200 to allow client-side handling
         if (!result.Succeeded)
         {
-            return Ok(result);
+            // Security: For EMAIL_NOT_CONFIRMED, return 200 with email for frontend redirect
+            // This is a workflow state, not an authentication failure
+            if (result.Errors.Contains("EMAIL_NOT_CONFIRMED"))
+            {
+                return Ok(result);
+            }
+
+            // Security: For other failures, return generic error message to prevent information leakage
+            // Do not expose whether the email exists or if the password is incorrect
+            var secureResponse = new AuthResultDto
+            {
+                Succeeded = false,
+                Errors = new[] { "Invalid email or password" }
+            };
+
+            return Ok(secureResponse);
         }
 
         return Ok(result);
@@ -98,6 +112,7 @@ public class AccountController : BaseApiController
     /// Request password reset - sends reset code to user's email
     /// </summary>
     [HttpPost("requestPasswordReset")]
+    [EnableRateLimiting("password-reset")]
     public async Task<IActionResult> RequestPasswordReset([FromBody] RequestPasswordResetDto dto)
     {
         var (succeeded, message) = await _authService.RequestPasswordResetAsync(dto);
@@ -114,6 +129,7 @@ public class AccountController : BaseApiController
     /// Reset password using reset code
     /// </summary>
     [HttpPost("resetPassword")]
+    [EnableRateLimiting("password-reset")]
     public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto dto)
     {
         var (succeeded, message) = await _authService.ResetPasswordAsync(dto);

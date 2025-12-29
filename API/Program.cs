@@ -12,6 +12,7 @@ builder.Services
     .AddCorsConfiguration(builder.Environment)
     .AddIdentityConfiguration()
     .AddAuthenticationConfiguration(builder.Configuration, builder.Environment)
+    .AddRateLimiting()
     .AddApiServices();
 
 var app = builder.Build();

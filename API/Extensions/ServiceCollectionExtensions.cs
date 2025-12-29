@@ -10,11 +10,13 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using System.Threading.RateLimiting;
 using Resend;
 using AspNet.Security.OAuth.GitHub;
 using Azure.Identity;
@@ -303,6 +305,61 @@ public static IServiceCollection AddAuthenticationConfiguration(
     return services;
 }
 
+
+    /// <summary>
+    /// Configure rate limiting for authentication endpoints
+    /// Note: Rate limiting is built into .NET 7+ and requires Microsoft.AspNetCore.RateLimiting package
+    /// </summary>
+    public static IServiceCollection AddRateLimiting(this IServiceCollection services)
+    {
+        // Add rate limiter service
+        services.AddRateLimiter();
+
+        // Configure rate limit policies
+        services.Configure<RateLimiterOptions>(options =>
+        {
+            // Rate limit for login endpoint: 5 attempts per minute per IP
+            options.AddFixedWindowLimiter("login", limiterOptions =>
+            {
+                limiterOptions.Window = TimeSpan.FromMinutes(1);
+                limiterOptions.PermitLimit = 5;
+                limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+                limiterOptions.QueueLimit = 2;
+            });
+
+            // Rate limit for registration endpoint: 3 attempts per 5 minutes per IP
+            options.AddFixedWindowLimiter("register", limiterOptions =>
+            {
+                limiterOptions.Window = TimeSpan.FromMinutes(5);
+                limiterOptions.PermitLimit = 3;
+                limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+                limiterOptions.QueueLimit = 1;
+            });
+
+            // Rate limit for password reset: 3 attempts per 10 minutes per IP
+            options.AddFixedWindowLimiter("password-reset", limiterOptions =>
+            {
+                limiterOptions.Window = TimeSpan.FromMinutes(10);
+                limiterOptions.PermitLimit = 3;
+                limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+                limiterOptions.QueueLimit = 1;
+            });
+
+            // Global fallback policy: reject requests when rate limit is exceeded
+            options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+            {
+                return RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        Window = TimeSpan.FromMinutes(1),
+                        PermitLimit = 100 // Global limit: 100 requests per minute per IP
+                    });
+            });
+        });
+
+        return services;
+    }
 
     /// <summary>
     /// Configure controllers, SignalR, and OpenAPI

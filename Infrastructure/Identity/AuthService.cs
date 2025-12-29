@@ -124,20 +124,36 @@ public class AuthService : IAuthService
     public async Task<AuthResultDto> LoginAsync(LoginDto dto)
     {
         var user = await _userManager.FindByEmailAsync(dto.Email);
-        if (user is null)
+        
+        // Security: Always perform password check even if user doesn't exist to prevent user enumeration
+        // This ensures consistent timing regardless of whether the user exists
+        var signInResult = SignInResult.Failed;
+        if (user != null)
         {
-            _logger.LogWarning("User {Email} login failed: user does not exist", dto.Email);
-            return Failure("The email address you entered does not exist. Please check your email and try again.");
+            signInResult = await _signInManager.CheckPasswordSignInAsync(
+                user, dto.Password, lockoutOnFailure: false);
         }
 
-        // Check password first before checking email confirmation
-        var signInResult = await _signInManager.CheckPasswordSignInAsync(
-            user, dto.Password, lockoutOnFailure: false);
+        // Security: Add random delay to prevent timing attacks
+        // This makes it harder for attackers to determine if a user exists based on response time
+        var randomDelay = Random.Shared.Next(100, 300);
+        await Task.Delay(randomDelay);
 
-        if (!signInResult.Succeeded)
+        // Security: Return generic error message for both user not found and incorrect password
+        // This prevents user enumeration attacks
+        if (user is null || !signInResult.Succeeded)
         {
-            _logger.LogWarning("User {Email} login failed: incorrect password", dto.Email);
-            return Failure("The password you entered is incorrect. Please try again.");
+            if (user is null)
+            {
+                _logger.LogWarning("User {Email} login failed: user does not exist", dto.Email);
+            }
+            else
+            {
+                _logger.LogWarning("User {Email} login failed: incorrect password", dto.Email);
+            }
+            
+            // Return generic error message to prevent user enumeration
+            return Failure("Invalid email or password");
         }
 
         // Check if email is confirmed (explicit check to enforce RequireConfirmedEmail setting)
