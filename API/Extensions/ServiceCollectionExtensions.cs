@@ -224,9 +224,43 @@ public static IServiceCollection AddAuthenticationConfiguration(
             RoleClaimType = ClaimTypes.Role
         };
 
-        // SignalR reads token from query string
+        // Security: Check token blacklist during validation
         options.Events = new JwtBearerEvents
         {
+            OnTokenValidated = async context =>
+            {
+                // Security: Check if token is blacklisted
+                var tokenBlacklistService = context.HttpContext.RequestServices
+                    .GetRequiredService<Application.Common.Interfaces.ITokenBlacklistService>();
+                
+                // Extract token from Authorization header
+                var authHeader = context.Request.Headers["Authorization"].ToString();
+                var token = string.Empty;
+                
+                if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                {
+                    token = authHeader.Substring("Bearer ".Length).Trim();
+                }
+                
+                // Also check SignalR token from query string
+                if (string.IsNullOrEmpty(token))
+                {
+                    token = context.Request.Query["access_token"].ToString();
+                }
+
+                if (!string.IsNullOrEmpty(token))
+                {
+                    if (await tokenBlacklistService.IsTokenBlacklistedAsync(token))
+                    {
+                        context.Fail("Token has been revoked");
+                        var logger = context.HttpContext.RequestServices
+                            .GetRequiredService<ILoggerFactory>()
+                            .CreateLogger("JwtBearer");
+                        logger.LogWarning("Blacklisted token attempted to be used from IP: {IpAddress}", 
+                            context.Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown");
+                    }
+                }
+            },
             OnMessageReceived = context =>
             {
                 var accessToken = context.Request.Query["access_token"];
@@ -343,6 +377,15 @@ public static IServiceCollection AddAuthenticationConfiguration(
                 limiterOptions.PermitLimit = 3;
                 limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
                 limiterOptions.QueueLimit = 1;
+            });
+
+            // Rate limit for logout: 10 attempts per minute per IP
+            options.AddFixedWindowLimiter("logout", limiterOptions =>
+            {
+                limiterOptions.Window = TimeSpan.FromMinutes(1);
+                limiterOptions.PermitLimit = 10;
+                limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+                limiterOptions.QueueLimit = 2;
             });
 
             // Global fallback policy: reject requests when rate limit is exceeded

@@ -10,7 +10,6 @@ using Microsoft.Extensions.Logging;
 
 namespace API.Controllers;
 
-[AllowAnonymous]
 public class AccountController : BaseApiController
 {
     private readonly IAuthService _authService;
@@ -23,6 +22,7 @@ public class AccountController : BaseApiController
     }
 
     [HttpPost("register")]
+    [AllowAnonymous]
     [EnableRateLimiting("register")]
     public async Task<IActionResult> Register([FromBody] RegisterDto dto)
     {
@@ -36,6 +36,7 @@ public class AccountController : BaseApiController
     }
 
     [HttpPost("login")]
+    [AllowAnonymous]
     [EnableRateLimiting("login")]
     public async Task<IActionResult> Login([FromBody] LoginDto dto)
     {
@@ -64,17 +65,38 @@ public class AccountController : BaseApiController
         return Ok(result);
     }
 
+    /// <summary>
+    /// Logout endpoint - revokes current JWT token by adding it to blacklist
+    /// </summary>
     [HttpPost("logout")]
+    [Authorize] // Security: Only authenticated users can logout
+    [EnableRateLimiting("logout")] // Security: Rate limit logout requests
     public async Task<IActionResult> Logout()
     {
-        await _authService.LogoutAsync();
-        return Ok(new { succeeded = true });
+        try
+        {
+            await _authService.LogoutAsync();
+            return Ok(new { succeeded = true });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // User not authenticated, but return success to prevent information leakage
+            return Ok(new { succeeded = true });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error occurred during logout");
+            // Return success even on error to prevent information leakage
+            // Token will expire naturally if blacklist fails
+            return Ok(new { succeeded = true });
+        }
     }
 
     /// <summary>
     /// Resend email confirmation link
     /// </summary>
     [HttpGet("resendConfirmationEmail")]
+    [AllowAnonymous]
     public async Task<IActionResult> ResendConfirmationEmail(string email)
     {
         var (succeeded, message) = await _authService.ResendConfirmationEmailAsync(email);
@@ -91,6 +113,7 @@ public class AccountController : BaseApiController
     /// Confirm email address
     /// </summary>
     [HttpPost("confirmEmail")]
+    [AllowAnonymous]
     public async Task<IActionResult> ConfirmEmail([FromQuery] Guid userId, [FromQuery] string code)
     {
         if (string.IsNullOrWhiteSpace(code))
@@ -112,6 +135,7 @@ public class AccountController : BaseApiController
     /// Request password reset - sends reset code to user's email
     /// </summary>
     [HttpPost("requestPasswordReset")]
+    [AllowAnonymous]
     [EnableRateLimiting("password-reset")]
     public async Task<IActionResult> RequestPasswordReset([FromBody] RequestPasswordResetDto dto)
     {
@@ -129,6 +153,7 @@ public class AccountController : BaseApiController
     /// Reset password using reset code
     /// </summary>
     [HttpPost("resetPassword")]
+    [AllowAnonymous]
     [EnableRateLimiting("password-reset")]
     public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto dto)
     {
