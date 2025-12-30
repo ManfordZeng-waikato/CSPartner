@@ -27,7 +27,7 @@ public class ToggleLikeCommandHandler : IRequestHandler<ToggleLikeCommand, bool>
     public async Task<bool> Handle(ToggleLikeCommand request, CancellationToken cancellationToken)
     {
         if (!_currentUserService.UserId.HasValue)
-            throw new UnauthorizedAccessException("User must be authenticated to like a video");
+            throw AuthenticationRequiredException.ForOperation("like a video");
 
         // Rate limiting: Check if user has recently liked/unliked this video
         var rateLimitKey = $"{_currentUserService.UserId.Value}_{request.VideoId}";

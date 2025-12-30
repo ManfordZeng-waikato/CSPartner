@@ -53,10 +53,10 @@ public class ExceptionHandlingMiddleware
                 _logger.LogWarning(exception, "Unauthorized operation: {Message}", exception.Message);
                 break;
 
-            case UnauthorizedAccessException:
+            case AuthenticationRequiredException:
                 response.StatusCode = (int)HttpStatusCode.Unauthorized;
                 response.Message = exception.Message;
-                _logger.LogWarning(exception, "Unauthorized access: {Message}", exception.Message);
+                _logger.LogWarning(exception, "Authentication required: {Message}", exception.Message);
                 break;
 
             case InvalidCommentStateException:

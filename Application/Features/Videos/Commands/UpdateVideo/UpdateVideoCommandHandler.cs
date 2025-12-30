@@ -21,7 +21,7 @@ public class UpdateVideoCommandHandler : IRequestHandler<UpdateVideoCommand, boo
     public async Task<bool> Handle(UpdateVideoCommand request, CancellationToken cancellationToken)
     {
         if (!_currentUserService.UserId.HasValue)
-            throw new UnauthorizedAccessException("User must be authenticated to update a video");
+            throw AuthenticationRequiredException.ForOperation("update a video");
 
         var video = await _context.Videos
             .FirstOrDefaultAsync(v => v.Id == request.VideoId && !v.IsDeleted, cancellationToken);

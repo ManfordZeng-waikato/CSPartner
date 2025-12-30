@@ -3,6 +3,7 @@ using Application.DTOs.UserProfile;
 using Application.DTOs.Video;
 using Application.Features.UserProfiles.Queries.GetUserProfileByUserId;
 using Application.Mappings;
+using Domain.Exceptions;
 using Domain.Users;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -28,7 +29,7 @@ public class CreateOrUpdateUserProfileCommandHandler : IRequestHandler<CreateOrU
     public async Task<UserProfileDto> Handle(CreateOrUpdateUserProfileCommand request, CancellationToken cancellationToken)
     {
         if (!_currentUserService.UserId.HasValue)
-            throw new UnauthorizedAccessException("User must be authenticated to update profile");
+            throw AuthenticationRequiredException.ForOperation("update profile");
 
         var userId = _currentUserService.UserId.Value;
         var profile = await _context.UserProfiles

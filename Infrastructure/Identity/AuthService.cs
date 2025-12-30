@@ -209,7 +209,7 @@ public class AuthService : IAuthService
         if (!userId.HasValue)
         {
             _logger.LogWarning("Logout attempted without authenticated user");
-            throw new UnauthorizedAccessException("User is not authenticated");
+            throw new Domain.Exceptions.AuthenticationRequiredException("User is not authenticated");
         }
 
         // Security: Verify user still exists and is active

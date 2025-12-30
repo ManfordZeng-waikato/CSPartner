@@ -21,7 +21,7 @@ public class DeleteVideoCommandHandler : IRequestHandler<DeleteVideoCommand, boo
     public async Task<bool> Handle(DeleteVideoCommand request, CancellationToken cancellationToken)
     {
         if (!_currentUserService.UserId.HasValue)
-            throw new UnauthorizedAccessException("User must be authenticated to delete a video");
+            throw AuthenticationRequiredException.ForOperation("delete a video");
 
         var video = await _context.Videos
             .FirstOrDefaultAsync(v => v.Id == request.VideoId && !v.IsDeleted, cancellationToken);

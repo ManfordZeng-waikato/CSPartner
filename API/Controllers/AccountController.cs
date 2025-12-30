@@ -78,7 +78,7 @@ public class AccountController : BaseApiController
             await _authService.LogoutAsync();
             return Ok(new { succeeded = true });
         }
-        catch (UnauthorizedAccessException)
+        catch (Domain.Exceptions.AuthenticationRequiredException)
         {
             // User not authenticated, but return success to prevent information leakage
             return Ok(new { succeeded = true });

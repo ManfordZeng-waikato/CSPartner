@@ -21,7 +21,7 @@ public class UpdateCommentCommandHandler : IRequestHandler<UpdateCommentCommand,
     public async Task<bool> Handle(UpdateCommentCommand request, CancellationToken cancellationToken)
     {
         if (!_currentUserService.UserId.HasValue)
-            throw new UnauthorizedAccessException("User must be authenticated to update a comment");
+            throw AuthenticationRequiredException.ForOperation("update a comment");
 
         var comment = await _context.Comments
             .FirstOrDefaultAsync(c => c.Id == request.CommentId && !c.IsDeleted, cancellationToken);
