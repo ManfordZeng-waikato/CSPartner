@@ -16,6 +16,9 @@ public static class WebApplicationExtensions
             app.MapOpenApi();
         }
 
+        // Global exception handling (must be early in pipeline)
+        app.UseMiddleware<API.Middleware.ExceptionHandlingMiddleware>();
+
         // Domain redirect middleware
         app.Use(async (context, next) =>
         {

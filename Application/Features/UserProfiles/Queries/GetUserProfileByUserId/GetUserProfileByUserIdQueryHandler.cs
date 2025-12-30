@@ -3,6 +3,7 @@ using Application.DTOs.UserProfile;
 using Application.DTOs.Video;
 using Application.Features.Videos.Queries.GetVideosByUserId;
 using Application.Mappings;
+using Domain.Exceptions;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -25,7 +26,7 @@ public class GetUserProfileByUserIdQueryHandler : IRequestHandler<GetUserProfile
             .FirstOrDefaultAsync(p => p.UserId == request.UserId, cancellationToken);
 
         if (profile == null)
-            return null;
+            throw new UserProfileNotFoundException(request.UserId);
 
         var videoDtos = await _mediator.Send(
             new GetVideosByUserIdQuery(request.UserId, request.CurrentUserId),

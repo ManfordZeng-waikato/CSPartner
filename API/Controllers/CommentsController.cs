@@ -38,22 +38,20 @@ public class CommentsController : BaseApiController
     [Authorize]
     public async Task<ActionResult> UpdateComment(Guid id, [FromBody] UpdateCommentDto dto)
     {
-        // Get videoId before updating (in case update fails)
+        // Get videoId before updating (for SignalR broadcast after successful update)
         var comment = await _context.Comments
             .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
 
-        if (comment == null)
-            return NotFound();
+        var videoId = comment?.VideoId ?? Guid.Empty;
 
-        var videoId = comment.VideoId;
-
-        var success = await _mediator.Send(new UpdateCommentCommand(id, dto.Content));
-        if (!success)
-            return NotFound();
+        await _mediator.Send(new UpdateCommentCommand(id, dto.Content));
 
         // Broadcast updated comments list to all clients watching this video
-        var comments = await _mediator.Send(new GetVideoCommentsQuery(videoId));
-        await _hubContext.Clients.Group(videoId.ToString()).SendAsync("ReceiveComments", comments);
+        if (videoId != Guid.Empty)
+        {
+            var comments = await _mediator.Send(new GetVideoCommentsQuery(videoId));
+            await _hubContext.Clients.Group(videoId.ToString()).SendAsync("ReceiveComments", comments);
+        }
 
         return NoContent();
     }
@@ -65,22 +63,20 @@ public class CommentsController : BaseApiController
     [Authorize]
     public async Task<ActionResult> DeleteComment(Guid id)
     {
-        // Get videoId before deleting (in case delete fails)
+        // Get videoId before deleting (for SignalR broadcast after successful delete)
         var comment = await _context.Comments
             .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
 
-        if (comment == null)
-            return NotFound();
+        var videoId = comment?.VideoId ?? Guid.Empty;
 
-        var videoId = comment.VideoId;
-
-        var success = await _mediator.Send(new DeleteCommentCommand(id));
-        if (!success)
-            return NotFound();
+        await _mediator.Send(new DeleteCommentCommand(id));
 
         // Broadcast updated comments list to all clients watching this video
-        var comments = await _mediator.Send(new GetVideoCommentsQuery(videoId));
-        await _hubContext.Clients.Group(videoId.ToString()).SendAsync("ReceiveComments", comments);
+        if (videoId != Guid.Empty)
+        {
+            var comments = await _mediator.Send(new GetVideoCommentsQuery(videoId));
+            await _hubContext.Clients.Group(videoId.ToString()).SendAsync("ReceiveComments", comments);
+        }
 
         return NoContent();
     }

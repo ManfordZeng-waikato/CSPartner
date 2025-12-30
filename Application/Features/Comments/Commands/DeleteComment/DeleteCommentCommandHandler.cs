@@ -1,4 +1,5 @@
 using Application.Common.Interfaces;
+using Domain.Exceptions;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -20,13 +21,16 @@ public class DeleteCommentCommandHandler : IRequestHandler<DeleteCommentCommand,
     public async Task<bool> Handle(DeleteCommentCommand request, CancellationToken cancellationToken)
     {
         if (!_currentUserService.UserId.HasValue)
-            return false;
+            throw new UnauthorizedAccessException("User must be authenticated to delete a comment");
 
         var comment = await _context.Comments
             .FirstOrDefaultAsync(c => c.Id == request.CommentId && !c.IsDeleted, cancellationToken);
 
-        if (comment == null || comment.UserId != _currentUserService.UserId.Value)
-            return false;
+        if (comment == null)
+            throw new CommentNotFoundException(request.CommentId);
+
+        if (comment.UserId != _currentUserService.UserId.Value)
+            throw new UnauthorizedOperationException("comment", request.CommentId);
 
         // Find all child comments recursively (replies to this comment and replies to replies)
         var allChildComments = await FindAllChildCommentsAsync(comment.CommentId, cancellationToken);

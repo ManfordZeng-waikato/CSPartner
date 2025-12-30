@@ -36,9 +36,6 @@ public class UserProfilesController : BaseApiController
     public async Task<ActionResult<UserProfileDto>> GetUserProfile(Guid userId)
     {
         var profile = await _mediator.Send(new GetUserProfileByUserIdQuery(userId, _currentUserService.UserId));
-        if (profile == null)
-            return NotFound();
-
         return Ok(profile);
     }
 

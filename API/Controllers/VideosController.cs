@@ -210,10 +210,7 @@ public class VideosController : BaseApiController
             dto.ThumbnailUrl,
             dto.Visibility);
 
-        var success = await _mediator.Send(command);
-
-        if (!success)
-            return NotFound();
+        await _mediator.Send(command);
 
         return NoContent();
     }
@@ -225,9 +222,7 @@ public class VideosController : BaseApiController
     [Authorize]
     public async Task<ActionResult> DeleteVideo(Guid id)
     {
-        var success = await _mediator.Send(new DeleteVideoCommand(id));
-        if (!success)
-            return NotFound();
+        await _mediator.Send(new DeleteVideoCommand(id));
 
         return NoContent();
     }
@@ -239,9 +234,7 @@ public class VideosController : BaseApiController
     [Authorize]
     public async Task<ActionResult> ToggleLike(Guid id)
     {
-        var success = await _mediator.Send(new ToggleLikeCommand(id));
-        if (!success)
-            return NotFound();
+        await _mediator.Send(new ToggleLikeCommand(id));
 
         return NoContent();
     }

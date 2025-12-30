@@ -1,4 +1,5 @@
 using Application.Common.Interfaces;
+using Domain.Exceptions;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -20,13 +21,16 @@ public class UpdateVideoCommandHandler : IRequestHandler<UpdateVideoCommand, boo
     public async Task<bool> Handle(UpdateVideoCommand request, CancellationToken cancellationToken)
     {
         if (!_currentUserService.UserId.HasValue)
-            return false;
+            throw new UnauthorizedAccessException("User must be authenticated to update a video");
 
         var video = await _context.Videos
             .FirstOrDefaultAsync(v => v.Id == request.VideoId && !v.IsDeleted, cancellationToken);
 
-        if (video == null || video.UploaderUserId != _currentUserService.UserId.Value)
-            return false;
+        if (video == null)
+            throw new VideoNotFoundException(request.VideoId);
+
+        if (video.UploaderUserId != _currentUserService.UserId.Value)
+            throw new UnauthorizedOperationException("video", request.VideoId);
 
         if (request.Title != null)
             video.SetTitle(request.Title);
