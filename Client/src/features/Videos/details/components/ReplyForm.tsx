@@ -3,6 +3,7 @@ import { Box, TextField, Alert, IconButton } from "@mui/material";
 import { Send, Close } from "@mui/icons-material";
 import { useCreateComment } from "../../../hooks/useVideos";
 import { useQueryClient } from "@tanstack/react-query";
+import { handleApiError } from "../../../hooks/useAccount";
 
 interface ReplyFormProps {
   videoId: string;
@@ -49,14 +50,7 @@ const ReplyForm: React.FC<ReplyFormProps> = ({
       // SignalR will automatically update comments via ReceiveComments event
     } catch (err: unknown) {
       console.error('Failed to create reply:', err);
-      let errorMessage = "Failed to post reply. Please try again.";
-      
-      if (err && typeof err === 'object') {
-        const axiosError = err as { response?: { data?: { error?: string } }; message?: string };
-        errorMessage = axiosError.response?.data?.error || axiosError.message || errorMessage;
-      }
-      
-      setError(errorMessage);
+      setError(handleApiError(err));
     }
   };
 

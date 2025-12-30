@@ -42,8 +42,15 @@ export const clearSession = () => {
   window.dispatchEvent(new Event(AUTH_SESSION_EVENT));
 };
 
-type ApiErrorData = { errors?: string[]; error?: string };
-type ApiErrorResponse = { response?: { data?: ApiErrorData } };
+// Backend error response format from ExceptionHandlingMiddleware
+type BackendErrorResponse = {
+  statusCode: number;
+  message: string;
+};
+
+// Legacy error formats (for backward compatibility)
+type LegacyApiErrorData = { errors?: string[]; error?: string };
+type ApiErrorResponse = { response?: { data?: BackendErrorResponse | LegacyApiErrorData } };
 
 interface ErrorWithEmail extends Error {
   email?: string;
@@ -56,11 +63,31 @@ const isApiErrorResponse = (value: unknown): value is ApiErrorResponse =>
   "response" in value &&
   typeof (value as { response?: unknown }).response === "object";
 
+const isBackendErrorResponse = (data: unknown): data is BackendErrorResponse =>
+  typeof data === "object" &&
+  data !== null &&
+  "statusCode" in data &&
+  "message" in data &&
+  typeof (data as { statusCode: unknown }).statusCode === "number" &&
+  typeof (data as { message: unknown }).message === "string";
+
 const extractErrorMessage = (error: unknown) => {
   if (isApiErrorResponse(error) && error.response?.data) {
-    const { errors, error: singleError } = error.response.data;
-    if (Array.isArray(errors) && errors.length > 0) return errors[0];
-    if (typeof singleError === "string") return singleError;
+    const data = error.response.data;
+    
+    // Check for new backend error format first (from ExceptionHandlingMiddleware)
+    if (isBackendErrorResponse(data)) {
+      return data.message;
+    }
+    
+    // Fallback to legacy formats for backward compatibility
+    const legacyData = data as LegacyApiErrorData;
+    if (Array.isArray(legacyData.errors) && legacyData.errors.length > 0) {
+      return legacyData.errors[0];
+    }
+    if (typeof legacyData.error === "string") {
+      return legacyData.error;
+    }
   }
   if (error instanceof Error && error.message) return error.message;
   return "Request failed, please try again later";

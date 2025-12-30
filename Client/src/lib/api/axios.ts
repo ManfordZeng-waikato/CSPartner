@@ -57,7 +57,7 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Response interceptor to handle 401 errors
+// Response interceptor to handle errors
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -65,23 +65,58 @@ apiClient.interceptors.response.use(
     if (error.response) {
       // The request was made and the server responded with a status code
       // that falls out of the range of 2xx
-      console.error("API Error:", error.response.status, error.response.data);
+      const status = error.response.status;
+      const errorData = error.response.data;
       
-      if (error.response.status === 401) {
-        // Token expired or invalid, clear it
-        if (import.meta.env.DEV) {
-          const token = getAuthToken();
-          console.warn("401 Unauthorized - Token may be expired or invalid. Token exists:", !!token);
-        }
-        setAuthToken(null);
-        // Don't redirect for login/register endpoints (they handle their own errors)
-        // Don't redirect for upload requests to allow error handling
-        const isAuthEndpoint = error.config?.url?.includes('/account/login') || 
-                              error.config?.url?.includes('/account/register');
-        const isUploadRequest = error.config?.url?.includes('/upload') || error.config?.url?.includes('/upload-url');
-        if (typeof window !== "undefined" && !isAuthEndpoint && !isUploadRequest) {
-          window.location.href = "/login";
-        }
+      console.error("API Error:", status, errorData);
+      
+      // Handle different HTTP status codes based on backend exception handling
+      switch (status) {
+        case 401: // Unauthorized - AuthenticationRequiredException
+          // Token expired or invalid, clear it
+          if (import.meta.env.DEV) {
+            const token = getAuthToken();
+            console.warn("401 Unauthorized - Token may be expired or invalid. Token exists:", !!token);
+          }
+          setAuthToken(null);
+          // Don't redirect for login/register endpoints (they handle their own errors)
+          // Don't redirect for upload requests to allow error handling
+          const isAuthEndpoint = error.config?.url?.includes('/account/login') || 
+                                error.config?.url?.includes('/account/register');
+          const isUploadRequest = error.config?.url?.includes('/upload') || error.config?.url?.includes('/upload-url');
+          if (typeof window !== "undefined" && !isAuthEndpoint && !isUploadRequest) {
+            window.location.href = "/login";
+          }
+          break;
+          
+        case 403: // Forbidden - UnauthorizedOperationException
+          if (import.meta.env.DEV) {
+            console.warn("403 Forbidden - User does not have permission for this operation");
+          }
+          // Don't redirect, let the component handle the error message
+          break;
+          
+        case 404: // Not Found - VideoNotFoundException, CommentNotFoundException, UserProfileNotFoundException
+          if (import.meta.env.DEV) {
+            console.warn("404 Not Found - Resource not found");
+          }
+          // Don't redirect, let the component handle the error message
+          break;
+          
+        case 400: // Bad Request - InvalidCommentStateException, DomainException
+          if (import.meta.env.DEV) {
+            console.warn("400 Bad Request - Domain validation error");
+          }
+          // Don't redirect, let the component handle the error message
+          break;
+          
+        case 500: // Internal Server Error
+        default:
+          if (import.meta.env.DEV) {
+            console.error("Server error:", status, errorData);
+          }
+          // Don't redirect, let the component handle the error message
+          break;
       }
     } else if (error.request) {
       // The request was made but no response was received

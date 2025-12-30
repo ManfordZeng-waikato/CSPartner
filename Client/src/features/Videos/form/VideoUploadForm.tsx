@@ -8,6 +8,7 @@ import type { VideoUploadFormValues } from "../../../lib/schemas/videoUploadSche
 import VideoUploaderForm from "../../../app/shared/components/VideoUploaderForm";
 import { useAuthSession } from "../../hooks/useAuthSession";
 import { getAuthToken } from "../../../lib/api/axios";
+import { handleApiError } from "../../hooks/useAccount";
 
 const visibilityOptions: { label: string; value: VideoVisibility }[] = [
   { label: "Public", value: 1 as VideoVisibility },
@@ -81,52 +82,7 @@ const VideoUploadForm: React.FC = () => {
     } catch (error: unknown) {
       setUploadProgress(0);
       console.error("Video upload error:", error);
-      let message = "Upload failed, please try again later";
-      
-      // Handle axios error response
-      if (
-        error &&
-        typeof error === "object" &&
-        "response" in error
-      ) {
-        const axiosError = error as { 
-          response?: { 
-            data?: { 
-              message?: string;
-              error?: string;
-              errors?: string[] | string;
-            };
-            status?: number;
-          };
-          message?: string;
-        };
-        
-        if (axiosError.response?.data) {
-          const data = axiosError.response.data;
-          // Try different error message formats
-          if (data.error) {
-            message = typeof data.error === "string" ? data.error : String(data.error);
-          } else if (data.message) {
-            message = data.message;
-          } else if (data.errors) {
-            if (Array.isArray(data.errors) && data.errors.length > 0) {
-              message = data.errors[0];
-            } else if (typeof data.errors === "string") {
-              message = data.errors;
-            }
-          } else if (axiosError.response.status === 401) {
-            message = "Authentication failed. Please log in again.";
-          } else if (axiosError.response.status === 403) {
-            message = "You don't have permission to perform this action.";
-          }
-        } else if (axiosError.message) {
-          message = axiosError.message;
-        }
-      } else if (error instanceof Error) {
-        message = error.message || message;
-      }
-      
-      setServerError(message);
+      setServerError(handleApiError(error));
     }
   };
 

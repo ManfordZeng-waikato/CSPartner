@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Paper, TextField, Button, Alert, Link as MuiLink, Typography } from "@mui/material";
 import { Link, useLocation } from "react-router";
 import { useCreateComment } from "../../../hooks/useVideos";
+import { handleApiError } from "../../../hooks/useAccount";
 
 interface CommentFormProps {
   videoId: string;
@@ -31,14 +32,7 @@ const CommentForm: React.FC<CommentFormProps> = ({ videoId, isAuthenticated }) =
       setCommentContent("");
       // SignalR will automatically update comments via ReceiveComments event
     } catch (err: unknown) {
-      let errorMessage = "Failed to post comment. Please try again.";
-      
-      if (err && typeof err === 'object') {
-        const axiosError = err as { response?: { data?: { error?: string } }; message?: string };
-        errorMessage = axiosError.response?.data?.error || axiosError.message || errorMessage;
-      }
-      
-      setError(errorMessage);
+      setError(handleApiError(err));
     }
   };
 
