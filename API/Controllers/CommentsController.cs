@@ -1,6 +1,5 @@
 using Application.Common.Interfaces;
 using Application.DTOs.Comment;
-using Application.Features.Comments.Commands.UpdateComment;
 using Application.Features.Comments.Commands.DeleteComment;
 using Application.Features.Comments.Queries.GetVideoComments;
 using MediatR;
@@ -29,31 +28,6 @@ public class CommentsController : BaseApiController
         _logger = logger;
         _hubContext = hubContext;
         _context = context;
-    }
-
-    /// <summary>
-    /// Update comment
-    /// </summary>
-    [HttpPut("{id}")]
-    [Authorize]
-    public async Task<ActionResult> UpdateComment(Guid id, [FromBody] UpdateCommentDto dto)
-    {
-        // Get videoId before updating (for SignalR broadcast after successful update)
-        var comment = await _context.Comments
-            .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
-
-        var videoId = comment?.VideoId ?? Guid.Empty;
-
-        await _mediator.Send(new UpdateCommentCommand(id, dto.Content));
-
-        // Broadcast updated comments list to all clients watching this video
-        if (videoId != Guid.Empty)
-        {
-            var comments = await _mediator.Send(new GetVideoCommentsQuery(videoId));
-            await _hubContext.Clients.Group(videoId.ToString()).SendAsync("ReceiveComments", comments);
-        }
-
-        return NoContent();
     }
 
     /// <summary>
