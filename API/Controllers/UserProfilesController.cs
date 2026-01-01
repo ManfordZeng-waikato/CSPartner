@@ -42,12 +42,18 @@ public class UserProfilesController : BaseApiController
     /// <summary>
     /// Update user profile
     /// </summary>
-    [HttpPut]
+    [HttpPut("{userId}")]
     [Authorize]
-    public async Task<ActionResult<UserProfileDto>> UpdateUserProfile([FromBody] UpdateUserProfileDto dto)
+    public async Task<ActionResult<UserProfileDto>> UpdateUserProfile(Guid userId, [FromBody] UpdateUserProfileDto dto)
     {
         try
         {
+            // Verify that the user can only update their own profile
+            if (!_currentUserService.UserId.HasValue || _currentUserService.UserId.Value != userId)
+            {
+                return StatusCode(403, new { error = "You can only update your own profile" });
+            }
+
             var command = new CreateOrUpdateUserProfileCommand(
                 dto.DisplayName,
                 dto.Bio,
