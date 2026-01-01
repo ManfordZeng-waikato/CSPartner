@@ -44,7 +44,6 @@ public class CreateCommentCommandHandler : IRequestHandler<CreateCommentCommand,
         var comment = new Comment(request.VideoId, _currentUserService.UserId.Value, request.Content, request.ParentCommentId);
         await _context.Comments.AddAsync(comment, cancellationToken);
         video.ApplyCommentAdded();
-        await _context.SaveChangesAsync(cancellationToken);
 
         return comment.ToDto();
     }

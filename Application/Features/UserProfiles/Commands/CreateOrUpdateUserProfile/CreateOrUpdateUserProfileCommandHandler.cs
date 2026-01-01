@@ -48,8 +48,6 @@ public class CreateOrUpdateUserProfileCommandHandler : IRequestHandler<CreateOrU
             request.SteamUrl,
             request.FaceitUrl);
 
-        await _context.SaveChangesAsync(cancellationToken);
-
         var profileDto = await _mediator.Send(
             new GetUserProfileByUserIdQuery(userId, userId),
             cancellationToken);

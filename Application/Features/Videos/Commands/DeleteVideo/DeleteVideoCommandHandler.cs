@@ -33,7 +33,6 @@ public class DeleteVideoCommandHandler : IRequestHandler<DeleteVideoCommand, boo
             throw new UnauthorizedOperationException("video", request.VideoId);
 
         video.SoftDelete();
-        await _context.SaveChangesAsync(cancellationToken);
         return true;
     }
 }

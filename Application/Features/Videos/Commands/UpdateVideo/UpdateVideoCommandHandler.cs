@@ -44,7 +44,6 @@ public class UpdateVideoCommandHandler : IRequestHandler<UpdateVideoCommand, boo
         if (request.Visibility.HasValue)
             video.SetVisibility(request.Visibility.Value);
 
-        await _context.SaveChangesAsync(cancellationToken);
         return true;
     }
 }

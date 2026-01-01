@@ -36,7 +36,6 @@ public class UpdateCommentCommandHandler : IRequestHandler<UpdateCommentCommand,
             throw new InvalidCommentStateException($"Cannot update comment {request.CommentId} because it has been deleted");
 
         comment.SetContent(request.Content);
-        await _context.SaveChangesAsync(cancellationToken);
         return true;
     }
 }

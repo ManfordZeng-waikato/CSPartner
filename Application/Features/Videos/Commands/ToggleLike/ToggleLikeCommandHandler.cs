@@ -61,8 +61,6 @@ public class ToggleLikeCommandHandler : IRequestHandler<ToggleLikeCommand, bool>
             await _context.VideoLikes.AddAsync(like, cancellationToken);
             video.ApplyLikeAdded();
         }
-
-        await _context.SaveChangesAsync(cancellationToken);
         
         // Update rate limit cache
         _rateLimitCache.AddOrUpdate(rateLimitKey, DateTime.UtcNow, (key, oldValue) => DateTime.UtcNow);

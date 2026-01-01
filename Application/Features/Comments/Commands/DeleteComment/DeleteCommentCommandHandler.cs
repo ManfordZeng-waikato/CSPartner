@@ -59,7 +59,6 @@ public class DeleteCommentCommandHandler : IRequestHandler<DeleteCommentCommand,
             }
         }
 
-        await _context.SaveChangesAsync(cancellationToken);
         return true;
     }
 

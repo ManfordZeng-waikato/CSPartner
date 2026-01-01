@@ -21,7 +21,6 @@ public class IncreaseViewCountCommandHandler : IRequestHandler<IncreaseViewCount
         if (video != null)
         {
             video.IncreaseView();
-            await _context.SaveChangesAsync(cancellationToken);
         }
 
         return Unit.Value;

@@ -38,7 +38,6 @@ public class CreateVideoCommandHandler : IRequestHandler<CreateVideoCommand, Vid
         }
 
         await _context.Videos.AddAsync(video, cancellationToken);
-        await _context.SaveChangesAsync(cancellationToken);
 
         return video.ToDto(false);
     }
