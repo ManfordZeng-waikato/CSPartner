@@ -36,21 +36,24 @@ public class UserProfilesController : BaseApiController
     public async Task<ActionResult<UserProfileDto>> GetUserProfile(Guid userId)
     {
         var profile = await _mediator.Send(new GetUserProfileByUserIdQuery(userId, _currentUserService.UserId));
-        if (profile == null)
-            return NotFound();
-
         return Ok(profile);
     }
 
     /// <summary>
     /// Update user profile
     /// </summary>
-    [HttpPut]
+    [HttpPut("{userId}")]
     [Authorize]
-    public async Task<ActionResult<UserProfileDto>> UpdateUserProfile([FromBody] UpdateUserProfileDto dto)
+    public async Task<ActionResult<UserProfileDto>> UpdateUserProfile(Guid userId, [FromBody] UpdateUserProfileDto dto)
     {
         try
         {
+            // Verify that the user can only update their own profile
+            if (!_currentUserService.UserId.HasValue || _currentUserService.UserId.Value != userId)
+            {
+                return StatusCode(403, new { error = "You can only update your own profile" });
+            }
+
             var command = new CreateOrUpdateUserProfileCommand(
                 dto.DisplayName,
                 dto.Bio,

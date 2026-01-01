@@ -18,6 +18,7 @@ import { updateProfileSchema, type UpdateProfileFormValues } from "../../lib/sch
 import { AVAILABLE_AVATARS } from "../../lib/constants/avatars";
 import RequireAuth from "../../app/shared/components/RequireAuth";
 import { FormTextField } from "../../app/shared/components";
+import { handleApiError } from "../hooks/useAccount";
 
 function EditProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -83,13 +84,8 @@ function EditProfilePage() {
         }
       });
       navigate(`/user/${id}`);
-    }catch (error: unknown) {
-      if (error && typeof error === 'object' && 'response' in error) {
-        const axiosError = error as { response?: { data?: { error?: string } } };
-        setServerError(axiosError.response?.data?.error || "Failed to update profile");
-      } else {
-        setServerError("Failed to update profile");
-      }
+    } catch (error: unknown) {
+      setServerError(handleApiError(error));
     }
   };
 

@@ -24,7 +24,7 @@ public class CreateCommentCommandHandler : IRequestHandler<CreateCommentCommand,
     public async Task<CommentDto> Handle(CreateCommentCommand request, CancellationToken cancellationToken)
     {
         if (!_currentUserService.UserId.HasValue)
-            throw new UnauthorizedAccessException("User must be authenticated to create a comment");
+            throw AuthenticationRequiredException.ForOperation("create a comment");
 
         var video = await _context.Videos
             .FirstOrDefaultAsync(v => v.Id == request.VideoId && !v.IsDeleted, cancellationToken);
@@ -44,7 +44,6 @@ public class CreateCommentCommandHandler : IRequestHandler<CreateCommentCommand,
         var comment = new Comment(request.VideoId, _currentUserService.UserId.Value, request.Content, request.ParentCommentId);
         await _context.Comments.AddAsync(comment, cancellationToken);
         video.ApplyCommentAdded();
-        await _context.SaveChangesAsync(cancellationToken);
 
         return comment.ToDto();
     }

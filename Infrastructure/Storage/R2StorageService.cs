@@ -1,6 +1,6 @@
 using Amazon.S3;
 using Amazon.S3.Model;
-using Application.Interfaces.Services;
+using Application.Common.Interfaces;
 using Application.DTOs.Storage;
 using System.Linq;
 using Microsoft.Extensions.Configuration;

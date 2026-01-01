@@ -1,4 +1,5 @@
 using Application.Common.Interfaces;
+using Domain.Exceptions;
 using Domain.Videos;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -26,7 +27,7 @@ public class ToggleLikeCommandHandler : IRequestHandler<ToggleLikeCommand, bool>
     public async Task<bool> Handle(ToggleLikeCommand request, CancellationToken cancellationToken)
     {
         if (!_currentUserService.UserId.HasValue)
-            return false;
+            throw AuthenticationRequiredException.ForOperation("like a video");
 
         // Rate limiting: Check if user has recently liked/unliked this video
         var rateLimitKey = $"{_currentUserService.UserId.Value}_{request.VideoId}";
@@ -44,7 +45,7 @@ public class ToggleLikeCommandHandler : IRequestHandler<ToggleLikeCommand, bool>
             .FirstOrDefaultAsync(v => v.Id == request.VideoId && !v.IsDeleted, cancellationToken);
 
         if (video == null)
-            return false;
+            throw new VideoNotFoundException(request.VideoId);
 
         var existingLike = await _context.VideoLikes
             .FirstOrDefaultAsync(l => l.VideoId == request.VideoId && l.UserId == _currentUserService.UserId.Value, cancellationToken);
@@ -60,8 +61,6 @@ public class ToggleLikeCommandHandler : IRequestHandler<ToggleLikeCommand, bool>
             await _context.VideoLikes.AddAsync(like, cancellationToken);
             video.ApplyLikeAdded();
         }
-
-        await _context.SaveChangesAsync(cancellationToken);
         
         // Update rate limit cache
         _rateLimitCache.AddOrUpdate(rateLimitKey, DateTime.UtcNow, (key, oldValue) => DateTime.UtcNow);

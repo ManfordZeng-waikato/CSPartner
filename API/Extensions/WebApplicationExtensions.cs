@@ -16,6 +16,9 @@ public static class WebApplicationExtensions
             app.MapOpenApi();
         }
 
+        // Global exception handling (must be early in pipeline)
+        app.UseMiddleware<API.Middleware.ExceptionHandlingMiddleware>();
+
         // Domain redirect middleware
         app.Use(async (context, next) =>
         {
@@ -38,6 +41,9 @@ public static class WebApplicationExtensions
 
         // Routing
         app.UseRouting();
+
+        // Rate limiting (must be after UseRouting)
+        app.UseRateLimiter();
 
         // CORS (only in development when frontend is served separately)
         if (app.Environment.IsDevelopment())

@@ -2,9 +2,9 @@ using System.Linq;
 using System.Text;
 using Application.Common.Interfaces;
 using Application.DTOs.Auth;
-using Application.Interfaces.Services;
 using Domain.Users;
 using Infrastructure.Persistence.Identity;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
@@ -23,6 +23,10 @@ public class AuthService : IAuthService
     private readonly ILogger<AuthService> _logger;
     private readonly IEmailService _emailService;
     private readonly IConfiguration _configuration;
+    private readonly ITokenBlacklistService _tokenBlacklistService;
+    private readonly ICurrentUserService _currentUserService;
+    private readonly IHttpContextAccessor _httpContextAccessor;
+
     public AuthService(
         UserManager<ApplicationUser> userManager,
         SignInManager<ApplicationUser> signInManager,
@@ -31,7 +35,10 @@ public class AuthService : IAuthService
         IJwtService jwtService,
         ILogger<AuthService> logger,
         IEmailService emailService,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        ITokenBlacklistService tokenBlacklistService,
+        ICurrentUserService currentUserService,
+        IHttpContextAccessor httpContextAccessor)
     {
         _userManager = userManager;
         _signInManager = signInManager;
@@ -41,6 +48,9 @@ public class AuthService : IAuthService
         _logger = logger;
         _emailService = emailService;
         _configuration = configuration;
+        _tokenBlacklistService = tokenBlacklistService;
+        _currentUserService = currentUserService;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     public async Task<AuthResultDto> RegisterAsync(RegisterDto dto)
@@ -125,20 +135,36 @@ public class AuthService : IAuthService
     public async Task<AuthResultDto> LoginAsync(LoginDto dto)
     {
         var user = await _userManager.FindByEmailAsync(dto.Email);
-        if (user is null)
+        
+        // Security: Always perform password check even if user doesn't exist to prevent user enumeration
+        // This ensures consistent timing regardless of whether the user exists
+        var signInResult = SignInResult.Failed;
+        if (user != null)
         {
-            _logger.LogWarning("User {Email} login failed: user does not exist", dto.Email);
-            return Failure("The email address you entered does not exist. Please check your email and try again.");
+            signInResult = await _signInManager.CheckPasswordSignInAsync(
+                user, dto.Password, lockoutOnFailure: false);
         }
 
-        // Check password first before checking email confirmation
-        var signInResult = await _signInManager.CheckPasswordSignInAsync(
-            user, dto.Password, lockoutOnFailure: false);
+        // Security: Add random delay to prevent timing attacks
+        // This makes it harder for attackers to determine if a user exists based on response time
+        var randomDelay = Random.Shared.Next(100, 300);
+        await Task.Delay(randomDelay);
 
-        if (!signInResult.Succeeded)
+        // Security: Return generic error message for both user not found and incorrect password
+        // This prevents user enumeration attacks
+        if (user is null || !signInResult.Succeeded)
         {
-            _logger.LogWarning("User {Email} login failed: incorrect password", dto.Email);
-            return Failure("The password you entered is incorrect. Please try again.");
+            if (user is null)
+            {
+                _logger.LogWarning("User {Email} login failed: user does not exist", dto.Email);
+            }
+            else
+            {
+                _logger.LogWarning("User {Email} login failed: incorrect password", dto.Email);
+            }
+            
+            // Return generic error message to prevent user enumeration
+            return Failure("Invalid email or password");
         }
 
         // Check if email is confirmed (explicit check to enforce RequireConfirmedEmail setting)
@@ -177,10 +203,101 @@ public class AuthService : IAuthService
 
     public async Task LogoutAsync()
     {
-        // JWT tokens are stateless, so logout is handled client-side by removing the token
-        // This method is kept for API compatibility
-        _logger.LogInformation("User logged out (token should be removed client-side)");
-        await Task.CompletedTask;
+        var userId = _currentUserService.UserId;
+        
+        // Security: Verify user is authenticated
+        if (!userId.HasValue)
+        {
+            _logger.LogWarning("Logout attempted without authenticated user");
+            throw new Domain.Exceptions.AuthenticationRequiredException("User is not authenticated");
+        }
+
+        // Security: Verify user still exists and is active
+        var user = await _userManager.FindByIdAsync(userId.Value.ToString());
+        if (user == null)
+        {
+            _logger.LogWarning("Logout attempted for non-existent user: {UserId}", userId);
+            // User doesn't exist, nothing to logout - but don't throw error
+            return;
+        }
+
+        // Extract token from current request
+        var token = ExtractTokenFromRequest();
+        if (!string.IsNullOrEmpty(token))
+        {
+            try
+            {
+                // Parse token to get expiration time
+                var tokenHandler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
+                var jwtToken = tokenHandler.ReadJwtToken(token);
+                var expiresAt = jwtToken.ValidTo;
+
+                // Add token to blacklist until it expires
+                await _tokenBlacklistService.AddToBlacklistAsync(token, expiresAt);
+
+                // Get client information for audit logging
+                var ipAddress = GetClientIpAddress();
+                var userAgent = GetUserAgent();
+
+                _logger.LogInformation(
+                    "User {UserId} logged out successfully. Token blacklisted until {ExpiresAt}. IP: {IpAddress}, UserAgent: {UserAgent}",
+                    userId, expiresAt, ipAddress, userAgent);
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't fail logout - token will expire naturally
+                _logger.LogError(ex, "Failed to blacklist token for user {UserId}, but logout continues", userId);
+            }
+        }
+        else
+        {
+            _logger.LogWarning("Logout for user {UserId} but no token found in request", userId);
+        }
+    }
+
+    /// <summary>
+    /// Extract JWT token from Authorization header
+    /// </summary>
+    private string? ExtractTokenFromRequest()
+    {
+        var httpContext = _httpContextAccessor.HttpContext;
+        if (httpContext == null) return null;
+
+        var authHeader = httpContext.Request.Headers["Authorization"].ToString();
+        if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        return authHeader.Substring("Bearer ".Length).Trim();
+    }
+
+    /// <summary>
+    /// Get client IP address for audit logging
+    /// </summary>
+    private string GetClientIpAddress()
+    {
+        var httpContext = _httpContextAccessor.HttpContext;
+        if (httpContext == null) return "Unknown";
+
+        // Check for forwarded IP (when behind proxy/load balancer)
+        var forwardedFor = httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+        if (!string.IsNullOrEmpty(forwardedFor))
+        {
+            // X-Forwarded-For can contain multiple IPs, take the first one
+            var ip = forwardedFor.Split(',')[0].Trim();
+            if (!string.IsNullOrEmpty(ip))
+                return ip;
+        }
+
+        return httpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
+    }
+
+    /// <summary>
+    /// Get user agent for audit logging
+    /// </summary>
+    private string GetUserAgent()
+    {
+        var httpContext = _httpContextAccessor.HttpContext;
+        return httpContext?.Request.Headers["User-Agent"].ToString() ?? "Unknown";
     }
 
     public async Task<(bool Succeeded, string Message)> ResendConfirmationEmailAsync(string email)

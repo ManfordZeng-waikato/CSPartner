@@ -1,6 +1,7 @@
 using Application.Common.Interfaces;
 using Application.DTOs.Video;
 using Application.Mappings;
+using Domain.Exceptions;
 using Domain.Videos;
 using MediatR;
 
@@ -22,7 +23,7 @@ public class CreateVideoCommandHandler : IRequestHandler<CreateVideoCommand, Vid
     public async Task<VideoDto> Handle(CreateVideoCommand request, CancellationToken cancellationToken)
     {
         if (!_currentUserService.UserId.HasValue)
-            throw new UnauthorizedAccessException("User must be authenticated to create a video");
+            throw AuthenticationRequiredException.ForOperation("create a video");
 
         var video = new HighlightVideo(
             _currentUserService.UserId.Value,
@@ -37,7 +38,6 @@ public class CreateVideoCommandHandler : IRequestHandler<CreateVideoCommand, Vid
         }
 
         await _context.Videos.AddAsync(video, cancellationToken);
-        await _context.SaveChangesAsync(cancellationToken);
 
         return video.ToDto(false);
     }

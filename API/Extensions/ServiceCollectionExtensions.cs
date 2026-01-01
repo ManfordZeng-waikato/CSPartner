@@ -1,5 +1,5 @@
 using Application.Behaviors;
-using Application.Interfaces.Services;
+using Application.Common.Interfaces;
 using Infrastructure;
 using Infrastructure.Identity;
 using Infrastructure.Persistence.Context;
@@ -10,11 +10,13 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using System.Threading.RateLimiting;
 using Resend;
 using AspNet.Security.OAuth.GitHub;
 using Azure.Identity;
@@ -121,7 +123,7 @@ public static class ServiceCollectionExtensions
 
         // Register email services
         services.AddTransient<IEmailSender<ApplicationUser>, EmailSenderService>();
-        services.AddTransient<Application.Interfaces.Services.IEmailService, EmailSenderService>();
+        services.AddTransient<IEmailService, EmailSenderService>();
 
         return services;
     }
@@ -222,9 +224,43 @@ public static IServiceCollection AddAuthenticationConfiguration(
             RoleClaimType = ClaimTypes.Role
         };
 
-        // SignalR reads token from query string
+        // Security: Check token blacklist during validation
         options.Events = new JwtBearerEvents
         {
+            OnTokenValidated = async context =>
+            {
+                // Security: Check if token is blacklisted
+                var tokenBlacklistService = context.HttpContext.RequestServices
+                    .GetRequiredService<Application.Common.Interfaces.ITokenBlacklistService>();
+                
+                // Extract token from Authorization header
+                var authHeader = context.Request.Headers["Authorization"].ToString();
+                var token = string.Empty;
+                
+                if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                {
+                    token = authHeader.Substring("Bearer ".Length).Trim();
+                }
+                
+                // Also check SignalR token from query string
+                if (string.IsNullOrEmpty(token))
+                {
+                    token = context.Request.Query["access_token"].ToString();
+                }
+
+                if (!string.IsNullOrEmpty(token))
+                {
+                    if (await tokenBlacklistService.IsTokenBlacklistedAsync(token))
+                    {
+                        context.Fail("Token has been revoked");
+                        var logger = context.HttpContext.RequestServices
+                            .GetRequiredService<ILoggerFactory>()
+                            .CreateLogger("JwtBearer");
+                        logger.LogWarning("Blacklisted token attempted to be used from IP: {IpAddress}", 
+                            context.Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown");
+                    }
+                }
+            },
             OnMessageReceived = context =>
             {
                 var accessToken = context.Request.Query["access_token"];
@@ -303,6 +339,70 @@ public static IServiceCollection AddAuthenticationConfiguration(
     return services;
 }
 
+
+    /// <summary>
+    /// Configure rate limiting for authentication endpoints
+    /// Note: Rate limiting is built into .NET 7+ and requires Microsoft.AspNetCore.RateLimiting package
+    /// </summary>
+    public static IServiceCollection AddRateLimiting(this IServiceCollection services)
+    {
+        // Add rate limiter service
+        services.AddRateLimiter();
+
+        // Configure rate limit policies
+        services.Configure<RateLimiterOptions>(options =>
+        {
+            // Rate limit for login endpoint: 5 attempts per minute per IP
+            options.AddFixedWindowLimiter("login", limiterOptions =>
+            {
+                limiterOptions.Window = TimeSpan.FromMinutes(1);
+                limiterOptions.PermitLimit = 5;
+                limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+                limiterOptions.QueueLimit = 2;
+            });
+
+            // Rate limit for registration endpoint: 3 attempts per 5 minutes per IP
+            options.AddFixedWindowLimiter("register", limiterOptions =>
+            {
+                limiterOptions.Window = TimeSpan.FromMinutes(5);
+                limiterOptions.PermitLimit = 3;
+                limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+                limiterOptions.QueueLimit = 1;
+            });
+
+            // Rate limit for password reset: 3 attempts per 10 minutes per IP
+            options.AddFixedWindowLimiter("password-reset", limiterOptions =>
+            {
+                limiterOptions.Window = TimeSpan.FromMinutes(10);
+                limiterOptions.PermitLimit = 3;
+                limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+                limiterOptions.QueueLimit = 1;
+            });
+
+            // Rate limit for logout: 10 attempts per minute per IP
+            options.AddFixedWindowLimiter("logout", limiterOptions =>
+            {
+                limiterOptions.Window = TimeSpan.FromMinutes(1);
+                limiterOptions.PermitLimit = 10;
+                limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+                limiterOptions.QueueLimit = 2;
+            });
+
+            // Global fallback policy: reject requests when rate limit is exceeded
+            options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+            {
+                return RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        Window = TimeSpan.FromMinutes(1),
+                        PermitLimit = 100 // Global limit: 100 requests per minute per IP
+                    });
+            });
+        });
+
+        return services;
+    }
 
     /// <summary>
     /// Configure controllers, SignalR, and OpenAPI

@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 namespace Application.Behaviors;
 
 public class TransactionBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
-    where TRequest : IRequest<TResponse>
+    where TRequest : ICommand<TResponse>
 {
     private readonly IApplicationDbContext _context;
     private readonly ILogger<TransactionBehavior<TRequest, TResponse>> _logger;
@@ -24,11 +24,6 @@ public class TransactionBehavior<TRequest, TResponse> : IPipelineBehavior<TReque
         RequestHandlerDelegate<TResponse> next,
         CancellationToken cancellationToken)
     {
-        // Only apply transaction to Commands, not Queries
-        if (request is IQuery<TResponse>)
-        {
-            return await next();
-        }
 
         var response = default(TResponse);
         

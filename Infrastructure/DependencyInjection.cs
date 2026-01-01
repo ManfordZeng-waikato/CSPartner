@@ -1,5 +1,4 @@
 using Application.Common.Interfaces;
-using Application.Interfaces.Services;
 using Infrastructure.Identity;
 using Infrastructure.Persistence.Context;
 using Infrastructure.Storage;
@@ -32,6 +31,9 @@ public static class DependencyInjection
         services.AddScoped<IStorageService, R2StorageService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IJwtService, JwtService>();
+        
+        // Token Blacklist Service (singleton for in-memory cache)
+        services.AddSingleton<Application.Common.Interfaces.ITokenBlacklistService, TokenBlacklistService>();
 
         return services;
     }
