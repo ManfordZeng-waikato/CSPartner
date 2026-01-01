@@ -1,7 +1,6 @@
 using Application.Common.Interfaces;
 using Application.DTOs.UserProfile;
-using Application.DTOs.Video;
-using Application.Features.UserProfiles.Queries.GetUserProfileByUserId;
+using Application.Features.Videos.Queries.GetVideosByUserId;
 using Application.Mappings;
 using Domain.Exceptions;
 using Domain.Users;
@@ -48,11 +47,13 @@ public class CreateOrUpdateUserProfileCommandHandler : IRequestHandler<CreateOrU
             request.SteamUrl,
             request.FaceitUrl);
 
-        var profileDto = await _mediator.Send(
-            new GetUserProfileByUserIdQuery(userId, userId),
+        // Get videos for the user profile (this query is safe as it doesn't depend on unsaved changes)
+        var videoDtos = await _mediator.Send(
+            new GetVideosByUserIdQuery(userId, userId),
             cancellationToken);
 
-        return profileDto!;
+        // Use the already-loaded and modified profile entity directly
+        return profile.ToDto(videoDtos.ToList());
     }
 }
 
