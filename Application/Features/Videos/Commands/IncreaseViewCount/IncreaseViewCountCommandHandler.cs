@@ -15,13 +15,13 @@ public class IncreaseViewCountCommandHandler : IRequestHandler<IncreaseViewCount
 
     public async Task<Unit> Handle(IncreaseViewCountCommand request, CancellationToken cancellationToken)
     {
-        var video = await _context.Videos
-            .FirstOrDefaultAsync(v => v.Id == request.VideoId && !v.IsDeleted, cancellationToken);
-
-        if (video != null)
-        {
-            video.IncreaseView();
-        }
+        await _context.Videos
+       .Where(v => v.Id == request.VideoId && !v.IsDeleted)
+       .ExecuteUpdateAsync(
+           s => s.SetProperty(
+               v => v.ViewCount,
+               v => v.ViewCount + 1),
+           cancellationToken);
 
         return Unit.Value;
     }
