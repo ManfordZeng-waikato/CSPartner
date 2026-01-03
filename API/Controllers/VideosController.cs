@@ -97,7 +97,16 @@ public class VideosController : BaseApiController
     }
 
     /// <summary>
-    /// Generate a pre-signed URL for uploading a video directly to R2
+    /// Generate a pre-signed URL for uploading a video directly to R2.
+    /// 
+    /// IMPORTANT: When uploading to the returned UploadUrl, you MUST include the Content-Type header
+    /// with the exact value from the response.ContentType field. The pre-signed URL signature includes
+    /// this Content-Type, so using a different value will cause the upload to fail.
+    /// 
+    /// Example upload request:
+    /// PUT {UploadUrl}
+    /// Content-Type: {response.ContentType}
+    /// Body: [video file binary data]
     /// </summary>
     [HttpPost("upload-url")]
     [Authorize]
