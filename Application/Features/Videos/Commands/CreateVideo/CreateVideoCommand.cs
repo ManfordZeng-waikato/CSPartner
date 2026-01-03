@@ -5,9 +5,9 @@ using Domain.Videos;
 namespace Application.Features.Videos.Commands.CreateVideo;
 
 public record CreateVideoCommand(
-    string Title,
-    string VideoUrl,
+    string VideoObjectKey,
+    string? ThumbnailObjectKey = null,
+    string Title = "",
     string? Description = null,
-    string? ThumbnailUrl = null,
     VideoVisibility Visibility = VideoVisibility.Public) : ICommand<VideoDto>;
 
