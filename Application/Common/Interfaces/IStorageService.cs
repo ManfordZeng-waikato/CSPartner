@@ -8,6 +8,7 @@ public interface IStorageService
     /// Generate a pre-signed URL for uploading a video file directly to object storage.
     /// </summary>
     Task<PreSignedUploadResult> GetVideoUploadUrlAsync(
+        Guid userId,
         string fileName,
         string contentType,
         CancellationToken cancellationToken = default);

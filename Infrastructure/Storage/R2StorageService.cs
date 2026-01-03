@@ -57,12 +57,12 @@ public class R2StorageService : IStorageService, IDisposable
         return $"{baseUrl}/{objectKey.TrimStart('/')}";
     }
 
-    public Task<PreSignedUploadResult> GetVideoUploadUrlAsync(string fileName, string contentType, CancellationToken cancellationToken = default)
+    public Task<PreSignedUploadResult> GetVideoUploadUrlAsync(Guid userId, string fileName, string contentType, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ValidateVideoFile(fileName);
 
-        var objectKey = GenerateVideoKey(fileName);
+        var objectKey = GenerateVideoKey(userId, fileName);
         var resolvedContentType = string.IsNullOrWhiteSpace(contentType)
             ? GetVideoContentType(fileName)
             : contentType;
@@ -81,7 +81,8 @@ public class R2StorageService : IStorageService, IDisposable
         var publicUrl = GetPublicUrl(objectKey);
 
         _logger.LogInformation(
-            "Generated pre-signed upload URL for R2. ObjectKey: {ObjectKey}, ExpiresAtUtc: {ExpiresAtUtc}, ContentType: {ContentType}",
+            "Generated pre-signed upload URL for R2. UserId: {UserId}, ObjectKey: {ObjectKey}, ExpiresAtUtc: {ExpiresAtUtc}, ContentType: {ContentType}",
+            userId,
             objectKey,
             expiresAtUtc,
             resolvedContentType);
@@ -94,13 +95,13 @@ public class R2StorageService : IStorageService, IDisposable
             resolvedContentType));
     }
 
-    private static string GenerateVideoKey(string fileName)
+    private static string GenerateVideoKey(Guid userId, string fileName)
     {
         var extension = Path.GetExtension(fileName);
         var uniqueId = Guid.NewGuid().ToString("N");
         var timestamp = DateTime.UtcNow.ToString("yyyyMMdd");
-        // No need to include bucket name as it's already specified in BucketName parameter
-        return $"{timestamp}/highlight-{uniqueId}{extension}";
+        // Include userId in the path to prevent object key theft
+        return $"videos/{userId}/{timestamp}/highlight-{uniqueId}{extension}";
     }
 
     private static string GetVideoContentType(string fileName)

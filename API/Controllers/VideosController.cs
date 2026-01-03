@@ -114,7 +114,11 @@ public class VideosController : BaseApiController
                 ? "video/mp4"
                 : request.ContentType;
 
+            if (!_currentUserService.UserId.HasValue)
+                return Unauthorized(new { error = "User not authenticated" });
+
             var result = await _storageService.GetVideoUploadUrlAsync(
+                _currentUserService.UserId.Value,
                 request.FileName,
                 contentType,
                 cancellationToken);
@@ -146,9 +150,24 @@ public class VideosController : BaseApiController
     {
         try
         {
+            if (!_currentUserService.UserId.HasValue)
+                return Unauthorized(new { error = "User not authenticated" });
+
             if (string.IsNullOrWhiteSpace(dto.VideoObjectKey))
             {
                 return BadRequest(new { error = "VideoObjectKey is required" });
+            }
+
+            // Verify that the objectKey belongs to the current user
+            // Format: videos/{userId}/{yyyyMMdd}/highlight-{guid}.mp4
+            var expectedPrefix = $"videos/{_currentUserService.UserId.Value}/";
+            if (!dto.VideoObjectKey.StartsWith(expectedPrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning(
+                    "Attempted to create video record with objectKey that doesn't belong to user. UserId: {UserId}, ObjectKey: {ObjectKey}",
+                    _currentUserService.UserId.Value,
+                    dto.VideoObjectKey);
+                return BadRequest(new { error = "Video object key does not belong to the current user." });
             }
 
             // Verify that the video file exists in R2 before creating database record
@@ -163,6 +182,16 @@ public class VideosController : BaseApiController
             // Verify thumbnail if provided
             if (!string.IsNullOrWhiteSpace(dto.ThumbnailObjectKey))
             {
+                // Verify that the thumbnail objectKey belongs to the current user
+                if (!dto.ThumbnailObjectKey.StartsWith(expectedPrefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogWarning(
+                        "Attempted to create video record with thumbnail objectKey that doesn't belong to user. UserId: {UserId}, ThumbnailObjectKey: {ThumbnailObjectKey}",
+                        _currentUserService.UserId.Value,
+                        dto.ThumbnailObjectKey);
+                    return BadRequest(new { error = "Thumbnail object key does not belong to the current user." });
+                }
+
                 var thumbnailExists = await _storageService.FileExistsAsync(dto.ThumbnailObjectKey);
                 if (!thumbnailExists)
                 {
