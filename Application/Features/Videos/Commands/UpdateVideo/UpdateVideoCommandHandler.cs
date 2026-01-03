@@ -32,17 +32,7 @@ public class UpdateVideoCommandHandler : IRequestHandler<UpdateVideoCommand, boo
         if (video.UploaderUserId != _currentUserService.UserId.Value)
             throw new UnauthorizedOperationException("video", request.VideoId);
 
-        if (request.Title != null)
-            video.SetTitle(request.Title);
-
-        if (request.Description != null)
-            video.SetDescription(request.Description);
-
-        if (request.ThumbnailUrl != null)
-            video.SetThumbnailUrl(request.ThumbnailUrl);
-
-        if (request.Visibility.HasValue)
-            video.SetVisibility(request.Visibility.Value);
+        video.SetVisibility(request.Visibility);
 
         return true;
     }

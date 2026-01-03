@@ -197,7 +197,7 @@ public class VideosController : BaseApiController
     }
 
     /// <summary>
-    /// Update video
+    /// Update video visibility
     /// </summary>
     [HttpPut("{id}")]
     [Authorize]
@@ -205,9 +205,6 @@ public class VideosController : BaseApiController
     {
         var command = new UpdateVideoCommand(
             id,
-            dto.Title,
-            dto.Description,
-            dto.ThumbnailUrl,
             dto.Visibility);
 
         await _mediator.Send(command);

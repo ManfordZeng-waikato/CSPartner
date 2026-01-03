@@ -175,9 +175,6 @@ export const useUpdateVideoVisibility = () => {
         throw new Error("User not authenticated");
       }
       await apiClient.put(`/api/videos/${videoId}`, {
-        title: null,
-        description: null,
-        thumbnailUrl: null,
         visibility: visibility
       }, {
         params: { userId: session.userId }
