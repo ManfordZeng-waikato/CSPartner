@@ -36,8 +36,9 @@ public class ToggleLikeCommandHandler : IRequestHandler<ToggleLikeCommand, bool>
             var timeSinceLastRequest = DateTime.UtcNow - lastRequestTime;
             if (timeSinceLastRequest < _rateLimitWindow)
             {
-                // Rate limit exceeded - reject the request
-                return false;
+                // Rate limit exceeded - throw exception
+                var remainingSeconds = (int)Math.Ceiling((_rateLimitWindow - timeSinceLastRequest).TotalSeconds);
+                throw RateLimitExceededException.ForOperation("like/unlike a video", remainingSeconds);
             }
         }
 
