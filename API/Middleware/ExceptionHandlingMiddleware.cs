@@ -59,6 +59,12 @@ public class ExceptionHandlingMiddleware
                 _logger.LogWarning(exception, "Authentication required: {Message}", exception.Message);
                 break;
 
+            case RateLimitExceededException:
+                response.StatusCode = (int)HttpStatusCode.TooManyRequests;
+                response.Message = exception.Message;
+                _logger.LogWarning(exception, "Rate limit exceeded: {Message}", exception.Message);
+                break;
+
             case InvalidCommentStateException:
             case DomainException:
                 response.StatusCode = (int)HttpStatusCode.BadRequest;

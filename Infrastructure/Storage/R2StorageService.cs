@@ -57,15 +57,27 @@ public class R2StorageService : IStorageService, IDisposable
         return $"{baseUrl}/{objectKey.TrimStart('/')}";
     }
 
-    public Task<PreSignedUploadResult> GetVideoUploadUrlAsync(string fileName, string contentType, CancellationToken cancellationToken = default)
+    public Task<PreSignedUploadResult> GetVideoUploadUrlAsync(Guid userId, string fileName, string contentType, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ValidateVideoFile(fileName);
 
-        var objectKey = GenerateVideoKey(fileName);
-        var resolvedContentType = string.IsNullOrWhiteSpace(contentType)
-            ? GetVideoContentType(fileName)
-            : contentType;
+        var objectKey = GenerateVideoKey(userId, fileName);
+        
+        // Only trust contentType if it's in the whitelist, otherwise use inferred type from filename
+        var inferredContentType = GetVideoContentType(fileName);
+        var resolvedContentType = IsValidVideoContentType(contentType)
+            ? contentType
+            : inferredContentType;
+        
+        if (!IsValidVideoContentType(contentType) && !string.IsNullOrWhiteSpace(contentType))
+        {
+            _logger.LogWarning(
+                "Invalid contentType provided: {ContentType} for file {FileName}. Using inferred type: {InferredType}",
+                contentType,
+                fileName,
+                inferredContentType);
+        }
 
         var expiresAtUtc = DateTime.UtcNow.AddMinutes(15);
         var request = new GetPreSignedUrlRequest
@@ -81,7 +93,8 @@ public class R2StorageService : IStorageService, IDisposable
         var publicUrl = GetPublicUrl(objectKey);
 
         _logger.LogInformation(
-            "Generated pre-signed upload URL for R2. ObjectKey: {ObjectKey}, ExpiresAtUtc: {ExpiresAtUtc}, ContentType: {ContentType}",
+            "Generated pre-signed upload URL for R2. UserId: {UserId}, ObjectKey: {ObjectKey}, ExpiresAtUtc: {ExpiresAtUtc}, ContentType: {ContentType}",
+            userId,
             objectKey,
             expiresAtUtc,
             resolvedContentType);
@@ -94,13 +107,13 @@ public class R2StorageService : IStorageService, IDisposable
             resolvedContentType));
     }
 
-    private static string GenerateVideoKey(string fileName)
+    private static string GenerateVideoKey(Guid userId, string fileName)
     {
         var extension = Path.GetExtension(fileName);
         var uniqueId = Guid.NewGuid().ToString("N");
         var timestamp = DateTime.UtcNow.ToString("yyyyMMdd");
-        // No need to include bucket name as it's already specified in BucketName parameter
-        return $"{timestamp}/highlight-{uniqueId}{extension}";
+        // Include userId in the path to prevent object key theft
+        return $"videos/{userId}/{timestamp}/highlight-{uniqueId}{extension}";
     }
 
     private static string GetVideoContentType(string fileName)
@@ -114,6 +127,26 @@ public class R2StorageService : IStorageService, IDisposable
             ".avi" => "video/x-msvideo",
             _ => "video/mp4" // Default value
         };
+    }
+
+    /// <summary>
+    /// Validates if the provided contentType is in the allowed whitelist for video files.
+    /// </summary>
+    private static bool IsValidVideoContentType(string? contentType)
+    {
+        if (string.IsNullOrWhiteSpace(contentType))
+            return false;
+
+        // Whitelist of allowed video content types
+        var allowedContentTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "video/mp4",
+            "video/webm",
+            "video/quicktime",
+            "video/x-msvideo"
+        };
+
+        return allowedContentTypes.Contains(contentType.Trim());
     }
 
     public async Task<bool> FileExistsAsync(string objectKey, CancellationToken cancellationToken = default)

@@ -54,10 +54,7 @@ type VideoUploadUrlResponseDto = {
 }
 
 type UpdateVideoDto = {
-    title: string | null
-    description: string | null
-    thumbnailUrl: string | null
-    visibility: VideoVisibility | null
+    visibility: VideoVisibility
 }
 
 // User Profile Types

@@ -11,6 +11,7 @@ using Application.Features.Videos.Commands.IncreaseViewCount;
 using Application.Features.Videos.Queries.GetVideos;
 using Application.Features.Videos.Queries.GetVideoById;
 using Application.Features.Videos.Queries.GetVideosByUserId;
+using Application.Features.Videos.Queries.GetVideoUploadUrl;
 using Application.Features.Comments.Commands.CreateComment;
 using Application.Features.Comments.Queries.GetVideoComments;
 using Domain.Videos;
@@ -28,20 +29,17 @@ public class VideosController : BaseApiController
     private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<VideosController> _logger;
     private readonly IHubContext<CommentHub> _hubContext;
-    private readonly IStorageService _storageService;
 
     public VideosController(
         IMediator mediator,
         ICurrentUserService currentUserService,
         ILogger<VideosController> logger,
-        IHubContext<CommentHub> hubContext,
-        IStorageService storageService)
+        IHubContext<CommentHub> hubContext)
     {
         _mediator = mediator;
         _currentUserService = currentUserService;
         _logger = logger;
         _hubContext = hubContext;
-        _storageService = storageService;
     }
 
     /// <summary>
@@ -97,7 +95,16 @@ public class VideosController : BaseApiController
     }
 
     /// <summary>
-    /// Generate a pre-signed URL for uploading a video directly to R2
+    /// Generate a pre-signed URL for uploading a video directly to R2.
+    /// 
+    /// IMPORTANT: When uploading to the returned UploadUrl, you MUST include the Content-Type header
+    /// with the exact value from the response.ContentType field. The pre-signed URL signature includes
+    /// this Content-Type, so using a different value will cause the upload to fail.
+    /// 
+    /// Example upload request:
+    /// PUT {UploadUrl}
+    /// Content-Type: {response.ContentType}
+    /// Body: [video file binary data]
     /// </summary>
     [HttpPost("upload-url")]
     [Authorize]
@@ -105,36 +112,20 @@ public class VideosController : BaseApiController
         [FromBody] VideoUploadUrlRequest request,
         CancellationToken cancellationToken = default)
     {
-        try
+        if (string.IsNullOrWhiteSpace(request.FileName))
+            return BadRequest(new { error = "FileName is required" });
+
+        var query = new GetVideoUploadUrlQuery(request.FileName, request.ContentType);
+        var result = await _mediator.Send(query, cancellationToken);
+
+        return Ok(new VideoUploadUrlResponse
         {
-            if (string.IsNullOrWhiteSpace(request.FileName))
-                return BadRequest(new { error = "FileName is required" });
-
-            var contentType = string.IsNullOrWhiteSpace(request.ContentType)
-                ? "video/mp4"
-                : request.ContentType;
-
-            var result = await _storageService.GetVideoUploadUrlAsync(
-                request.FileName,
-                contentType,
-                cancellationToken);
-
-            var response = new VideoUploadUrlResponse
-            {
-                UploadUrl = result.UploadUrl,
-                ObjectKey = result.ObjectKey,
-                PublicUrl = result.PublicUrl,
-                ExpiresAtUtc = result.ExpiresAtUtc,
-                ContentType = result.ContentType
-            };
-
-            return Ok(response);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to generate pre-signed upload URL");
-            return BadRequest(new { error = $"Failed to generate upload URL: {ex.Message}" });
-        }
+            UploadUrl = result.UploadUrl,
+            ObjectKey = result.ObjectKey,
+            PublicUrl = result.PublicUrl,
+            ExpiresAtUtc = result.ExpiresAtUtc,
+            ContentType = result.ContentType
+        });
     }
 
     /// <summary>
@@ -144,60 +135,23 @@ public class VideosController : BaseApiController
     [Authorize]
     public async Task<ActionResult<VideoDto>> CreateVideo([FromBody] CreateVideoDto dto)
     {
-        try
-        {
-            if (string.IsNullOrWhiteSpace(dto.VideoObjectKey))
-            {
-                return BadRequest(new { error = "VideoObjectKey is required" });
-            }
+        if (string.IsNullOrWhiteSpace(dto.VideoObjectKey))
+            return BadRequest(new { error = "VideoObjectKey is required" });
 
-            // Verify that the video file exists in R2 before creating database record
-            // This prevents orphaned database records if R2 upload failed
-            var videoExists = await _storageService.FileExistsAsync(dto.VideoObjectKey);
-            if (!videoExists)
-            {
-                _logger.LogWarning("Attempted to create video record for non-existent file: {ObjectKey}", dto.VideoObjectKey);
-                return BadRequest(new { error = "Video file not found in storage. Please upload the video again." });
-            }
+        var command = new CreateVideoCommand(
+            dto.VideoObjectKey,
+            dto.ThumbnailObjectKey,
+            dto.Title,
+            dto.Description,
+            dto.Visibility);
 
-            // Verify thumbnail if provided
-            if (!string.IsNullOrWhiteSpace(dto.ThumbnailObjectKey))
-            {
-                var thumbnailExists = await _storageService.FileExistsAsync(dto.ThumbnailObjectKey);
-                if (!thumbnailExists)
-                {
-                    _logger.LogWarning("Thumbnail file not found: {ObjectKey}", dto.ThumbnailObjectKey);
-                    // Don't fail the request if thumbnail is missing, just log it
-                }
-            }
+        var video = await _mediator.Send(command);
 
-            var videoUrl = _storageService.GetPublicUrl(dto.VideoObjectKey);
-            string? thumbnailUrl = null;
-            if (!string.IsNullOrWhiteSpace(dto.ThumbnailObjectKey))
-            {
-                thumbnailUrl = _storageService.GetPublicUrl(dto.ThumbnailObjectKey);
-            }
-
-            var command = new CreateVideoCommand(
-                dto.Title,
-                videoUrl,
-                dto.Description,
-                thumbnailUrl,
-                dto.Visibility);
-
-            var video = await _mediator.Send(command);
-
-            return CreatedAtAction(nameof(GetVideo), new { id = video.VideoId }, video);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to create video");
-            return BadRequest(new { error = ex.Message });
-        }
+        return CreatedAtAction(nameof(GetVideo), new { id = video.VideoId }, video);
     }
 
     /// <summary>
-    /// Update video
+    /// Update video visibility
     /// </summary>
     [HttpPut("{id}")]
     [Authorize]
@@ -205,9 +159,6 @@ public class VideosController : BaseApiController
     {
         var command = new UpdateVideoCommand(
             id,
-            dto.Title,
-            dto.Description,
-            dto.ThumbnailUrl,
             dto.Visibility);
 
         await _mediator.Send(command);
