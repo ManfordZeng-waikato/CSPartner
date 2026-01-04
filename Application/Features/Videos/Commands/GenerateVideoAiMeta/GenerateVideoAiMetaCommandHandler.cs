@@ -52,9 +52,11 @@ public class GenerateVideoAiMetaCommandHandler
             var result = await _ai.GenerateVideoMetaAsync(input, cancellationToken);
 
             // Store tags as JSON array string in DB
-            var tagsJson = JsonSerializer.Serialize(result.Tags);
+            var normalizedTags = NormalizeTags(result.Tags);
+            var tagsJson = JsonSerializer.Serialize(normalizedTags);
 
             video.MarkAiCompleted(result.Description, tagsJson, result.HighlightType);
+
             await _context.SaveChangesAsync(cancellationToken);
 
             _logger.LogInformation("Successfully generated AI metadata for video {VideoId}", request.VideoId);
@@ -63,12 +65,32 @@ public class GenerateVideoAiMetaCommandHandler
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to generate AI metadata for video {VideoId}", request.VideoId);
-            
-            // Persist failure status
-            video.MarkAiFailed(ex.Message);
-            await _context.SaveChangesAsync(cancellationToken);
 
+            var safeError = ToSafeDbError(ex);
+            video.MarkAiFailed(safeError);
+            await _context.SaveChangesAsync(cancellationToken);
             throw;
         }
+    }
+
+    // Keeps error text safe for DB storage and avoids leaking sensitive details.
+    private static string ToSafeDbError(Exception ex, int maxLen = 1000)
+    {
+        var msg = ex.InnerException?.Message ?? ex.Message;
+        msg = msg?.Trim() ?? "Unknown error";
+
+        // Hard cap to prevent DB update failures.
+        return msg.Length <= maxLen ? msg : msg[..maxLen];
+    }
+
+    // Normalizes AI tags for stable storage and better search/recommendation later.
+    private static IReadOnlyList<string> NormalizeTags(IEnumerable<string> tags)
+    {
+        return tags
+            .Select(t => (t ?? string.Empty).Trim().ToLowerInvariant())
+            .Where(t => t.Length >= 2 && t.Length <= 24)
+            .Distinct()
+            .Take(8)
+            .ToList();
     }
 }
