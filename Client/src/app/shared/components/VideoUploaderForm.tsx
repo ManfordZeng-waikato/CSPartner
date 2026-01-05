@@ -120,7 +120,7 @@ const VideoEditorForm: React.FC<VideoEditorFormProps> = ({
             id="video-description"
             name="description"
             error={!!errors.description}
-            helperText={errors.description?.message || "Up to 20 words"}
+            helperText={errors.description?.message || "Up to 20 words. If left empty, AI will automatically generate a description for you later."}
             disabled={isPending}
           />
 

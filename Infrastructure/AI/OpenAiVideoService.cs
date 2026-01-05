@@ -99,10 +99,12 @@ public sealed class OpenAiVideoService : IAiVideoService
     {
         var sb = new StringBuilder();
         sb.AppendLine("Generate a brief description for a Counter-Strike 2 highlight video.");
-        sb.AppendLine("Requirements:"); sb.AppendLine("- Description: English, concise, neutral tone, <= 150 characters.");
-        sb.AppendLine("- Describe what happens in the highlight based only on the given context (title, map, weapon, highlight type).");
+        sb.AppendLine("Requirements:");
+        sb.AppendLine("- Description: English, concise, neutral tone, <= 150 characters.");
+        sb.AppendLine("- Describe the gameplay shown based only on the provided context (map, weapon, highlight type).");
+        sb.AppendLine("- Do not mention the game name or platform.");
         sb.AppendLine("- Avoid exaggerated or promotional language.");
-        
+
         sb.AppendLine();
         sb.AppendLine($"Title: {input.Title}");
 
