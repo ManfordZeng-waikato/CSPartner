@@ -10,10 +10,16 @@ public static class WebApplicationExtensions
     /// </summary>
     public static WebApplication ConfigureMiddlewarePipeline(this WebApplication app)
     {
-        // OpenAPI in development
+        // Swagger UI in development
         if (app.Environment.IsDevelopment())
         {
-            app.MapOpenApi();
+            app.UseSwagger();
+            app.UseSwaggerUI(c =>
+            {
+                c.SwaggerEndpoint("/swagger/v1/swagger.json", "CSPartner API V1");
+                c.RoutePrefix = "swagger";
+                c.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.List);
+            });
         }
 
         // Global exception handling (must be early in pipeline)

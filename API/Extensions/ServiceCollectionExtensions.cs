@@ -23,8 +23,11 @@ using Azure.Identity;
 using Azure.Security.KeyVault.Keys;
 using Azure.Storage.Blobs;
 using Azure.Extensions.AspNetCore.DataProtection.Blobs;
+using Microsoft.OpenApi;
+using System.Collections.Generic;
 
 namespace API.Extensions;
+
 
 public static class ServiceCollectionExtensions
 {
@@ -182,162 +185,162 @@ public static class ServiceCollectionExtensions
     /// Configure JWT and GitHub OAuth authentication
     /// </summary>
 
-public static IServiceCollection AddAuthenticationConfiguration(
-    this IServiceCollection services,
-    IConfiguration configuration,
-    IWebHostEnvironment environment)
-{
-    var jwtSecretKey = configuration["Jwt:SecretKey"];
-    var jwtIssuer = configuration["Jwt:Issuer"];
-    var jwtAudience = configuration["Jwt:Audience"];
-
-    if (string.IsNullOrEmpty(jwtSecretKey) ||
-        string.IsNullOrEmpty(jwtIssuer) ||
-        string.IsNullOrEmpty(jwtAudience))
+    public static IServiceCollection AddAuthenticationConfiguration(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        IWebHostEnvironment environment)
     {
-        throw new InvalidOperationException(
-            "JWT authentication requires configuration: Jwt:SecretKey, Jwt:Issuer, Jwt:Audience");
-    }
+        var jwtSecretKey = configuration["Jwt:SecretKey"];
+        var jwtIssuer = configuration["Jwt:Issuer"];
+        var jwtAudience = configuration["Jwt:Audience"];
 
-    // External login Cookie scheme (only used during GitHub OAuth callback)
-    const string ExternalScheme = "External";
-
-    services.AddAuthentication(options =>
-    {
-        // API defaults to JWT
-        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-    })
-    .AddJwtBearer(options =>
-    {
-        options.TokenValidationParameters = new TokenValidationParameters
+        if (string.IsNullOrEmpty(jwtSecretKey) ||
+            string.IsNullOrEmpty(jwtIssuer) ||
+            string.IsNullOrEmpty(jwtAudience))
         {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = jwtIssuer,
-            ValidAudience = jwtAudience,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecretKey)),
-            ClockSkew = TimeSpan.Zero,
-            NameClaimType = JwtRegisteredClaimNames.Sub,
-            RoleClaimType = ClaimTypes.Role
-        };
-
-        // Security: Check token blacklist during validation
-        options.Events = new JwtBearerEvents
-        {
-            OnTokenValidated = async context =>
-            {
-                // Security: Check if token is blacklisted
-                var tokenBlacklistService = context.HttpContext.RequestServices
-                    .GetRequiredService<Application.Common.Interfaces.ITokenBlacklistService>();
-                
-                // Extract token from Authorization header
-                var authHeader = context.Request.Headers["Authorization"].ToString();
-                var token = string.Empty;
-                
-                if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-                {
-                    token = authHeader.Substring("Bearer ".Length).Trim();
-                }
-                
-                // Also check SignalR token from query string
-                if (string.IsNullOrEmpty(token))
-                {
-                    token = context.Request.Query["access_token"].ToString();
-                }
-
-                if (!string.IsNullOrEmpty(token))
-                {
-                    if (await tokenBlacklistService.IsTokenBlacklistedAsync(token))
-                    {
-                        context.Fail("Token has been revoked");
-                        var logger = context.HttpContext.RequestServices
-                            .GetRequiredService<ILoggerFactory>()
-                            .CreateLogger("JwtBearer");
-                        logger.LogWarning("Blacklisted token attempted to be used from IP: {IpAddress}", 
-                            context.Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown");
-                    }
-                }
-            },
-            OnMessageReceived = context =>
-            {
-                var accessToken = context.Request.Query["access_token"];
-                var path = context.HttpContext.Request.Path;
-                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
-                {
-                    context.Token = accessToken;
-                }
-                return Task.CompletedTask;
-            }
-        };
-    })
-    .AddCookie(ExternalScheme, options =>
-    {
-        // This Cookie only exists briefly during OAuth callback
-        options.Cookie.Name = "__Host-cspartner-external";
-        options.Cookie.HttpOnly = true;
-        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-        options.Cookie.SameSite = SameSiteMode.None; // Required for cross-port/cross-domain scenarios
-        options.ExpireTimeSpan = TimeSpan.FromMinutes(5);
-        options.SlidingExpiration = false;
-    })
-    .AddGitHub(options =>
-    {
-        var githubClientId = configuration["Authentication:Github:ClientId"];
-        var githubClientSecret = configuration["Authentication:Github:ClientSecret"];
-
-        if (string.IsNullOrEmpty(githubClientId) || string.IsNullOrEmpty(githubClientSecret))
-        {
-            throw new InvalidOperationException("GitHub OAuth requires Authentication:Github:ClientId and ClientSecret to be configured");
+            throw new InvalidOperationException(
+                "JWT authentication requires configuration: Jwt:SecretKey, Jwt:Issuer, Jwt:Audience");
         }
 
-        options.ClientId = githubClientId;
-        options.ClientSecret = githubClientSecret;
+        // External login Cookie scheme (only used during GitHub OAuth callback)
+        const string ExternalScheme = "External";
 
-        // Write GitHub OAuth login result to External Cookie
-        options.SignInScheme = ExternalScheme;
-
-        // OAuth callback path (must be configured in GitHub App)
-        options.CallbackPath = "/signin-github";
-
-        // Request email permission (may still not be available, need fallback)
-        options.Scope.Add("user:email");
-
-        // Save access_token for fetching email from GitHub API if needed
-        options.SaveTokens = true;
-
-        // Correlation cookie: must be None + Secure for cross-site/cross-port scenarios
-        options.CorrelationCookie.SameSite = SameSiteMode.None;
-        options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
-        options.CorrelationCookie.HttpOnly = true;
-
-        // Redirect to business logic handler after successful login
-        options.Events.OnTicketReceived = context =>
+        services.AddAuthentication(options =>
         {
-            // Note: ReturnUri should be set in GitHubLogin method instead
-            return Task.CompletedTask;
-        };
-
-        // Log real error on failure (critical to avoid "Unknown error")
-        options.Events.OnRemoteFailure = context =>
+            // API defaults to JWT
+            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+        })
+        .AddJwtBearer(options =>
         {
-            var logger = context.HttpContext.RequestServices
-                .GetRequiredService<ILoggerFactory>()
-                .CreateLogger("GitHubOAuth");
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                ValidIssuer = jwtIssuer,
+                ValidAudience = jwtAudience,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecretKey)),
+                ClockSkew = TimeSpan.Zero,
+                NameClaimType = JwtRegisteredClaimNames.Sub,
+                RoleClaimType = ClaimTypes.Role
+            };
 
-            logger.LogError(context.Failure, "GitHub OAuth remote authentication failed");
+            // Security: Check token blacklist during validation
+            options.Events = new JwtBearerEvents
+            {
+                OnTokenValidated = async context =>
+                {
+                    // Security: Check if token is blacklisted
+                    var tokenBlacklistService = context.HttpContext.RequestServices
+                        .GetRequiredService<Application.Common.Interfaces.ITokenBlacklistService>();
 
-            var clientUrl = configuration["ClientApp:ClientUrl"] ?? "https://localhost:3000";
-            context.Response.Redirect($"{clientUrl}/login?error=github_auth_failed");
-            context.HandleResponse();
-            return Task.CompletedTask;
-        };
-    });
+                    // Extract token from Authorization header
+                    var authHeader = context.Request.Headers["Authorization"].ToString();
+                    var token = string.Empty;
 
-    return services;
-}
+                    if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                    {
+                        token = authHeader.Substring("Bearer ".Length).Trim();
+                    }
+
+                    // Also check SignalR token from query string
+                    if (string.IsNullOrEmpty(token))
+                    {
+                        token = context.Request.Query["access_token"].ToString();
+                    }
+
+                    if (!string.IsNullOrEmpty(token))
+                    {
+                        if (await tokenBlacklistService.IsTokenBlacklistedAsync(token))
+                        {
+                            context.Fail("Token has been revoked");
+                            var logger = context.HttpContext.RequestServices
+                                .GetRequiredService<ILoggerFactory>()
+                                .CreateLogger("JwtBearer");
+                            logger.LogWarning("Blacklisted token attempted to be used from IP: {IpAddress}",
+                                context.Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown");
+                        }
+                    }
+                },
+                OnMessageReceived = context =>
+                {
+                    var accessToken = context.Request.Query["access_token"];
+                    var path = context.HttpContext.Request.Path;
+                    if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+                    {
+                        context.Token = accessToken;
+                    }
+                    return Task.CompletedTask;
+                }
+            };
+        })
+        .AddCookie(ExternalScheme, options =>
+        {
+            // This Cookie only exists briefly during OAuth callback
+            options.Cookie.Name = "__Host-cspartner-external";
+            options.Cookie.HttpOnly = true;
+            options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+            options.Cookie.SameSite = SameSiteMode.None; // Required for cross-port/cross-domain scenarios
+            options.ExpireTimeSpan = TimeSpan.FromMinutes(5);
+            options.SlidingExpiration = false;
+        })
+        .AddGitHub(options =>
+        {
+            var githubClientId = configuration["Authentication:Github:ClientId"];
+            var githubClientSecret = configuration["Authentication:Github:ClientSecret"];
+
+            if (string.IsNullOrEmpty(githubClientId) || string.IsNullOrEmpty(githubClientSecret))
+            {
+                throw new InvalidOperationException("GitHub OAuth requires Authentication:Github:ClientId and ClientSecret to be configured");
+            }
+
+            options.ClientId = githubClientId;
+            options.ClientSecret = githubClientSecret;
+
+            // Write GitHub OAuth login result to External Cookie
+            options.SignInScheme = ExternalScheme;
+
+            // OAuth callback path (must be configured in GitHub App)
+            options.CallbackPath = "/signin-github";
+
+            // Request email permission (may still not be available, need fallback)
+            options.Scope.Add("user:email");
+
+            // Save access_token for fetching email from GitHub API if needed
+            options.SaveTokens = true;
+
+            // Correlation cookie: must be None + Secure for cross-site/cross-port scenarios
+            options.CorrelationCookie.SameSite = SameSiteMode.None;
+            options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
+            options.CorrelationCookie.HttpOnly = true;
+
+            // Redirect to business logic handler after successful login
+            options.Events.OnTicketReceived = context =>
+            {
+                // Note: ReturnUri should be set in GitHubLogin method instead
+                return Task.CompletedTask;
+            };
+
+            // Log real error on failure (critical to avoid "Unknown error")
+            options.Events.OnRemoteFailure = context =>
+            {
+                var logger = context.HttpContext.RequestServices
+                    .GetRequiredService<ILoggerFactory>()
+                    .CreateLogger("GitHubOAuth");
+
+                logger.LogError(context.Failure, "GitHub OAuth remote authentication failed");
+
+                var clientUrl = configuration["ClientApp:ClientUrl"] ?? "https://localhost:3000";
+                context.Response.Redirect($"{clientUrl}/login?error=github_auth_failed");
+                context.HandleResponse();
+                return Task.CompletedTask;
+            };
+        });
+
+        return services;
+    }
 
 
     /// <summary>
@@ -405,9 +408,46 @@ public static IServiceCollection AddAuthenticationConfiguration(
     }
 
     /// <summary>
-    /// Configure controllers, SignalR, and OpenAPI
+    /// Configure Swagger with JWT authentication support
     /// </summary>
-    public static IServiceCollection AddApiServices(this IServiceCollection services)
+    public static IServiceCollection AddSwaggerConfiguration(
+        this IServiceCollection services)
+    {
+        services.AddSwaggerGen(c =>
+       {
+           c.SwaggerDoc("v1", new OpenApiInfo
+           {
+               Title = "CSPartner API",
+               Version = "v1"
+           });
+
+           c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+           {
+               Name = "Authorization",
+               In = ParameterLocation.Header,
+               Type = SecuritySchemeType.Http,
+               Scheme = "bearer",
+               BearerFormat = "JWT",
+               Description = "Enter: Bearer {your JWT token}"
+           });
+
+           // OpenAPI.NET v2: requirement key is a *reference* to the scheme
+           c.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+           {
+               [new OpenApiSecuritySchemeReference("Bearer", document)] = new List<string>()
+           });
+       });
+
+
+        return services;
+    }
+
+    /// <summary>
+    /// Configure controllers, SignalR, and Swagger
+    /// </summary>
+    public static IServiceCollection AddApiServices(
+        this IServiceCollection services,
+        IConfiguration configuration)
     {
         services.AddControllers()
             .AddJsonOptions(options =>
@@ -417,7 +457,7 @@ public static IServiceCollection AddAuthenticationConfiguration(
             });
 
         services.AddSignalR();
-        services.AddOpenApi();
+        services.AddSwaggerConfiguration();
         services.AddAuthorization();
 
         return services;
