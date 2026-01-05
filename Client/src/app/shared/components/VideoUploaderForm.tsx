@@ -23,7 +23,7 @@ import {
   type UseFormRegister
 } from "react-hook-form";
 import type { VideoUploadFormValues } from "../../../lib/schemas/videoUploadSchema";
-import { MAP_OPTIONS, WEAPON_OPTIONS, HIGHLIGHT_TYPE_OPTIONS } from "../../../lib/schemas/videoUploadSchema";
+import { MAP_OPTIONS, WEAPON_OPTIONS } from "../../../lib/schemas/videoUploadSchema";
 
 interface VideoEditorFormProps {
   title?: string;

@@ -182,9 +182,30 @@ export const useUpdateVideoVisibility = () => {
       await queryClient.invalidateQueries({ queryKey: ['videos'] });
       await queryClient.invalidateQueries({ queryKey: ['video', variables.videoId] });
       
-      // Invalidate and refetch userProfile queries to refresh any profile that contains this video
-      await queryClient.invalidateQueries({ queryKey: ['userProfile'] });
-      await queryClient.refetchQueries({ queryKey: ['userProfile'] });
+      // Get the video data from cache to find the uploader's userId
+      // Try to get from individual video query first, then from videos list
+      let video = queryClient.getQueryData<VideoDto>(['video', variables.videoId]);
+      if (!video) {
+        // Fallback: search in videos list cache
+        const videosData = queryClient.getQueryData<InfiniteData<CursorPagedResult<VideoDto>>>(['videos', 20]);
+        if (videosData?.pages) {
+          for (const page of videosData.pages) {
+            const foundVideo = page.items.find((v: VideoDto) => v.videoId === variables.videoId);
+            if (foundVideo) {
+              video = foundVideo;
+              break;
+            }
+          }
+        }
+      }
+      
+      const uploaderUserId = video?.uploaderUserId;
+      
+      // Only invalidate and refetch the specific user's profile that owns this video
+      if (uploaderUserId) {
+        await queryClient.invalidateQueries({ queryKey: ['userProfile', uploaderUserId] });
+        await queryClient.refetchQueries({ queryKey: ['userProfile', uploaderUserId] });
+      }
     }
   });
 };
@@ -202,9 +223,15 @@ export const useDeleteVideo = () => {
         params: { userId: session.userId }
       });
     },
-    onSuccess: async () => {
+    onSuccess: async (_, videoId) => {
       await queryClient.invalidateQueries({ queryKey: ['videos'] });
-      await queryClient.invalidateQueries({ queryKey: ['userProfile'] });
+      await queryClient.invalidateQueries({ queryKey: ['video', videoId] });
+      
+      // Only invalidate and refetch the current user's profile (they own the deleted video)
+      if (session?.userId) {
+        await queryClient.invalidateQueries({ queryKey: ['userProfile', session.userId] });
+        await queryClient.refetchQueries({ queryKey: ['userProfile', session.userId] });
+      }
     }
   });
 };
