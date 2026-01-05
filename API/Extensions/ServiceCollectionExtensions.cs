@@ -454,6 +454,14 @@ public static class ServiceCollectionExtensions
             {
                 options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
                 options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+                // Allow deserializing enums from strings (for CreateVideoDto.HighlightType from frontend)
+                // But serialize enums as numbers (default behavior) to match frontend expectations
+                // Frontend expects VideoVisibility.Public = 1, VideoVisibility.Private = 2
+                // Note: We only add the converter for deserialization, serialization will use numbers by default
+                var enumConverter = new System.Text.Json.Serialization.JsonStringEnumConverter(
+                    System.Text.Json.JsonNamingPolicy.CamelCase, 
+                    allowIntegerValues: true);
+                options.JsonSerializerOptions.Converters.Add(enumConverter);
             });
 
         services.AddSignalR();

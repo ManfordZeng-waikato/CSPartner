@@ -1,3 +1,5 @@
+using Domain.Videos;
+
 namespace Application.DTOs.Ai;
 public sealed record VideoAiInputDto(
     string Title,
@@ -5,5 +7,6 @@ public sealed record VideoAiInputDto(
     string? Map,
     string? Mode,
     string? Weapon,
-    string? ExtraContext
+    string? ExtraContext,
+    HighlightType? HighlightType = null
 );

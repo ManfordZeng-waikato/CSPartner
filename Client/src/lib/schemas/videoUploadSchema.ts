@@ -25,6 +25,12 @@ export const WEAPON_OPTIONS = [
   "Other"
 ] as const;
 
+export const HIGHLIGHT_TYPE_OPTIONS = [
+  "Clutch",
+  "SprayTransfer",
+  "OpeningKill"
+] as const;
+
 export const videoUploadSchema = z.object({
   title: z
     .string()
@@ -65,6 +71,10 @@ export const videoUploadSchema = z.object({
   weapon: z.enum(WEAPON_OPTIONS, {
     required_error: "Please select a weapon type",
     invalid_type_error: "Please select a valid weapon type"
+  }),
+  highlightType: z.enum(HIGHLIGHT_TYPE_OPTIONS, {
+    required_error: "Please select a highlight type",
+    invalid_type_error: "Please select a valid highlight type"
   })
 });
 

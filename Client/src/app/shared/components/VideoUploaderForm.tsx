@@ -23,7 +23,7 @@ import {
   type UseFormRegister
 } from "react-hook-form";
 import type { VideoUploadFormValues } from "../../../lib/schemas/videoUploadSchema";
-import { MAP_OPTIONS, WEAPON_OPTIONS } from "../../../lib/schemas/videoUploadSchema";
+import { MAP_OPTIONS, WEAPON_OPTIONS, HIGHLIGHT_TYPE_OPTIONS } from "../../../lib/schemas/videoUploadSchema";
 
 interface VideoEditorFormProps {
   title?: string;
@@ -228,6 +228,29 @@ const VideoEditorForm: React.FC<VideoEditorFormProps> = ({
                   ))}
                 </Select>
                 <FormHelperText>{errors.weapon?.message || "Select the weapon type used in this highlight"}</FormHelperText>
+              </FormControl>
+            )}
+          />
+
+          <Controller
+            name="highlightType"
+            control={control}
+            render={({ field }) => (
+              <FormControl fullWidth error={!!errors.highlightType} disabled={isPending}>
+                <InputLabel id="video-highlight-type-label">Highlight Type *</InputLabel>
+                <Select
+                  labelId="video-highlight-type-label"
+                  id="video-highlight-type"
+                  label="Highlight Type *"
+                  value={field.value || ""}
+                  onChange={(e) => field.onChange(e.target.value)}
+                  inputProps={{ id: "video-highlight-type-input" }}
+                >
+                  <MenuItem value="Clutch">Clutch</MenuItem>
+                  <MenuItem value="SprayTransfer">Spray Transfer</MenuItem>
+                  <MenuItem value="OpeningKill">Opening Kill</MenuItem>
+                </Select>
+                <FormHelperText>{errors.highlightType?.message || "Select the type of highlight"}</FormHelperText>
               </FormControl>
             )}
           />

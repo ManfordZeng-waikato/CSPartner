@@ -40,7 +40,8 @@ const VideoUploadForm: React.FC = () => {
       videoFile: null,
       visibility: visibilityOptions[0].value,
       map: undefined,
-      weapon: undefined
+      weapon: undefined,
+      highlightType: undefined
     }
   });
 
@@ -51,7 +52,8 @@ const VideoUploadForm: React.FC = () => {
       videoFile: null,
       visibility: visibilityOptions[0].value,
       map: undefined,
-      weapon: undefined
+      weapon: undefined,
+      highlightType: undefined
     });
 
   const onSubmit = async (values: VideoUploadFormValues) => {
@@ -73,7 +75,8 @@ const VideoUploadForm: React.FC = () => {
       description: description ? description : null,
       visibility: values.visibility as VideoVisibility,
       map: values.map,
-      weapon: values.weapon
+      weapon: values.weapon,
+      highlightType: values.highlightType
     };
 
     try {

@@ -62,8 +62,9 @@ public class HighlightVideo : AuditableEntity
     /// <summary>
     /// Domain method: Called by application layer after AI generation succeeds.
     /// Prevents arbitrary set operations.
+    /// HighlightType is now user-selected, not AI-generated.
     /// </summary>
-    public void MarkAiCompleted(string description, HighlightType type)
+    public void MarkAiCompleted(string description)
     {
         if (string.IsNullOrWhiteSpace(description))
             throw new ArgumentException("Description cannot be empty", nameof(description));
@@ -72,7 +73,6 @@ public class HighlightVideo : AuditableEntity
         var trimmedDescription = description.Trim();
         AiDescription = trimmedDescription.Length <= 600 ? trimmedDescription : trimmedDescription[..600];
 
-        AiHighlightType = type;
         AiStatus = AiStatus.Completed;
         AiLastError = null;
         AiUpdatedAtUtc = DateTime.UtcNow;
@@ -88,6 +88,15 @@ public class HighlightVideo : AuditableEntity
             throw new ArgumentException("TagsJson cannot be empty", nameof(tagsJson));
 
         TagsJson = tagsJson;
+        Touch();
+    }
+
+    /// <summary>
+    /// Domain method: Sets user-selected highlight type.
+    /// </summary>
+    public void SetHighlightType(HighlightType highlightType)
+    {
+        AiHighlightType = highlightType;
         Touch();
     }
 

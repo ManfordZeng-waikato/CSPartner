@@ -9,5 +9,6 @@ public enum HighlightType
     SprayTransfer = 4,
     Wallbang = 5,
     FunnyMoment = 6,
-    UtilityPlay = 7
+    UtilityPlay = 7,
+    OpeningKill = 8
 }

@@ -36,6 +36,7 @@ type CreateVideoDto = {
     visibility: VideoVisibility
     map: string
     weapon: string
+    highlightType: string
 }
 
 type CreateVideoRequestDto = {
@@ -46,6 +47,7 @@ type CreateVideoRequestDto = {
     visibility: VideoVisibility
     map: string
     weapon: string
+    highlightType: string
 }
 
 type VideoUploadUrlResponseDto = {

@@ -26,4 +26,7 @@ public class CreateVideoDto
     [Required]
     [StringLength(50)]
     public string Weapon { get; set; } = default!;
+
+    [Required]
+    public HighlightType HighlightType { get; set; }
 }

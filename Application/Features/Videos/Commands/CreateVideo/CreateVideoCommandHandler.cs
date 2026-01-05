@@ -91,15 +91,16 @@ public class CreateVideoCommandHandler : IRequestHandler<CreateVideoCommand, Vid
             request.Description,
             thumbnailUrl);
 
-        if (request.Visibility != VideoVisibility.Public)
-        {
-            video.SetVisibility(request.Visibility);
-        }
+        // Always set visibility to ensure it matches the user's selection
+        video.SetVisibility(request.Visibility);
 
-        // Store user-selected tags (Map and Weapon) as JSON array
-        var tags = new List<string> { request.Map, request.Weapon };
+        // Store user-selected tags (Map, Weapon, and HighlightType) as JSON array
+        var tags = new List<string> { request.Map, request.Weapon, request.HighlightType.ToString() };
         var tagsJson = JsonSerializer.Serialize(tags);
         video.SetTags(tagsJson);
+
+        // Set user-selected highlight type
+        video.SetHighlightType(request.HighlightType);
 
         await _context.Videos.AddAsync(video, cancellationToken);
         await _context.SaveChangesAsync(cancellationToken);

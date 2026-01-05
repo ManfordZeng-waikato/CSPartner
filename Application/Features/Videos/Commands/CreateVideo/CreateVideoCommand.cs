@@ -11,5 +11,6 @@ public record CreateVideoCommand(
     string? Description = null,
     VideoVisibility Visibility = VideoVisibility.Public,
     string Map = "",
-    string Weapon = "") : ICommand<VideoDto>;
+    string Weapon = "",
+    HighlightType HighlightType = HighlightType.Unknown) : ICommand<VideoDto>;
 

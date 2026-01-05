@@ -30,17 +30,25 @@ public class GenerateVideoAiMetaCommandHandler
 
     public async Task<VideoAiResultDto> Handle(GenerateVideoAiMetaCommand request, CancellationToken cancellationToken)
     {
-        if (!_currentUserService.UserId.HasValue)
-            throw AuthenticationRequiredException.ForOperation("generate AI metadata for a video");
-
         var video = await _context.Videos
             .FirstOrDefaultAsync(v => v.Id == request.VideoId && !v.IsDeleted, cancellationToken);
 
         if (video == null)
             throw new VideoNotFoundException(request.VideoId);
 
-        if (video.UploaderUserId != _currentUserService.UserId.Value)
-            throw new UnauthorizedOperationException("video", request.VideoId);
+        // For background tasks (when called after video creation), skip user validation
+        // since HttpContext is not available in background tasks
+        // Only validate if currentUserService has userId (manual trigger from API)
+        if (_currentUserService.UserId.HasValue)
+        {
+            if (video.UploaderUserId != _currentUserService.UserId.Value)
+                throw new UnauthorizedOperationException("video", request.VideoId);
+        }
+        else
+        {
+            _logger.LogInformation("AI generation called from background task for video {VideoId} by user {UploaderUserId}, skipping user validation", 
+                request.VideoId, video.UploaderUserId);
+        }
 
         // Mark as pending before calling AI (for observability)
         video.MarkAiPending();
@@ -48,19 +56,40 @@ public class GenerateVideoAiMetaCommandHandler
 
         try
         {
+            // Validate required fields for AI generation
+            if (string.IsNullOrWhiteSpace(request.Map))
+            {
+                _logger.LogWarning("Map is missing for AI generation for video {VideoId}", request.VideoId);
+            }
+            if (string.IsNullOrWhiteSpace(request.Weapon))
+            {
+                _logger.LogWarning("Weapon is missing for AI generation for video {VideoId}", request.VideoId);
+            }
+            if (!request.HighlightType.HasValue)
+            {
+                _logger.LogWarning("HighlightType is missing for AI generation for video {VideoId}", request.VideoId);
+            }
+
             var input = new VideoAiInputDto(
                 Title: video.Title,
                 UserDescription: video.Description,
                 Map: request.Map,
                 Mode: null,
                 Weapon: request.Weapon,
-                ExtraContext: "CS2 highlight video"
+                ExtraContext: "CS2 highlight video",
+                HighlightType: request.HighlightType
             );
 
-            _logger.LogInformation("Starting AI metadata generation for video {VideoId}", request.VideoId);
+            _logger.LogInformation("Starting AI metadata generation for video {VideoId} with Map={Map}, Weapon={Weapon}, HighlightType={HighlightType}", 
+                request.VideoId, request.Map, request.Weapon, request.HighlightType);
             var result = await _ai.GenerateVideoMetaAsync(input, cancellationToken);
 
-            video.MarkAiCompleted(result.Description, result.HighlightType);
+            if (string.IsNullOrWhiteSpace(result.Description))
+            {
+                _logger.LogWarning("AI generated empty description for video {VideoId}", request.VideoId);
+            }
+
+            video.MarkAiCompleted(result.Description);
 
             await _context.SaveChangesAsync(cancellationToken);
 

@@ -20,14 +20,11 @@ function UserProfilePage() {
   // Check if viewing own profile
   const isViewingOwnProfile = session?.userId === id;
   
-  const visibleVideos = profile?.videos.filter(video => {
-    if (isViewingOwnProfile) {
-     
-      return true;
-    }
-    // Viewing others' profiles, only show Public videos
-    return video.visibility === 1; // VideoVisibility.Public = 1
-  }) ?? [];
+  // Backend already filters videos based on visibility rules:
+  // - Viewing own profile: all videos (Public + Private)
+  // - Viewing others' profiles: only Public videos
+  // So we can directly use the videos from the profile
+  const visibleVideos = profile?.videos ?? [];
 
   if (isLoading) {
     return (

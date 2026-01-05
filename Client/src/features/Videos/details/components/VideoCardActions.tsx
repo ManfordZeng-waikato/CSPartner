@@ -9,17 +9,20 @@ import {
   Button
 } from "@mui/material";
 import { Lock, Public, Delete } from "@mui/icons-material";
+import { isVideoPublic } from "../../../../lib/utils/videoVisibility";
 
 // Visibility label component (absolute positioned)
 export function VideoVisibilityLabel({ video, isOwner }: { video: VideoDto; isOwner: boolean }) {
   if (!isOwner) return null;
 
+  const isPublic = isVideoPublic(video.visibility);
+
   return (
     <Chip
-      icon={video.visibility === 1 ? <Public sx={{ fontSize: 16 }} /> : <Lock sx={{ fontSize: 16 }} />}
-      label={video.visibility === 1 ? "Public" : "Private"}
+      icon={isPublic ? <Public sx={{ fontSize: 16 }} /> : <Lock sx={{ fontSize: 16 }} />}
+      label={isPublic ? "Public" : "Private"}
       size="small"
-      color={video.visibility === 1 ? "success" : "default"}
+      color={isPublic ? "success" : "default"}
       sx={{
         position: 'absolute',
         top: 64, // Avatar height(40) + top spacing(16) + label-avatar spacing(8)
@@ -91,19 +94,21 @@ export function VideoActionButtons({
 }) {
   if (!showMenu || !isOwner) return null;
 
+  const isPublic = isVideoPublic(video.visibility);
+
   return (
     <Box sx={{ display: 'flex', gap: 1, mt: 2, flexWrap: 'wrap' }}>
       <Button
         variant="outlined"
         size="small"
-        startIcon={video.visibility === 1 ? <Lock /> : <Public />}
+        startIcon={isPublic ? <Lock /> : <Public />}
         onClick={onToggleVisibility}
         disabled={isUpdating}
-        color={video.visibility === 1 ? "secondary" : "success"}
+        color={isPublic ? "secondary" : "success"}
       >
         {isUpdating 
           ? "Updating..." 
-          : video.visibility === 1 
+          : isPublic 
             ? "Make Private" 
             : "Make Public"}
       </Button>

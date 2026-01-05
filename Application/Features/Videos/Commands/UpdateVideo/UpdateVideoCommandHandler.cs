@@ -34,6 +34,8 @@ public class UpdateVideoCommandHandler : IRequestHandler<UpdateVideoCommand, boo
 
         video.SetVisibility(request.Visibility);
 
+        await _context.SaveChangesAsync(cancellationToken);
+
         return true;
     }
 }

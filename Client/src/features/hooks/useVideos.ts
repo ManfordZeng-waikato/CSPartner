@@ -58,7 +58,8 @@ export const useCreateVideo = (
         videoObjectKey: objectKey,
         thumbnailObjectKey: null,
         map: video.map,
-        weapon: video.weapon
+        weapon: video.weapon,
+        highlightType: video.highlightType
       };
 
       const response = await apiClient.post<VideoDto>('/api/videos', createPayload);
@@ -169,22 +170,21 @@ export const useDeleteComment = () => {
 
 export const useUpdateVideoVisibility = () => {
   const queryClient = useQueryClient();
-  const { session } = useAuthSession();
 
   return useMutation({
     mutationFn: async ({ videoId, visibility }: { videoId: string; visibility: VideoVisibility }): Promise<void> => {
-      if (!session?.userId) {
-        throw new Error("User not authenticated");
-      }
       await apiClient.put(`/api/videos/${videoId}`, {
         visibility: visibility
-      }, {
-        params: { userId: session.userId }
       });
     },
-    onSuccess: async () => {
+    onSuccess: async (_, variables) => {
+      // Invalidate all video-related queries to ensure UI updates
       await queryClient.invalidateQueries({ queryKey: ['videos'] });
+      await queryClient.invalidateQueries({ queryKey: ['video', variables.videoId] });
+      
+      // Invalidate and refetch userProfile queries to refresh any profile that contains this video
       await queryClient.invalidateQueries({ queryKey: ['userProfile'] });
+      await queryClient.refetchQueries({ queryKey: ['userProfile'] });
     }
   });
 };
