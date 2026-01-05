@@ -51,9 +51,9 @@ public class GenerateVideoAiMetaCommandHandler
             var input = new VideoAiInputDto(
                 Title: video.Title,
                 UserDescription: video.Description,
-                Map: null,
+                Map: request.Map,
                 Mode: null,
-                Weapon: null,
+                Weapon: request.Weapon,
                 ExtraContext: "CS2 highlight video"
             );
 

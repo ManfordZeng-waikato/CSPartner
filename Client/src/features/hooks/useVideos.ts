@@ -56,7 +56,9 @@ export const useCreateVideo = (
         description: video.description ?? null,
         visibility: video.visibility,
         videoObjectKey: objectKey,
-        thumbnailObjectKey: null
+        thumbnailObjectKey: null,
+        map: video.map,
+        weapon: video.weapon
       };
 
       const response = await apiClient.post<VideoDto>('/api/videos', createPayload);

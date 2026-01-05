@@ -136,7 +136,7 @@ public class VideosController : BaseApiController
     /// </summary>
     [HttpPost]
     [Authorize]
-    public async Task<ActionResult<VideoDto>> CreateVideo([FromBody] CreateVideoDto dto)
+    public async Task<ActionResult<VideoDto>> CreateVideo([FromBody] CreateVideoDto dto, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(dto.VideoObjectKey))
             return BadRequest(new { error = "VideoObjectKey is required" });
@@ -146,9 +146,23 @@ public class VideosController : BaseApiController
             dto.ThumbnailObjectKey,
             dto.Title,
             dto.Description,
-            dto.Visibility);
+            dto.Visibility,
+            dto.Map,
+            dto.Weapon);
 
         var video = await _mediator.Send(command);
+
+        // Automatically trigger AI metadata generation after video creation
+        try
+        {
+            await _mediator.Send(new GenerateVideoAiMetaCommand(video.VideoId, dto.Map, dto.Weapon), cancellationToken);
+            _logger.LogInformation("Automatically triggered AI metadata generation for video {VideoId}", video.VideoId);
+        }
+        catch (Exception ex)
+        {
+            // Log but don't fail the video creation if AI generation fails
+            _logger.LogWarning(ex, "Failed to automatically generate AI metadata for video {VideoId}. User can trigger it manually later.", video.VideoId);
+        }
 
         return CreatedAtAction(nameof(GetVideo), new { id = video.VideoId }, video);
     }

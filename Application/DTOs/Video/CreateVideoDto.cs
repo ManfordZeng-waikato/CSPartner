@@ -18,4 +18,12 @@ public class CreateVideoDto
     public string? ThumbnailObjectKey { get; set; }
 
     public VideoVisibility Visibility { get; set; } = VideoVisibility.Public;
+
+    [Required]
+    [StringLength(50)]
+    public string Map { get; set; } = default!;
+
+    [Required]
+    [StringLength(50)]
+    public string Weapon { get; set; } = default!;
 }

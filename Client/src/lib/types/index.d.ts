@@ -34,6 +34,8 @@ type CreateVideoDto = {
     title: string
     description?: string | null
     visibility: VideoVisibility
+    map: string
+    weapon: string
 }
 
 type CreateVideoRequestDto = {
@@ -42,6 +44,8 @@ type CreateVideoRequestDto = {
     videoObjectKey: string
     thumbnailObjectKey?: string | null
     visibility: VideoVisibility
+    map: string
+    weapon: string
 }
 
 type VideoUploadUrlResponseDto = {
