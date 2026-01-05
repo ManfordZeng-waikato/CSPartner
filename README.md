@@ -1,6 +1,6 @@
 # CSPartner
 
-A modern video sharing platform built with .NET 10.0 and React 19, featuring real-time comments, video uploads, and user profiles. The application follows Clean Architecture principles and uses Cloudflare R2 for object storage.
+A modern CS2 (Counter-Strike 2) highlight video sharing platform built with .NET 10.0 and React 19, featuring AI-powered video descriptions, real-time comments, video uploads, and user profiles. The application follows Clean Architecture principles and uses Cloudflare R2 for object storage.
 
 ## 🌐 Live Demo
 
@@ -11,10 +11,19 @@ A modern video sharing platform built with .NET 10.0 and React 19, featuring rea
 ## 🚀 Features
 
 - **Video Management**
-  - Upload videos with pre-signed URLs for direct upload to Cloudflare R2
+  - Upload CS2 highlight videos with pre-signed URLs for direct upload to Cloudflare R2
   - Video visibility controls (Public/Private)
   - Video likes and view count tracking
   - Cursor-based pagination for efficient video browsing
+  - Video tagging system with highlight types (Ace, Clutch, Flick, SprayTransfer, Wallbang, FunnyMoment, UtilityPlay, OpeningKill)
+  - Map and weapon tagging for better video organization
+
+- **AI-Powered Features**
+  - **Automatic AI Description Generation**: Automatically generates concise video descriptions using OpenAI based on video metadata (map, weapon, highlight type)
+  - Background processing: AI description generation runs automatically after video upload
+  - Manual trigger: Users can manually regenerate AI descriptions via API
+  - Status tracking: Real-time AI processing status (Pending, Completed, Failed)
+  - Error handling: Graceful handling of AI service errors and quota limits
 
 - **Real-time Comments**
   - Threaded comment system with replies
@@ -33,13 +42,20 @@ A modern video sharing platform built with .NET 10.0 and React 19, featuring rea
   - React Query for data fetching
   - Form validation with React Hook Form and Zod
 
+- **Future Features** (Planned)
+  - **Social Matching & Friend Recommendations**: Intelligent friend recommendation system based on highlight video tags and types
+    - Match users with similar gameplay styles and preferences
+    - Recommend friends based on shared interests in specific highlight types (Ace, Clutch, Flick, etc.)
+    - Connect players who enjoy similar maps and weapons
+    - Build a community around CS2 gameplay styles and skills
+
 ## 🏗️ Architecture
 
 The project follows **Clean Architecture** principles with clear separation of concerns:
 
 - **Domain**: Core business entities and domain logic (no dependencies)
 - **Application**: Use cases, DTOs, and application services (CQRS with MediatR)
-- **Infrastructure**: Data persistence, external services (R2 storage, Identity, Azure services)
+- **Infrastructure**: Data persistence, external services (R2 storage, Identity, AI services, Azure services)
 - **API**: Controllers, SignalR hubs, and API-specific configurations
 - **Client**: React frontend application
 
@@ -51,6 +67,8 @@ The project follows **Clean Architecture** principles with clear separation of c
 - **Unit of Work**: Transaction management
 - **Dependency Injection**: Full DI container usage
 - **Pipeline Behaviors**: Cross-cutting concerns (logging, validation, transactions)
+- **Global Exception Handling**: Centralized exception handling middleware for consistent error responses
+- **API Documentation**: Swagger/OpenAPI integration with JWT authentication support
 - **Real-time Communication**: SignalR for live updates
 - **Cloud-Native**: Designed for Azure cloud deployment
 
@@ -60,6 +78,7 @@ The project follows **Clean Architecture** principles with clear separation of c
 - **Node.js** 18.x or later
 - **SQL Server** (LocalDB for development, or SQL Server for production)
 - **Cloudflare R2** account with API token and bucket configured
+- **OpenAI API** account with API key (for AI description generation)
 - **Resend** account (for email services) - Optional for development
 - **GitHub OAuth App** (for GitHub authentication) - Optional
 - **Azure Key Vault** (for Data Protection keys in production) - Optional for development
@@ -75,6 +94,7 @@ The project follows **Clean Architecture** principles with clear separation of c
 - **JWT Bearer Authentication** - Token-based authentication
 - **ASP.NET Core Identity** - User management and authentication
 - **AWS SDK for S3** - Cloudflare R2 compatibility (S3-compatible API)
+- **OpenAI API** - AI-powered video description generation
 - **AutoMapper** - Object-to-object mapping
 - **FluentValidation** - Input validation (via MediatR behaviors)
 
@@ -109,6 +129,7 @@ The project follows **Clean Architecture** principles with clear separation of c
 - **Cloudflare R2 Public URLs** - CDN for video delivery
 
 #### Third-Party Services
+- **OpenAI** - AI service for video description generation
 - **Resend** - Transactional email service
 - **GitHub OAuth** - Social authentication provider
 
@@ -196,6 +217,10 @@ Create `API/appsettings.json` with the following template:
   "DataProtection": {
     "KeyVaultUri": "https://your-keyvault-name.vault.azure.net/"
   },
+  "OpenAI": {
+    "ApiKey": "your-openai-api-key",
+    "Model": "gpt-5"
+  },
   "Seed": {
     "DemoData": true,
     "DemoUserPassword": "Demo@12345"
@@ -209,6 +234,7 @@ Create `API/appsettings.json` with the following template:
 - ✅ **ConnectionStrings**: Update the connection string to match your SQL Server instance
 - ✅ **CloudflareR2**: Required for video storage. See [Cloudflare R2 Setup](#cloudflare-r2-setup) section below
 - ✅ **Jwt**: Generate a secure secret key (at least 32 characters). For production, use a strong random key
+- ✅ **OpenAI**: Required for AI description generation. See [OpenAI Setup](#openai-setup) section below
 
 **Optional (can be omitted for basic testing):**
 - ⚪ **Resend**: Optional for development. Required for email features (password reset, etc.). You can leave empty values if not using email features
@@ -238,6 +264,10 @@ Create `API/appsettings.json` with the following template:
     "Audience": "https://localhost:3000",
     "SecretKey": "YourSuperSecretKeyForJWTTokenGenerationMustBeAtLeast32CharactersLong!",
     "ExpirationMinutes": 1440
+  },
+  "OpenAI": {
+    "ApiKey": "your-openai-api-key",
+    "Model": "gpt-5"
   }
 }
 ```
@@ -258,6 +288,11 @@ dotnet run
 ```
 
 The API will be available at `https://localhost:5001` (or the port configured in `launchSettings.json`).
+
+**API Documentation (Swagger)**:
+- In development mode, Swagger UI is available at `https://localhost:5001/swagger`
+- Swagger supports JWT authentication - click "Authorize" button and enter: `Bearer {your-jwt-token}`
+- All API endpoints are documented with request/response schemas
 
 ### 3. Frontend Setup
 
@@ -386,6 +421,29 @@ Resend is used for sending emails (password reset, etc.). To configure:
 
 **Note**: Email features will not work without this configuration, but the application will still run.
 
+### OpenAI Setup (Required for AI Features)
+
+OpenAI is used for automatic video description generation. To configure:
+
+1. **Sign up** at [platform.openai.com](https://platform.openai.com)
+2. **Create an API key** in the OpenAI dashboard
+3. **Choose a model** (default is `gpt-5`, but you can use other models like `gpt-4o`, `gpt-4-turbo`, etc.)
+4. **Update `appsettings.json`**:
+   ```json
+   "OpenAI": {
+     "ApiKey": "sk-proj-your-api-key-here",
+     "Model": "gpt-5"
+   }
+   ```
+
+**How it works:**
+- When a video is uploaded with metadata (map, weapon, highlight type), the system automatically generates a concise description using AI
+- The AI description is generated in the background after video creation
+- Users can also manually trigger AI description generation via the API endpoint
+- AI processing status is tracked (Pending, Completed, Failed) for each video
+
+**Note**: AI description generation requires valid OpenAI API credentials. If not configured, videos will still be created but AI descriptions will not be generated.
+
 ### GitHub OAuth (Optional)
 
 To enable GitHub OAuth login:
@@ -447,21 +505,26 @@ CSPartner/
 ├── API/                    # Web API layer (controllers, SignalR hubs)
 │   ├── Controllers/       # API endpoints
 │   ├── SignalR/          # SignalR hubs for real-time features
+│   ├── Middleware/       # Global exception handling middleware
 │   ├── Seed/             # Database seeding logic
 │   └── wwwroot/          # Static files (frontend build output)
 ├── Application/           # Application layer (use cases, DTOs)
 │   ├── Features/         # Feature-based organization (CQRS)
+│   │   └── Videos/       # Video features including AI generation
 │   ├── DTOs/             # Data transfer objects
+│   │   └── Ai/           # AI-related DTOs
 │   ├── Mappings/         # Object mappings
 │   └── Behaviors/        # MediatR pipeline behaviors
 ├── Domain/                # Domain layer (entities, domain logic)
-│   ├── Videos/           # Video domain entities
+│   ├── Videos/           # Video domain entities (HighlightVideo, HighlightType)
 │   ├── Comments/         # Comment domain entities
-│   └── Users/            # User domain entities
+│   ├── Users/            # User domain entities
+│   └── Ai/               # AI status and domain logic
 ├── Infrastructure/        # Infrastructure layer
 │   ├── Persistence/      # EF Core context and configurations
 │   ├── Identity/         # ASP.NET Core Identity implementation
-│   └── Storage/          # Cloudflare R2 storage service
+│   ├── Storage/          # Cloudflare R2 storage service
+│   └── AI/               # AI service implementations (OpenAI)
 └── Client/                # React frontend
     ├── src/
     │   ├── app/          # App layout and routing
@@ -483,11 +546,12 @@ CSPartner/
 - `GET /api/videos/{id}` - Get video by ID
 - `GET /api/videos/user/{userId}` - Get videos by user
 - `POST /api/videos/upload-url` - Get pre-signed URL for video upload
-- `POST /api/videos` - Create video record
+- `POST /api/videos` - Create video record (automatically triggers AI description generation)
 - `PUT /api/videos/{id}` - Update video
 - `DELETE /api/videos/{id}` - Delete video
 - `POST /api/videos/{id}/like` - Toggle video like
 - `POST /api/videos/{id}/view` - Increment view count
+- `POST /api/videos/{id}/ai-meta` - Manually trigger AI description generation for a video
 
 ### Comments
 - `GET /api/videos/{videoId}/comments` - Get video comments
@@ -532,6 +596,33 @@ To enable seeding, set in `appsettings.json`:
 ### Frontend Development
 
 The frontend uses Vite with hot module replacement. Changes will be reflected immediately in the browser.
+
+### API Testing with Swagger
+
+The API includes Swagger/OpenAPI documentation for easy testing:
+
+1. **Access Swagger UI**: Navigate to `https://localhost:5001/swagger` when the API is running in development mode
+2. **JWT Authentication**: 
+   - First, login via `/api/account/login` to get a JWT token
+   - Click the "Authorize" button in Swagger UI
+   - Enter: `Bearer {your-jwt-token}` (replace `{your-jwt-token}` with the actual token)
+   - Click "Authorize" to authenticate
+3. **Test Endpoints**: All endpoints are documented with request/response schemas and can be tested directly from Swagger UI
+
+### Exception Handling
+
+The application uses a global exception handling middleware (`ExceptionHandlingMiddleware`) that:
+
+- **Centralized Error Handling**: Catches all unhandled exceptions and converts them to appropriate HTTP responses
+- **Domain Exception Mapping**: Maps domain exceptions to HTTP status codes:
+  - `VideoNotFoundException`, `CommentNotFoundException`, `UserProfileNotFoundException` → 404 Not Found
+  - `UnauthorizedOperationException` → 403 Forbidden
+  - `AuthenticationRequiredException` → 401 Unauthorized
+  - `RateLimitExceededException` → 429 Too Many Requests
+  - `DomainException`, `InvalidCommentStateException` → 400 Bad Request
+  - Unhandled exceptions → 500 Internal Server Error
+- **Consistent Error Format**: All errors are returned in a consistent JSON format with status code and message
+- **Logging**: All exceptions are logged with appropriate log levels (Warning for client errors, Error for server errors)
 
 ## 🚢 Deployment
 
@@ -693,14 +784,22 @@ The built files will be in `API/wwwroot` and served automatically by the API. Th
    - Check CORS configuration in `appsettings.json`
    - Verify the proxy configuration in `Client/vite.config.ts`
 
-5. **Email features not working**:
+6. **Email features not working**:
    - Resend configuration is optional for development
    - Email features require valid Resend API token and verified domain
 
-6. **Migrations fail**:
+7. **Migrations fail**:
    - Ensure you're running migrations from the correct directory
    - Use: `dotnet ef database update --project ../Infrastructure --startup-project .`
    - From the `API` directory
+
+8. **AI description generation fails**:
+   - Verify OpenAI API key is correct in `appsettings.json`
+   - Check OpenAI API quota and billing status
+   - Ensure the model name is correct (default: `gpt-5`)
+   - Check application logs for detailed error messages
+   - AI generation runs in background - check video's `aiStatus` field to see processing status
+   - If quota is exceeded, videos will still be created but AI descriptions will fail with status `Failed`
 
 ## 🔒 Security Considerations
 
@@ -709,6 +808,7 @@ The built files will be in `API/wwwroot` and served automatically by the API. Th
 - **CORS** is configured for development and production
 - **File uploads** use pre-signed URLs for direct upload to R2 (reduces server load)
 - **Video file existence** is verified before creating database records
+- **AI API keys** are stored securely and should never be committed to version control
 - **Sensitive configuration** should use environment variables or Azure Key Vault in production
 - **Never commit** `appsettings.json` with real credentials to version control
 
@@ -719,6 +819,7 @@ This project demonstrates comprehensive full-stack development skills and modern
 ### Technical Skills Demonstrated
 
 - ✅ **Full-Stack Development**: Modern .NET 10.0 backend with React 19 frontend
+- ✅ **AI Integration**: OpenAI API integration for intelligent video description generation
 - ✅ **Cloud Architecture**: Production deployment on Microsoft Azure with multiple services
 - ✅ **DevOps & CI/CD**: Active continuous integration and deployment pipeline
 - ✅ **Security Best Practices**: Azure Key Vault integration, JWT authentication, managed identities
@@ -727,7 +828,8 @@ This project demonstrates comprehensive full-stack development skills and modern
 - ✅ **Modern Frontend**: React 19, TypeScript, Material-UI, React Query, Vite
 - ✅ **API Design**: RESTful APIs with proper error handling, validation, and documentation
 - ✅ **Database Management**: Entity Framework Core, migrations, transaction management
-- ✅ **Third-party Integrations**: Cloudflare R2, Resend email service, GitHub OAuth
+- ✅ **Third-party Integrations**: OpenAI, Cloudflare R2, Resend email service, GitHub OAuth
+- ✅ **Background Processing**: Asynchronous AI processing with proper error handling and status tracking
 
 ### Azure Cloud Services Experience
 
