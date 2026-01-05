@@ -33,9 +33,10 @@ public class HighlightVideo : AuditableEntity
     public string? AiDescription { get; private set; }
 
     /// <summary>
-    /// JSON array string, e.g., ["clutch","mirage","ak-47"]
+    /// JSON array string, e.g., ["Mirage","Rifles"]
+    /// Tags are user-selected (Map and Weapon), not AI-generated
     /// </summary>
-    public string? AiTagsJson { get; private set; }
+    public string? TagsJson { get; private set; }
 
     public HighlightType AiHighlightType { get; private set; } = HighlightType.Unknown;
 
@@ -62,23 +63,31 @@ public class HighlightVideo : AuditableEntity
     /// Domain method: Called by application layer after AI generation succeeds.
     /// Prevents arbitrary set operations.
     /// </summary>
-    public void MarkAiCompleted(string description, string tagsJson, HighlightType type)
+    public void MarkAiCompleted(string description, HighlightType type)
     {
         if (string.IsNullOrWhiteSpace(description))
             throw new ArgumentException("Description cannot be empty", nameof(description));
-
-        if (string.IsNullOrWhiteSpace(tagsJson))
-            throw new ArgumentException("TagsJson cannot be empty", nameof(tagsJson));
 
         // Validate and trim description to match database constraint (600 chars)
         var trimmedDescription = description.Trim();
         AiDescription = trimmedDescription.Length <= 600 ? trimmedDescription : trimmedDescription[..600];
 
-        AiTagsJson = tagsJson;
         AiHighlightType = type;
         AiStatus = AiStatus.Completed;
         AiLastError = null;
         AiUpdatedAtUtc = DateTime.UtcNow;
+        Touch();
+    }
+
+    /// <summary>
+    /// Domain method: Sets user-selected tags (Map and Weapon).
+    /// </summary>
+    public void SetTags(string tagsJson)
+    {
+        if (string.IsNullOrWhiteSpace(tagsJson))
+            throw new ArgumentException("TagsJson cannot be empty", nameof(tagsJson));
+
+        TagsJson = tagsJson;
         Touch();
     }
 

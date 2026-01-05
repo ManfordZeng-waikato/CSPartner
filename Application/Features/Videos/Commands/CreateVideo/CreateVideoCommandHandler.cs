@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Application.Common.Interfaces;
 using Application.DTOs.Video;
 using Application.Mappings;
@@ -94,6 +95,11 @@ public class CreateVideoCommandHandler : IRequestHandler<CreateVideoCommand, Vid
         {
             video.SetVisibility(request.Visibility);
         }
+
+        // Store user-selected tags (Map and Weapon) as JSON array
+        var tags = new List<string> { request.Map, request.Weapon };
+        var tagsJson = JsonSerializer.Serialize(tags);
+        video.SetTags(tagsJson);
 
         await _context.Videos.AddAsync(video, cancellationToken);
         await _context.SaveChangesAsync(cancellationToken);

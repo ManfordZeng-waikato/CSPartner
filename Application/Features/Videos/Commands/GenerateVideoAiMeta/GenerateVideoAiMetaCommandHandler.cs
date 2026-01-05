@@ -60,10 +60,7 @@ public class GenerateVideoAiMetaCommandHandler
             _logger.LogInformation("Starting AI metadata generation for video {VideoId}", request.VideoId);
             var result = await _ai.GenerateVideoMetaAsync(input, cancellationToken);
 
-            // Service already normalizes tags, so we can serialize directly
-            var tagsJson = JsonSerializer.Serialize(result.Tags);
-
-            video.MarkAiCompleted(result.Description, tagsJson, result.HighlightType);
+            video.MarkAiCompleted(result.Description, result.HighlightType);
 
             await _context.SaveChangesAsync(cancellationToken);
 

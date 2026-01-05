@@ -41,7 +41,7 @@ public class HighlightVideoConfiguration : IEntityTypeConfiguration<HighlightVid
         b.Property(v => v.AiDescription)
             .HasMaxLength(600);
 
-        b.Property(v => v.AiTagsJson)
+        b.Property(v => v.TagsJson)
             .HasColumnType("nvarchar(max)");
 
         b.Property(v => v.AiHighlightType)

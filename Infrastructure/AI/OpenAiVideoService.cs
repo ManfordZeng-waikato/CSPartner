@@ -89,25 +89,22 @@ public sealed class OpenAiVideoService : IAiVideoService
         var parsed = JsonSerializer.Deserialize<StructuredResult>(outputText)
                      ?? throw new InvalidOperationException("Failed to parse OpenAI structured output.");
 
-        var normalizedTags = NormalizeTags(parsed.tags);
-
         var description = (parsed.description ?? string.Empty).Trim();
         if (description.Length > 600) description = description[..600];
 
         if (!Enum.TryParse(parsed.highlightType, out HighlightType ht))
             ht = HighlightType.Unknown;
 
-        return new VideoAiResultDto(description, normalizedTags, ht);
+        return new VideoAiResultDto(description, ht);
     }
 
     private static string BuildPrompt(VideoAiInputDto input)
     {
         var sb = new StringBuilder();
-        sb.AppendLine("Generate metadata for a Counter-Strike 2 highlight video.");
+        sb.AppendLine("Generate a brief description for a Counter-Strike 2 highlight video.");
         sb.AppendLine("Requirements:");
         sb.AppendLine("- Description: English, punchy, <= 300 chars if possible.");
-        sb.AppendLine("- Tags: 3-8 items, English words/short phrases, no # symbol.");
-        sb.AppendLine("- highlightType: choose the best enum value.");
+        sb.AppendLine("- highlightType: choose the best enum value based on the video content.");
 
         sb.AppendLine();
         sb.AppendLine($"Title: {input.Title}");
@@ -141,13 +138,6 @@ public sealed class OpenAiVideoService : IAiVideoService
             properties = new
             {
                 description = new { type = "string", minLength = 10, maxLength = 300 },
-                tags = new
-                {
-                    type = "array",
-                    minItems = 3,
-                    maxItems = 8,
-                    items = new { type = "string", minLength = 2, maxLength = 24 }
-                },
                 highlightType = new
                 {
                     type = "string",
@@ -157,7 +147,7 @@ public sealed class OpenAiVideoService : IAiVideoService
                     }
                 }
             },
-            required = new[] { "description", "tags", "highlightType" }
+            required = new[] { "description", "highlightType" }
         };
     }
 
@@ -188,17 +178,6 @@ public sealed class OpenAiVideoService : IAiVideoService
         throw new InvalidOperationException("Cannot find output_text in OpenAI response.");
     }
 
-    private static IReadOnlyList<string> NormalizeTags(IEnumerable<string>? tags)
-    {
-        if (tags is null) return Array.Empty<string>();
-
-        return tags
-            .Select(t => (t ?? string.Empty).Trim().ToLowerInvariant())
-            .Where(t => t.Length >= 2 && t.Length <= 24)
-            .Distinct()
-            .Take(8)
-            .ToList();
-    }
 
     private void HandleErrorResponse(System.Net.HttpStatusCode statusCode, string responseBody)
     {
@@ -259,5 +238,5 @@ public sealed class OpenAiVideoService : IAiVideoService
         return s.Length <= maxLen ? s : s[..maxLen];
     }
 
-    private sealed record StructuredResult(string description, List<string> tags, string highlightType);
+    private sealed record StructuredResult(string description, string highlightType);
 }
