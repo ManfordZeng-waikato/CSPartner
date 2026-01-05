@@ -65,16 +65,13 @@ export const videoUploadSchema = z.object({
   }, { message: "Please select a video file under 50 MB" }),
   visibility: z.union([z.literal(1), z.literal(2)]),
   map: z.enum(MAP_OPTIONS, {
-    required_error: "Please select a map",
-    invalid_type_error: "Please select a valid map"
+    message: "Please select a map"
   }),
   weapon: z.enum(WEAPON_OPTIONS, {
-    required_error: "Please select a weapon type",
-    invalid_type_error: "Please select a valid weapon type"
+    message: "Please select a weapon type"
   }),
   highlightType: z.enum(HIGHLIGHT_TYPE_OPTIONS, {
-    required_error: "Please select a highlight type",
-    invalid_type_error: "Please select a valid highlight type"
+    message: "Please select a highlight type"
   })
 });
 
