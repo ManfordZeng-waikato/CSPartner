@@ -20,6 +20,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using API.SignalR;
+using Application.DTOs.Ai;
+using Application.Features.Videos.Commands.GenerateVideoAiMeta;
 
 namespace API.Controllers;
 
@@ -237,6 +239,16 @@ public class VideosController : BaseApiController
             _logger.LogError(ex, "Failed to create comment");
             return BadRequest(new { error = "Failed to create comment" });
         }
+    }
+
+    /// <summary>
+    /// Generate AI metadata for a video (description, tags, highlight type)
+    /// </summary>
+    [HttpPost("{id}/ai-meta")]
+    public async Task<ActionResult<VideoAiResultDto>> GenerateAiMeta(Guid id, CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(new GenerateVideoAiMetaCommand(id), cancellationToken);
+        return Ok(result);
     }
 }
 

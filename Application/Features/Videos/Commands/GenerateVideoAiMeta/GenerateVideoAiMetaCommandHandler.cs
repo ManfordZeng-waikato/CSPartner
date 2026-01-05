@@ -62,9 +62,36 @@ public class GenerateVideoAiMetaCommandHandler
             _logger.LogInformation("Successfully generated AI metadata for video {VideoId}", request.VideoId);
             return result;
         }
+        catch (AiServiceQuotaExceededException ex)
+        {
+            // Handle quota exceeded errors with specific logging
+            _logger.LogWarning(
+                ex,
+                "AI service quota exceeded for video {VideoId}. Video status will be marked as failed. Please check billing or wait for quota reset.",
+                request.VideoId);
+
+            var safeError = ToSafeDbError(ex);
+            video.MarkAiFailed(safeError);
+            await _context.SaveChangesAsync(cancellationToken);
+            throw;
+        }
+        catch (AiServiceException ex)
+        {
+            // Handle AI service errors with status code logging
+            _logger.LogError(
+                ex,
+                "AI service error for video {VideoId}. StatusCode={StatusCode}, Message={Message}",
+                request.VideoId, ex.StatusCode, ex.Message);
+
+            var safeError = ToSafeDbError(ex);
+            video.MarkAiFailed(safeError);
+            await _context.SaveChangesAsync(cancellationToken);
+            throw;
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to generate AI metadata for video {VideoId}", request.VideoId);
+            // Handle other unexpected errors
+            _logger.LogError(ex, "Unexpected error while generating AI metadata for video {VideoId}", request.VideoId);
 
             var safeError = ToSafeDbError(ex);
             video.MarkAiFailed(safeError);

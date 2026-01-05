@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Application.Common.Interfaces;
 using Application.DTOs.Ai;
+using Domain.Exceptions;
 using Domain.Videos;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -62,7 +63,8 @@ public sealed class OpenAiVideoService : IAiVideoService
                 format = new
                 {
                     type = "json_schema",
-                    json_schema = schema
+                    name = "video_meta",
+                    schema = schema
                 }
             }
         };
@@ -79,9 +81,7 @@ public sealed class OpenAiVideoService : IAiVideoService
 
         if (!resp.IsSuccessStatusCode)
         {
-            // Keep the error short; avoid storing full payloads in logs.
-            _logger.LogError("OpenAI request failed. Status={Status}. Body={Body}", (int)resp.StatusCode, Truncate(raw, 800));
-            throw new InvalidOperationException($"OpenAI request failed with status {(int)resp.StatusCode}.");
+            HandleErrorResponse(resp.StatusCode, raw);
         }
 
         var outputText = ExtractOutputText(raw);
@@ -133,35 +133,31 @@ public sealed class OpenAiVideoService : IAiVideoService
     private static object BuildSchema()
     {
         // Keep enum values aligned with Domain.Videos.HighlightType.
+        // Returns JSON Schema object directly (without name/strict wrapper)
         return new
         {
-            name = "video_meta",
-            strict = true,
-            schema = new
+            type = "object",
+            additionalProperties = false,
+            properties = new
             {
-                type = "object",
-                additionalProperties = false,
-                properties = new
+                description = new { type = "string", minLength = 10, maxLength = 300 },
+                tags = new
                 {
-                    description = new { type = "string", minLength = 10, maxLength = 300 },
-                    tags = new
-                    {
-                        type = "array",
-                        minItems = 3,
-                        maxItems = 8,
-                        items = new { type = "string", minLength = 2, maxLength = 24 }
-                    },
-                    highlightType = new
-                    {
-                        type = "string",
-                        @enum = new[]
-                        {
-                            "Unknown","Ace","Clutch","Flick","SprayTransfer","Wallbang","FunnyMoment","UtilityPlay"
-                        }
-                    }
+                    type = "array",
+                    minItems = 3,
+                    maxItems = 8,
+                    items = new { type = "string", minLength = 2, maxLength = 24 }
                 },
-                required = new[] { "description", "tags", "highlightType" }
-            }
+                highlightType = new
+                {
+                    type = "string",
+                    @enum = new[]
+                    {
+                        "Unknown","Ace","Clutch","Flick","SprayTransfer","Wallbang","FunnyMoment","UtilityPlay"
+                    }
+                }
+            },
+            required = new[] { "description", "tags", "highlightType" }
         };
     }
 
@@ -202,6 +198,59 @@ public sealed class OpenAiVideoService : IAiVideoService
             .Distinct()
             .Take(8)
             .ToList();
+    }
+
+    private void HandleErrorResponse(System.Net.HttpStatusCode statusCode, string responseBody)
+    {
+        var statusCodeInt = (int)statusCode;
+        var errorMessage = Truncate(responseBody, 1000);
+
+        // Try to parse error response to get more details
+        try
+        {
+            using var doc = JsonDocument.Parse(responseBody);
+            if (doc.RootElement.TryGetProperty("error", out var error))
+            {
+                var errorType = error.TryGetProperty("type", out var typeProp) ? typeProp.GetString() : null;
+                var errorCode = error.TryGetProperty("code", out var codeProp) ? codeProp.GetString() : null;
+                var message = error.TryGetProperty("message", out var msgProp) ? msgProp.GetString() : null;
+
+                // Handle quota exceeded errors (429 with insufficient_quota code)
+                if (statusCodeInt == 429 && errorCode == "insufficient_quota")
+                {
+                    _logger.LogWarning(
+                        "OpenAI quota exceeded. Status={Status}, Code={Code}, Message={Message}",
+                        statusCodeInt, errorCode, message);
+                    throw AiServiceQuotaExceededException.Create();
+                }
+
+                // Log with parsed error details
+                _logger.LogError(
+                    "OpenAI request failed. Status={Status}, Type={Type}, Code={Code}, Message={Message}",
+                    statusCodeInt, errorType, errorCode, message);
+
+                var finalMessage = message ?? $"OpenAI request failed with status {statusCodeInt}";
+                throw AiServiceException.Create(finalMessage, statusCodeInt);
+            }
+        }
+        catch (JsonException)
+        {
+            // If JSON parsing fails, fall back to raw error message
+        }
+        catch (AiServiceQuotaExceededException)
+        {
+            // Re-throw quota exception
+            throw;
+        }
+        catch (AiServiceException)
+        {
+            // Re-throw service exception
+            throw;
+        }
+
+        // Fallback: if JSON parsing failed or error structure is unexpected
+        _logger.LogError("OpenAI request failed. Status={Status}. Body={Body}", statusCodeInt, errorMessage);
+        throw AiServiceException.Create($"OpenAI request failed with status {statusCodeInt}: {errorMessage}", statusCodeInt);
     }
 
     private static string Truncate(string s, int maxLen)
