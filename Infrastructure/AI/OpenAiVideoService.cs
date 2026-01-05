@@ -15,17 +15,17 @@ public sealed class OpenAiVideoService : IAiVideoService
     private readonly ILogger<OpenAiVideoService> _logger;
     private readonly string _model;
 
-  public OpenAiVideoService(
-    HttpClient http,
-    IConfiguration config,
-    ILogger<OpenAiVideoService> logger)
-{
-    _http = http;
-    _logger = logger;
+    public OpenAiVideoService(
+      HttpClient http,
+      IConfiguration config,
+      ILogger<OpenAiVideoService> logger)
+    {
+        _http = http;
+        _logger = logger;
 
-    // Only keep model-related configuration here.
-    _model = config["OpenAI:Model"] ?? "gpt-5";
-}
+        // Only keep model-related configuration here.
+        _model = config["OpenAI:Model"] ?? "gpt-5";
+    }
 
 
     public async Task<VideoAiResultDto> GenerateVideoMetaAsync(VideoAiInputDto input, CancellationToken ct)
@@ -99,10 +99,10 @@ public sealed class OpenAiVideoService : IAiVideoService
     {
         var sb = new StringBuilder();
         sb.AppendLine("Generate a brief description for a Counter-Strike 2 highlight video.");
-        sb.AppendLine("Requirements:");
-        sb.AppendLine("- Description: English, punchy, <= 300 chars if possible.");
-        sb.AppendLine("- Base the description on the provided context (title, map, weapon, highlight type).");
-
+        sb.AppendLine("Requirements:"); sb.AppendLine("- Description: English, concise, neutral tone, <= 150 characters.");
+        sb.AppendLine("- Describe what happens in the highlight based only on the given context (title, map, weapon, highlight type).");
+        sb.AppendLine("- Avoid exaggerated or promotional language.");
+        
         sb.AppendLine();
         sb.AppendLine($"Title: {input.Title}");
 
