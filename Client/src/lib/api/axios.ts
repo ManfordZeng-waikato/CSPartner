@@ -1,6 +1,8 @@
 import axios from "axios";
+import { clearSession } from "../../features/hooks/useAccount";
 
 const AUTH_TOKEN_KEY = "auth_token";
+const AUTH_TOKEN_EVENT = "auth-token-changed";
 
 export const getAuthToken = (): string | null => {
   if (typeof window === "undefined") return null;
@@ -14,7 +16,11 @@ export const setAuthToken = (token: string | null) => {
   } else {
     localStorage.removeItem(AUTH_TOKEN_KEY);
   }
+  // Dispatch event to notify listeners of token change
+  window.dispatchEvent(new Event(AUTH_TOKEN_EVENT));
 };
+
+export { AUTH_TOKEN_EVENT };
 
 // Configure axios instance
 const apiClient = axios.create({
@@ -73,12 +79,13 @@ apiClient.interceptors.response.use(
       // Handle different HTTP status codes based on backend exception handling
       switch (status) {
         case 401: // Unauthorized - AuthenticationRequiredException
-          // Token expired or invalid, clear it
+          // Token expired or invalid, clear both token and session
           if (import.meta.env.DEV) {
             const token = getAuthToken();
             console.warn("401 Unauthorized - Token may be expired or invalid. Token exists:", !!token);
           }
           setAuthToken(null);
+          clearSession(); // Clear session to ensure complete logout
           // Don't redirect for login/register endpoints (they handle their own errors)
           // Don't redirect for upload requests to allow error handling
           const isAuthEndpoint = error.config?.url?.includes('/account/login') || 
