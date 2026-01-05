@@ -11,6 +11,24 @@ import { RouterProvider } from 'react-router';
 import { router } from './app/router/Routes.tsx';
 import { ThemeProvider } from '@mui/material/styles';
 import { theme } from './app/theme/theme';
+import { getAuthToken } from './lib/api/axios';
+import { loadSession, clearSession } from './features/hooks/useAccount';
+
+// Initialize: Ensure token and session are in sync
+// If token doesn't exist but session does, clear the session
+const initializeAuth = () => {
+  const token = getAuthToken();
+  const session = loadSession();
+  
+  // If token is missing but session exists, clear the session
+  // This handles cases where token expired or was manually removed
+  if (!token && session) {
+    clearSession();
+  }
+};
+
+// Run initialization before rendering
+initializeAuth();
 
 const queryClient = new QueryClient();
 createRoot(document.getElementById('root')!).render(

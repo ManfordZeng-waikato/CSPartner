@@ -8,6 +8,29 @@ const countWords = (value: string) => {
   return trimmed.split(/\s+/).length;
 };
 
+export const MAP_OPTIONS = [
+  "Mirage",
+  "Inferno",
+  "Nuke",
+  "Overpass",
+  "Ancient",
+  "Anubis",
+  "Dust II"
+] as const;
+
+export const WEAPON_OPTIONS = [
+  "Rifles",
+  "Snipers",
+  "Pistols",
+  "Other"
+] as const;
+
+export const HIGHLIGHT_TYPE_OPTIONS = [
+  "Clutch",
+  "SprayTransfer",
+  "OpeningKill"
+] as const;
+
 export const videoUploadSchema = z.object({
   title: z
     .string()
@@ -40,7 +63,19 @@ export const videoUploadSchema = z.object({
     if (file.size > MAX_VIDEO_BYTES) return false;
     return true;
   }, { message: "Please select a video file under 50 MB" }),
-  visibility: z.union([z.literal(1), z.literal(2)])
+  visibility: z.union([z.literal(1), z.literal(2)]),
+  map: z.enum(MAP_OPTIONS, {
+    required_error: "Please select a map",
+    invalid_type_error: "Please select a valid map"
+  }),
+  weapon: z.enum(WEAPON_OPTIONS, {
+    required_error: "Please select a weapon type",
+    invalid_type_error: "Please select a valid weapon type"
+  }),
+  highlightType: z.enum(HIGHLIGHT_TYPE_OPTIONS, {
+    required_error: "Please select a highlight type",
+    invalid_type_error: "Please select a valid highlight type"
+  })
 });
 
 export type VideoUploadFormValues = z.infer<typeof videoUploadSchema>;

@@ -14,6 +14,7 @@ import { useUpdateVideoVisibility, useDeleteVideo } from "../hooks/useVideos"
 import VideoStats from "./details/components/videoStats"
 import { VideoVisibilityLabel, VideoDeleteDialog, VideoActionButtons } from "./details/components/VideoCardActions"
 import { getAvatarUrl } from "../../lib/utils/avatar"
+import { isVideoPublic } from "../../lib/utils/videoVisibility"
 
 interface VideoCardProps {
     video: VideoDto;
@@ -42,12 +43,9 @@ export default function VideoCard({ video, showMenu = false }: VideoCardProps) {
         : "Click to view profile";
 
     const handleToggleVisibility = async () => {
-        const newVisibility = video.visibility === 1 ? 2 : 1;
-        try {
-            await updateVisibility.mutateAsync({ videoId: video.videoId, visibility: newVisibility });
-        } catch (error) {
-            console.error("Failed to update video visibility:", error);
-        }
+        const isPublic = isVideoPublic(video.visibility);
+        const newVisibility = isPublic ? 2 : 1;
+        await updateVisibility.mutateAsync({ videoId: video.videoId, visibility: newVisibility });
     };
 
     const handleDeleteClick = () => {
@@ -55,12 +53,8 @@ export default function VideoCard({ video, showMenu = false }: VideoCardProps) {
     };
 
     const handleDeleteConfirm = async () => {
-        try {
-            await deleteVideo.mutateAsync(video.videoId);
-            setDeleteDialogOpen(false);
-        } catch (error) {
-            console.error("Failed to delete video:", error);
-        }
+        await deleteVideo.mutateAsync(video.videoId);
+        setDeleteDialogOpen(false);
     };
 
     const handleDeleteCancel = () => {

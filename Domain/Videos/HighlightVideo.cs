@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using Domain.Ai;
 using Domain.Comments;
 using Domain.Common;
 using Domain.Users;
@@ -28,6 +29,22 @@ public class HighlightVideo : AuditableEntity
 
     public bool IsDeleted { get; private set; }
 
+    // ===== AI Generated Fields =====
+    public string? AiDescription { get; private set; }
+
+    /// <summary>
+    /// JSON array string, e.g., ["Mirage","Rifles"]
+    /// Tags are user-selected (Map and Weapon), not AI-generated
+    /// </summary>
+    public string? TagsJson { get; private set; }
+
+    public HighlightType AiHighlightType { get; private set; } = HighlightType.Unknown;
+
+    // ===== AI Status Fields =====
+    public AiStatus AiStatus { get; private set; } = AiStatus.Pending;
+    public string? AiLastError { get; private set; }
+    public DateTime? AiUpdatedAtUtc { get; private set; }
+
     public ICollection<Comment> Comments { get; private set; } = [];
     public ICollection<VideoLike> Likes { get; private set; } = [];
 
@@ -40,6 +57,73 @@ public class HighlightVideo : AuditableEntity
         SetVideoUrl(videoUrl);
         SetDescription(description);
         SetThumbnailUrl(thumbnailUrl);
+    }
+
+    /// <summary>
+    /// Domain method: Called by application layer after AI generation succeeds.
+    /// Prevents arbitrary set operations.
+    /// HighlightType is now user-selected, not AI-generated.
+    /// </summary>
+    public void MarkAiCompleted(string description)
+    {
+        if (string.IsNullOrWhiteSpace(description))
+            throw new ArgumentException("Description cannot be empty", nameof(description));
+
+        // Validate and trim description to match database constraint (600 chars)
+        var trimmedDescription = description.Trim();
+        AiDescription = trimmedDescription.Length <= 600 ? trimmedDescription : trimmedDescription[..600];
+
+        AiStatus = AiStatus.Completed;
+        AiLastError = null;
+        AiUpdatedAtUtc = DateTime.UtcNow;
+        Touch();
+    }
+
+    /// <summary>
+    /// Domain method: Sets user-selected tags (Map and Weapon).
+    /// </summary>
+    public void SetTags(string tagsJson)
+    {
+        if (string.IsNullOrWhiteSpace(tagsJson))
+            throw new ArgumentException("TagsJson cannot be empty", nameof(tagsJson));
+
+        TagsJson = tagsJson;
+        Touch();
+    }
+
+    /// <summary>
+    /// Domain method: Sets user-selected highlight type.
+    /// </summary>
+    public void SetHighlightType(HighlightType highlightType)
+    {
+        AiHighlightType = highlightType;
+        Touch();
+    }
+
+    /// <summary>
+    /// Domain method: Called by application layer after AI generation fails.
+    /// </summary>
+    public void MarkAiFailed(string error)
+    {
+        if (string.IsNullOrWhiteSpace(error))
+            throw new ArgumentException("Error message cannot be empty", nameof(error));
+
+        // Validate and trim error message to match database constraint (1000 chars)
+        var trimmedError = error.Trim();
+        AiLastError = trimmedError.Length <= 1000 ? trimmedError : trimmedError[..1000];
+        AiStatus = AiStatus.Failed;
+        AiUpdatedAtUtc = DateTime.UtcNow;
+        Touch();
+    }
+
+    /// <summary>
+    /// Domain method: Marks AI processing as pending (e.g., for retry scenarios).
+    /// </summary>
+    public void MarkAiPending()
+    {
+        AiStatus = AiStatus.Pending;
+        AiLastError = null;
+        Touch();
     }
 
     public void SetTitle(string title)

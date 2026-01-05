@@ -9,5 +9,8 @@ public record CreateVideoCommand(
     string? ThumbnailObjectKey = null,
     string Title = "",
     string? Description = null,
-    VideoVisibility Visibility = VideoVisibility.Public) : ICommand<VideoDto>;
+    VideoVisibility Visibility = VideoVisibility.Public,
+    string Map = "",
+    string Weapon = "",
+    HighlightType HighlightType = HighlightType.Unknown) : ICommand<VideoDto>;
 

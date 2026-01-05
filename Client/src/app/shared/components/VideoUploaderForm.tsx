@@ -23,6 +23,7 @@ import {
   type UseFormRegister
 } from "react-hook-form";
 import type { VideoUploadFormValues } from "../../../lib/schemas/videoUploadSchema";
+import { MAP_OPTIONS, WEAPON_OPTIONS } from "../../../lib/schemas/videoUploadSchema";
 
 interface VideoEditorFormProps {
   title?: string;
@@ -119,7 +120,7 @@ const VideoEditorForm: React.FC<VideoEditorFormProps> = ({
             id="video-description"
             name="description"
             error={!!errors.description}
-            helperText={errors.description?.message || "Up to 20 words"}
+            helperText={errors.description?.message || "Up to 20 words. If left empty, AI will automatically generate a description for you later."}
             disabled={isPending}
           />
 
@@ -180,6 +181,79 @@ const VideoEditorForm: React.FC<VideoEditorFormProps> = ({
               )}
             />
           )}
+
+          <Controller
+            name="map"
+            control={control}
+            render={({ field }) => (
+              <FormControl fullWidth error={!!errors.map} disabled={isPending}>
+                <InputLabel id="video-map-label">Map *</InputLabel>
+                <Select
+                  labelId="video-map-label"
+                  id="video-map"
+                  label="Map *"
+                  value={field.value || ""}
+                  onChange={(e) => field.onChange(e.target.value)}
+                  inputProps={{ id: "video-map-input" }}
+                >
+                  {MAP_OPTIONS.map((map) => (
+                    <MenuItem key={map} value={map}>
+                      {map}
+                    </MenuItem>
+                  ))}
+                </Select>
+                <FormHelperText>{errors.map?.message || "Select the map where this highlight was recorded"}</FormHelperText>
+              </FormControl>
+            )}
+          />
+
+          <Controller
+            name="weapon"
+            control={control}
+            render={({ field }) => (
+              <FormControl fullWidth error={!!errors.weapon} disabled={isPending}>
+                <InputLabel id="video-weapon-label">Weapon Type *</InputLabel>
+                <Select
+                  labelId="video-weapon-label"
+                  id="video-weapon"
+                  label="Weapon Type *"
+                  value={field.value || ""}
+                  onChange={(e) => field.onChange(e.target.value)}
+                  inputProps={{ id: "video-weapon-input" }}
+                >
+                  {WEAPON_OPTIONS.map((weapon) => (
+                    <MenuItem key={weapon} value={weapon}>
+                      {weapon}
+                    </MenuItem>
+                  ))}
+                </Select>
+                <FormHelperText>{errors.weapon?.message || "Select the weapon type used in this highlight"}</FormHelperText>
+              </FormControl>
+            )}
+          />
+
+          <Controller
+            name="highlightType"
+            control={control}
+            render={({ field }) => (
+              <FormControl fullWidth error={!!errors.highlightType} disabled={isPending}>
+                <InputLabel id="video-highlight-type-label">Highlight Type *</InputLabel>
+                <Select
+                  labelId="video-highlight-type-label"
+                  id="video-highlight-type"
+                  label="Highlight Type *"
+                  value={field.value || ""}
+                  onChange={(e) => field.onChange(e.target.value)}
+                  inputProps={{ id: "video-highlight-type-input" }}
+                >
+                  <MenuItem value="Clutch">Clutch</MenuItem>
+                  <MenuItem value="SprayTransfer">Spray Transfer</MenuItem>
+                  <MenuItem value="OpeningKill">Opening Kill</MenuItem>
+                </Select>
+                <FormHelperText>{errors.highlightType?.message || "Select the type of highlight"}</FormHelperText>
+              </FormControl>
+            )}
+          />
 
           <Controller
             name="visibility"

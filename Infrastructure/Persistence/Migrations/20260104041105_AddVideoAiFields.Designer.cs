@@ -4,6 +4,7 @@ using Infrastructure.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260104041105_AddVideoAiFields")]
+    partial class AddVideoAiFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -125,6 +128,9 @@ namespace Infrastructure.Persistence.Migrations
                     b.Property<int>("AiStatus")
                         .HasColumnType("int");
 
+                    b.Property<string>("AiTagsJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime?>("AiUpdatedAtUtc")
                         .HasColumnType("datetime2");
 
@@ -143,9 +149,6 @@ namespace Infrastructure.Persistence.Migrations
 
                     b.Property<int>("LikeCount")
                         .HasColumnType("int");
-
-                    b.Property<string>("TagsJson")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ThumbnailUrl")
                         .HasMaxLength(2048)

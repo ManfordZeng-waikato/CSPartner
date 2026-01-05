@@ -13,7 +13,7 @@ builder.Services
     .AddIdentityConfiguration()
     .AddAuthenticationConfiguration(builder.Configuration, builder.Environment)
     .AddRateLimiting()
-    .AddApiServices();
+    .AddApiServices(builder.Configuration);
 
 var app = builder.Build();
 
