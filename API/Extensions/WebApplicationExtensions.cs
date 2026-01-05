@@ -84,8 +84,12 @@ public static class WebApplicationExtensions
             var logger = services.GetRequiredService<ILogger<Program>>();
             var db = services.GetRequiredService<AppDbContext>();
 
-            // Auto migration
-            await db.Database.MigrateAsync();
+            // Auto migration - only for relational databases
+            if (db.Database.IsRelational())
+            {
+                await db.Database.MigrateAsync();
+                logger.LogInformation("Database migration completed.");
+            }
 
             // Seed (with switch)
             await API.Seed.DemoSeeder.SeedAsync(app.Services, app.Configuration);
