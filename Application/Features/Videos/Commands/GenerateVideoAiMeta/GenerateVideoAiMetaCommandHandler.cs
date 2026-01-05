@@ -13,25 +13,34 @@ public class GenerateVideoAiMetaCommandHandler
 {
     private readonly IApplicationDbContext _context;
     private readonly IAiVideoService _ai;
+    private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<GenerateVideoAiMetaCommandHandler> _logger;
 
     public GenerateVideoAiMetaCommandHandler(
         IApplicationDbContext context,
         IAiVideoService ai,
+        ICurrentUserService currentUserService,
         ILogger<GenerateVideoAiMetaCommandHandler> logger)
     {
         _context = context;
         _ai = ai;
+        _currentUserService = currentUserService;
         _logger = logger;
     }
 
     public async Task<VideoAiResultDto> Handle(GenerateVideoAiMetaCommand request, CancellationToken cancellationToken)
     {
+        if (!_currentUserService.UserId.HasValue)
+            throw AuthenticationRequiredException.ForOperation("generate AI metadata for a video");
+
         var video = await _context.Videos
             .FirstOrDefaultAsync(v => v.Id == request.VideoId && !v.IsDeleted, cancellationToken);
 
         if (video == null)
             throw new VideoNotFoundException(request.VideoId);
+
+        if (video.UploaderUserId != _currentUserService.UserId.Value)
+            throw new UnauthorizedOperationException("video", request.VideoId);
 
         // Mark as pending before calling AI (for observability)
         video.MarkAiPending();
@@ -51,9 +60,8 @@ public class GenerateVideoAiMetaCommandHandler
             _logger.LogInformation("Starting AI metadata generation for video {VideoId}", request.VideoId);
             var result = await _ai.GenerateVideoMetaAsync(input, cancellationToken);
 
-            // Store tags as JSON array string in DB
-            var normalizedTags = NormalizeTags(result.Tags);
-            var tagsJson = JsonSerializer.Serialize(normalizedTags);
+            // Service already normalizes tags, so we can serialize directly
+            var tagsJson = JsonSerializer.Serialize(result.Tags);
 
             video.MarkAiCompleted(result.Description, tagsJson, result.HighlightType);
 
@@ -108,16 +116,5 @@ public class GenerateVideoAiMetaCommandHandler
 
         // Hard cap to prevent DB update failures.
         return msg.Length <= maxLen ? msg : msg[..maxLen];
-    }
-
-    // Normalizes AI tags for stable storage and better search/recommendation later.
-    private static IReadOnlyList<string> NormalizeTags(IEnumerable<string> tags)
-    {
-        return tags
-            .Select(t => (t ?? string.Empty).Trim().ToLowerInvariant())
-            .Where(t => t.Length >= 2 && t.Length <= 24)
-            .Distinct()
-            .Take(8)
-            .ToList();
     }
 }

@@ -15,6 +15,7 @@ using Application.Features.Videos.Queries.GetVideoUploadUrl;
 using Application.Features.Comments.Commands.CreateComment;
 using Application.Features.Comments.Queries.GetVideoComments;
 using Domain.Videos;
+using Domain.Exceptions;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
@@ -243,12 +244,43 @@ public class VideosController : BaseApiController
 
     /// <summary>
     /// Generate AI metadata for a video (description, tags, highlight type)
+    /// Only the video uploader can generate AI metadata for their own videos.
     /// </summary>
     [HttpPost("{id}/ai-meta")]
+    [Authorize]
     public async Task<ActionResult<VideoAiResultDto>> GenerateAiMeta(Guid id, CancellationToken cancellationToken)
     {
-        var result = await _mediator.Send(new GenerateVideoAiMetaCommand(id), cancellationToken);
-        return Ok(result);
+        try
+        {
+            var result = await _mediator.Send(new GenerateVideoAiMetaCommand(id), cancellationToken);
+            _logger.LogInformation("Successfully generated AI metadata for video {VideoId} by user {UserId}", id, _currentUserService.UserId);
+            return Ok(result);
+        }
+        catch (VideoNotFoundException)
+        {
+            _logger.LogWarning("Video not found: {VideoId}", id);
+            return NotFound();
+        }
+        catch (UnauthorizedOperationException ex)
+        {
+            _logger.LogWarning("Unauthorized AI meta generation attempt for video {VideoId} by user {UserId}", id, _currentUserService.UserId);
+            return StatusCode(403, new { error = ex.Message });
+        }
+        catch (AiServiceQuotaExceededException ex)
+        {
+            _logger.LogError(ex, "AI service quota exceeded for video {VideoId}", id);
+            return StatusCode(503, new { error = "AI service quota exceeded. Please try again later." });
+        }
+        catch (AiServiceException ex)
+        {
+            _logger.LogError(ex, "AI service error for video {VideoId}. StatusCode={StatusCode}", id, ex.StatusCode);
+            return StatusCode(502, new { error = "AI service error. Please try again later." });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error generating AI metadata for video {VideoId}", id);
+            return StatusCode(500, new { error = "An error occurred while generating AI metadata." });
+        }
     }
 }
 
