@@ -1,10 +1,11 @@
 import { Box } from "@mui/material"
 import VideoCard from "../VideoCard";
+import VideoCardSkeleton from "../VideoCardSkeleton";
 import { useVideos } from "../../hooks/useVideos";
 import { useInfiniteScroll } from "../../hooks/useInfiniteScroll";
 
 export default function VideoDashboard() {
-  const { videos, fetchNextPage, hasNextPage, isFetchingNextPage } = useVideos();
+  const { videos, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useVideos();
   const observerTarget = useInfiniteScroll({
     hasNextPage: hasNextPage ?? false,
     fetchNextPage,
@@ -24,13 +25,31 @@ export default function VideoDashboard() {
           gap: 3
         }}
       >
-        {videos.map(video => (
-          <VideoCard key={video.videoId} video={video} />
-        ))}
+        {/* Show skeleton screens during initial load */}
+        {isLoading ? (
+          <>
+            <VideoCardSkeleton />
+            <VideoCardSkeleton />
+            <VideoCardSkeleton />
+            <VideoCardSkeleton />
+          </>
+        ) : (
+          videos.map(video => (
+            <VideoCard key={video.videoId} video={video} />
+          ))
+        )}
+        
+        {/* Show skeleton screens while fetching next page */}
+        {isFetchingNextPage && (
+          <>
+            <VideoCardSkeleton />
+            <VideoCardSkeleton />
+          </>
+        )}
       </Box>
       
       {/* Infinite scroll trigger element */}
-      {hasNextPage && (
+      {hasNextPage && !isFetchingNextPage && (
         <Box
           ref={observerTarget}
           sx={{

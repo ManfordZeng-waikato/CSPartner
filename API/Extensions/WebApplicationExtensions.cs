@@ -1,4 +1,5 @@
 using Infrastructure.Persistence.Context;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
 
 namespace API.Extensions;
@@ -41,12 +42,25 @@ public static class WebApplicationExtensions
         // HTTPS redirection
         app.UseHttpsRedirection();
 
-        // Static files (frontend build output)
+        // Static files (frontend build output) with caching
         app.UseDefaultFiles();
-        app.UseStaticFiles();
+        app.UseStaticFiles(new StaticFileOptions
+        {
+            OnPrepareResponse = ctx =>
+            {
+                // Cache static files for 1 year (images, fonts, JS, CSS)
+                const int durationInSeconds = 60 * 60 * 24 * 365; // 1 year
+                ctx.Context.Response.Headers.Append(
+                    "Cache-Control",
+                    $"public,max-age={durationInSeconds}");
+            }
+        });
 
         // Routing
         app.UseRouting();
+        
+        // Response caching (must be after UseRouting, before UseAuthentication)
+        app.UseResponseCaching();
 
         // Rate limiting (must be after UseRouting)
         app.UseRateLimiter();

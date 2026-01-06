@@ -11,6 +11,7 @@ import VideoInfo from "./details/components/videoInfo"
 import { useUserProfile } from "../hooks/useUserProfile"
 import { useAuthSession } from "../hooks/useAuthSession"
 import { useUpdateVideoVisibility, useDeleteVideo } from "../hooks/useVideos"
+import { useVideoLazyLoad } from "../hooks/useVideoLazyLoad"
 import VideoStats from "./details/components/videoStats"
 import { VideoVisibilityLabel, VideoDeleteDialog, VideoActionButtons } from "./details/components/VideoCardActions"
 import { getAvatarUrl } from "../../lib/utils/avatar"
@@ -28,6 +29,9 @@ export default function VideoCard({ video, showMenu = false }: VideoCardProps) {
     const updateVisibility = useUpdateVideoVisibility();
     const deleteVideo = useDeleteVideo();
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    
+    // Lazy load video when it enters viewport
+    const { videoRef, shouldLoad } = useVideoLazyLoad({ rootMargin: '100px' });
 
     // Check if current user is the video owner
     const isOwner = session?.userId === video.uploaderUserId;
@@ -121,11 +125,17 @@ export default function VideoCard({ video, showMenu = false }: VideoCardProps) {
                 />
                 <Box sx={{ mt: 2 }}>
                     <video
+                        ref={videoRef}
                         controls
                         width="100%"
-                        style={{ maxHeight: '500px', minHeight: '400px', borderRadius: '8px' }}
+                        style={{ 
+                            maxHeight: '500px', 
+                            minHeight: '400px', 
+                            borderRadius: '8px',
+                            backgroundColor: '#000' 
+                        }}
                         src={video.videoUrl}
-                        preload="metadata"
+                        preload={shouldLoad ? "metadata" : "none"}
                     >
                         Your browser does not support video playback.
                     </video>

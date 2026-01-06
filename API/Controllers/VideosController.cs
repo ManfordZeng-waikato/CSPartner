@@ -58,6 +58,7 @@ public class VideosController : BaseApiController
     /// </summary>
     [HttpGet]
     [AllowAnonymous]
+    [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, VaryByQueryKeys = new[] { "cursor", "pageSize" })]
     public async Task<ActionResult<CursorPagedResult<VideoDto>>> GetVideos([FromQuery] string? cursor = null, [FromQuery] int pageSize = 20)
     {
         if (pageSize < 1 || pageSize > 100) pageSize = 20;

@@ -467,6 +467,9 @@ public static class ServiceCollectionExtensions
         services.AddSignalR();
         services.AddSwaggerConfiguration();
         services.AddAuthorization();
+        
+        // Add response caching for better performance
+        services.AddResponseCaching();
 
         return services;
     }

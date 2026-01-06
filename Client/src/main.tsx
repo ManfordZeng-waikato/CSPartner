@@ -30,7 +30,17 @@ const initializeAuth = () => {
 // Run initialization before rendering
 initializeAuth();
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes - data is considered fresh
+      gcTime: 10 * 60 * 1000, // 10 minutes - cache time (formerly cacheTime)
+      retry: 1, // Only retry failed requests once
+      refetchOnWindowFocus: false, // Don't refetch on window focus to reduce unnecessary requests
+    },
+  },
+});
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProvider theme={theme}>
