@@ -1,10 +1,10 @@
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 import { Box, TextField, Typography, LinearProgress } from "@mui/material";
-import { type UseFormRegisterReturn, type FieldError, type Control, useWatch } from "react-hook-form";
+import { type UseFormRegisterReturn, type FieldError, type Control, useWatch, type FieldValues } from "react-hook-form";
 
 export interface PasswordFieldWithStrengthProps {
   register: UseFormRegisterReturn;
-  control: Control<any>;
+  control: Control<FieldValues>;
   passwordFieldName: string;
   error?: FieldError;
   helperText?: string;
@@ -18,7 +18,7 @@ export interface PasswordFieldWithStrengthProps {
 /**
  * 带密码强度验证的密码输入字段组件
  */
-const PasswordFieldWithStrength: React.FC<PasswordFieldWithStrengthProps> = ({
+const PasswordFieldWithStrength = ({
   register,
   control,
   passwordFieldName,
@@ -29,7 +29,7 @@ const PasswordFieldWithStrength: React.FC<PasswordFieldWithStrengthProps> = ({
   fullWidth = true,
   showStrengthIndicator = true,
   showRequirements = true
-}) => {
+}: PasswordFieldWithStrengthProps) => {
   const password = useWatch({ control, name: passwordFieldName });
 
   // Password strength requirements
