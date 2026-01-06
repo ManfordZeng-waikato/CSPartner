@@ -1,11 +1,11 @@
 import { useMemo } from "react";
 import { Box, TextField, Typography, LinearProgress } from "@mui/material";
-import { type UseFormRegisterReturn, type FieldError, type Control, useWatch, type FieldValues } from "react-hook-form";
+import { type UseFormRegisterReturn, type FieldError, type Control, useWatch, type FieldValues, type FieldPath } from "react-hook-form";
 
-export interface PasswordFieldWithStrengthProps {
+export interface PasswordFieldWithStrengthProps<TFieldValues extends FieldValues = FieldValues> {
   register: UseFormRegisterReturn;
-  control: Control<FieldValues>;
-  passwordFieldName: string;
+  control: Control<TFieldValues>;
+  passwordFieldName: FieldPath<TFieldValues>;
   error?: FieldError;
   helperText?: string;
   label?: string;
@@ -18,7 +18,7 @@ export interface PasswordFieldWithStrengthProps {
 /**
  * 带密码强度验证的密码输入字段组件
  */
-const PasswordFieldWithStrength = ({
+const PasswordFieldWithStrength = <TFieldValues extends FieldValues = FieldValues>({
   register,
   control,
   passwordFieldName,
@@ -29,26 +29,28 @@ const PasswordFieldWithStrength = ({
   fullWidth = true,
   showStrengthIndicator = true,
   showRequirements = true
-}: PasswordFieldWithStrengthProps) => {
-  const password = useWatch({ control, name: passwordFieldName });
+}: PasswordFieldWithStrengthProps<TFieldValues>) => {
+  const password = useWatch({ control, name: passwordFieldName }) as string | undefined;
 
   // Password strength requirements
   const passwordRequirements = useMemo(() => {
+    const pwd = password as string | undefined;
     return {
-      minLength: password ? password.length >= 8 : false,
-      hasNumber: password ? /[0-9]/.test(password) : false,
-      hasUppercase: password ? /[A-Z]/.test(password) : false,
-      hasSpecialChar: password ? /[^a-zA-Z0-9]/.test(password) : false
+      minLength: pwd ? pwd.length >= 8 : false,
+      hasNumber: pwd ? /[0-9]/.test(pwd) : false,
+      hasUppercase: pwd ? /[A-Z]/.test(pwd) : false,
+      hasSpecialChar: pwd ? /[^a-zA-Z0-9]/.test(pwd) : false
     };
   }, [password]);
 
   const passwordStrength = useMemo(() => {
-    if (!password) return 0;
+    const pwd = password as string | undefined;
+    if (!pwd) return 0;
     let strength = 0;
-    if (password.length >= 8) strength += 25;
-    if (/[0-9]/.test(password)) strength += 25;
-    if (/[A-Z]/.test(password)) strength += 25;
-    if (/[^a-zA-Z0-9]/.test(password)) strength += 25;
+    if (pwd.length >= 8) strength += 25;
+    if (/[0-9]/.test(pwd)) strength += 25;
+    if (/[A-Z]/.test(pwd)) strength += 25;
+    if (/[^a-zA-Z0-9]/.test(pwd)) strength += 25;
     return strength;
   }, [password]);
 
@@ -59,7 +61,7 @@ const PasswordFieldWithStrength = ({
     return "success";
   };
 
-  const hasRequirementsError = password && !Object.values(passwordRequirements).every(v => v);
+  const hasRequirementsError = Boolean(password && !Object.values(passwordRequirements).every(v => v));
 
   return (
     <Box>
