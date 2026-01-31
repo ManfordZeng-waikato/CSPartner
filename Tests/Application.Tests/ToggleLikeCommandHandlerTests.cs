@@ -1,6 +1,7 @@
 using Application.Common.Interfaces;
 using Application.Features.Videos.Commands.ToggleLike;
 using Application.Tests.Helpers;
+using Domain.Exceptions;
 using Domain.Videos;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
@@ -10,6 +11,23 @@ namespace Application.Tests;
 
 public class ToggleLikeCommandHandlerTests
 {
+    [Fact]
+    public async Task Handle_throws_when_video_not_found()
+    {
+        using var scope = TestDbContextScope.Create();
+        var context = scope.Context;
+
+        var userId = Guid.NewGuid();
+        var currentUser = new Mock<ICurrentUserService>();
+        currentUser.SetupGet(c => c.UserId).Returns(userId);
+
+        var handler = new ToggleLikeCommandHandler(context, currentUser.Object);
+
+        var act = async () => await handler.Handle(new ToggleLikeCommand(Guid.NewGuid()), CancellationToken.None);
+
+        await act.Should().ThrowAsync<VideoNotFoundException>();
+    }
+
     [Fact]
     public async Task Handle_adds_like_when_none_exists()
     {

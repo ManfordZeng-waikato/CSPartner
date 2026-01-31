@@ -13,6 +13,24 @@ namespace Application.Tests;
 public class CreateCommentCommandHandlerTests
 {
     [Fact]
+    public async Task Handle_throws_when_user_not_authenticated()
+    {
+        using var scope = TestDbContextScope.Create();
+        var context = scope.Context;
+
+        var currentUser = new Mock<ICurrentUserService>();
+        currentUser.SetupGet(c => c.UserId).Returns((Guid?)null);
+
+        var handler = new CreateCommentCommandHandler(context, currentUser.Object);
+
+        var act = async () => await handler.Handle(
+            new CreateCommentCommand(Guid.NewGuid(), "hi"),
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<AuthenticationRequiredException>();
+    }
+
+    [Fact]
     public async Task Handle_throws_when_video_not_found()
     {
         using var scope = TestDbContextScope.Create();
