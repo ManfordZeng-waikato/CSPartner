@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using API.Tests.Helpers;
 using Application.Common.Interfaces;
 using Infrastructure.Persistence.Context;
+using Application.Features.Videos.Commands.IncreaseViewCount;
 using MediatR;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
@@ -63,6 +64,9 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
             services.RemoveAll(typeof(IPipelineBehavior<,>));
             services.AddScoped(typeof(IPipelineBehavior<,>), typeof(TestCommandSaveChangesBehavior<,>));
+
+            services.RemoveAll(typeof(IRequestHandler<IncreaseViewCountCommand, Unit>));
+            services.AddScoped<IRequestHandler<IncreaseViewCountCommand, Unit>, TestIncreaseViewCountHandler>();
 
             services.AddAuthentication(options =>
                 {

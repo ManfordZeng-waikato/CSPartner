@@ -50,6 +50,23 @@ public class UserProfilesControllerTests : IClassFixture<CustomWebApplicationFac
     }
 
     [Fact]
+    public async Task GetUserProfile_returns_not_found_when_missing()
+    {
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await db.Database.EnsureDeletedAsync();
+            await db.Database.EnsureCreatedAsync();
+        }
+
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync($"/api/userprofiles/{Guid.NewGuid()}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
     public async Task UpdateUserProfile_returns_forbidden_when_user_mismatch()
     {
         var client = _factory.CreateClient();

@@ -73,6 +73,48 @@ public class AccountControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task ConfirmEmail_returns_bad_request_when_code_missing()
+    {
+        var client = _factory.CreateClient();
+        var response = await client.PostAsync($"/api/account/confirmEmail?userId={Guid.NewGuid()}&code=", content: null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task RequestPasswordReset_returns_bad_request_when_failed()
+    {
+        var auth = GetAuthService();
+        auth.RequestPasswordResetResult = (false, "nope");
+
+        var client = _factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/account/requestPasswordReset", new RequestPasswordResetDto
+        {
+            Email = "user@test.local"
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task ResetPassword_returns_bad_request_when_failed()
+    {
+        var auth = GetAuthService();
+        auth.ResetPasswordResult = (false, "nope");
+
+        var client = _factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/account/resetPassword", new ResetPasswordDto
+        {
+            Email = "user@test.local",
+            NewPassword = "Test1234!",
+            ConfirmPassword = "Test1234!",
+            Code = "code"
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
     public async Task Logout_returns_ok_even_on_exception()
     {
         var auth = GetAuthService();
