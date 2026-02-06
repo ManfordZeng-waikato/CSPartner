@@ -13,7 +13,10 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
         IOptionsMonitor<AuthenticationSchemeOptions> options,
         ILoggerFactory logger,
         UrlEncoder encoder,
-        ISystemClock clock) : base(options, logger, encoder, clock)
+        ISystemClock clock)
+#pragma warning disable CS0618
+        : base(options, logger, encoder, clock)
+#pragma warning restore CS0618
     {
     }
 
