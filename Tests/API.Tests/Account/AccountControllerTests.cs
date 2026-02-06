@@ -117,6 +117,34 @@ public class AccountControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task GitHubLogin_returns_redirect()
+    {
+        var client = _factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+
+        var response = await client.GetAsync("/api/account/github-login");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Redirect);
+        response.Headers.Location.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task GitHubCallback_redirects_when_external_auth_missing()
+    {
+        var client = _factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+
+        var response = await client.GetAsync("/api/account/github-callback");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Redirect);
+        response.Headers.Location!.ToString().Should().Contain("/login?error=github_auth_failed");
+    }
+
+    [Fact]
     public async Task RequestPasswordReset_returns_bad_request_when_failed()
     {
         var auth = GetAuthService();

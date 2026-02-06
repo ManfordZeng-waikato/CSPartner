@@ -56,11 +56,15 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             services.RemoveAll(typeof(AppDbContext));
             services.RemoveAll(typeof(IApplicationDbContext));
             services.RemoveAll(typeof(IAuthService));
+            services.RemoveAll(typeof(IAiVideoService));
+            services.RemoveAll(typeof(IStorageService));
 
             services.AddDbContext<AppDbContext>(options =>
                 options.UseInMemoryDatabase("ApiTestsDb"));
             services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<AppDbContext>());
             services.AddSingleton<IAuthService, FakeAuthService>();
+            services.AddSingleton<IAiVideoService, FakeAiVideoService>();
+            services.AddSingleton<IStorageService, FakeStorageService>();
 
             services.RemoveAll(typeof(IPipelineBehavior<,>));
             services.AddScoped(typeof(IPipelineBehavior<,>), typeof(TestCommandSaveChangesBehavior<,>));
