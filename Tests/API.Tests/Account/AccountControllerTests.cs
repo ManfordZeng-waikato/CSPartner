@@ -61,6 +61,29 @@ public class AccountControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task Login_returns_original_result_when_email_not_confirmed()
+    {
+        var auth = GetAuthService();
+        auth.LoginResult = new AuthResultDto
+        {
+            Succeeded = false,
+            Errors = new[] { "EMAIL_NOT_CONFIRMED" }
+        };
+
+        var client = _factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/account/login", new LoginDto
+        {
+            Email = "user@test.local",
+            Password = "badpass"
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var result = await response.Content.ReadFromJsonAsync<AuthResultDto>();
+        result.Should().NotBeNull();
+        result!.Errors.Should().Contain("EMAIL_NOT_CONFIRMED");
+    }
+
+    [Fact]
     public async Task ResendConfirmationEmail_returns_bad_request_when_failed()
     {
         var auth = GetAuthService();
@@ -77,6 +100,18 @@ public class AccountControllerTests : IClassFixture<CustomWebApplicationFactory>
     {
         var client = _factory.CreateClient();
         var response = await client.PostAsync($"/api/account/confirmEmail?userId={Guid.NewGuid()}&code=", content: null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task ConfirmEmail_returns_bad_request_when_failed()
+    {
+        var auth = GetAuthService();
+        auth.ConfirmEmailResult = new AuthResultDto { Succeeded = false, Errors = new[] { "bad" } };
+
+        var client = _factory.CreateClient();
+        var response = await client.PostAsync($"/api/account/confirmEmail?userId={Guid.NewGuid()}&code=code", content: null);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }

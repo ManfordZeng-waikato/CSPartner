@@ -200,6 +200,27 @@ public class VideosControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task UpdateVideo_returns_not_found_when_missing()
+    {
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await db.Database.EnsureDeletedAsync();
+            await db.Database.EnsureCreatedAsync();
+        }
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Test-Auth", "true");
+
+        var response = await client.PutAsJsonAsync($"/api/videos/{Guid.NewGuid()}", new
+        {
+            visibility = VideoVisibility.Private
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
     public async Task DeleteVideo_soft_deletes_when_owner()
     {
         Guid videoId;
@@ -231,6 +252,49 @@ public class VideosControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task DeleteVideo_returns_forbidden_when_non_owner()
+    {
+        Guid videoId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await db.Database.EnsureDeletedAsync();
+            await db.Database.EnsureCreatedAsync();
+
+            var otherUserId = Guid.NewGuid();
+            var video = new HighlightVideo(otherUserId, "t", "url");
+            db.Videos.Add(video);
+            await db.SaveChangesAsync();
+            videoId = video.VideoId;
+        }
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Test-Auth", "true");
+
+        var response = await client.DeleteAsync($"/api/videos/{videoId}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task DeleteVideo_returns_not_found_when_missing()
+    {
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await db.Database.EnsureDeletedAsync();
+            await db.Database.EnsureCreatedAsync();
+        }
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Test-Auth", "true");
+
+        var response = await client.DeleteAsync($"/api/videos/{Guid.NewGuid()}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
     public async Task ToggleLike_increments_like_count()
     {
         Guid videoId;
@@ -259,6 +323,41 @@ public class VideosControllerTests : IClassFixture<CustomWebApplicationFactory>
             var updated = await db.Videos.FindAsync(videoId);
             updated!.LikeCount.Should().Be(1);
         }
+    }
+
+    [Fact]
+    public async Task ToggleLike_returns_not_found_when_video_missing()
+    {
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await db.Database.EnsureDeletedAsync();
+            await db.Database.EnsureCreatedAsync();
+        }
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Test-Auth", "true");
+
+        var response = await client.PostAsync($"/api/videos/{Guid.NewGuid()}/like", content: null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task ToggleLike_returns_unauthorized_when_not_authenticated()
+    {
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await db.Database.EnsureDeletedAsync();
+            await db.Database.EnsureCreatedAsync();
+        }
+
+        var client = _factory.CreateClient();
+
+        var response = await client.PostAsync($"/api/videos/{Guid.NewGuid()}/like", content: null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     [Fact]
