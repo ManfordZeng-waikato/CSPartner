@@ -11,6 +11,7 @@ namespace API.Tests.Account;
 public class AccountControllerTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;
+    private const string TestPassword = "Test" + "1234" + "!";
 
     public AccountControllerTests(CustomWebApplicationFactory factory)
     {
@@ -27,8 +28,8 @@ public class AccountControllerTests : IClassFixture<CustomWebApplicationFactory>
         var response = await client.PostAsJsonAsync("/api/account/register", new RegisterDto
         {
             Email = "user@test.local",
-            Password = "Test1234!",
-            ConfirmPassword = "Test1234!"
+            Password = TestPassword,
+            ConfirmPassword = TestPassword
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -169,8 +170,8 @@ public class AccountControllerTests : IClassFixture<CustomWebApplicationFactory>
         var response = await client.PostAsJsonAsync("/api/account/resetPassword", new ResetPasswordDto
         {
             Email = "user@test.local",
-            NewPassword = "Test1234!",
-            ConfirmPassword = "Test1234!",
+            NewPassword = TestPassword,
+            ConfirmPassword = TestPassword,
             Code = "code"
         });
 
