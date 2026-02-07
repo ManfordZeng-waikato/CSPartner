@@ -51,6 +51,23 @@ jobs:
 
       - name: Build with dotnet
         run: dotnet build --configuration Release
+      
+      - name: Run tests
+        run: dotnet test CSPartner.sln --configuration Release --no-build --logger "trx;LogFileName=test-results.trx" --results-directory ./TestResults
+
+      - name: Report test results
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: tests
+          path: TestResults/**/*.trx
+          reporter: dotnet-trx
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults
 
       - name: dotnet publish
         working-directory: API
