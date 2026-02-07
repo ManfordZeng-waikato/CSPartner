@@ -23,10 +23,11 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
         builder.ConfigureAppConfiguration((_, config) =>
         {
+            var jwtSecret = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
             var settings = new Dictionary<string, string?>
             {
                 ["ConnectionStrings:Default"] = "Server=(localdb)\\mssqllocaldb;Database=CSPartner_Test;Trusted_Connection=True;",
-                ["Jwt:SecretKey"] = "TestSecretKey-For-Integration-Only-1234567890",
+                ["Jwt:SecretKey"] = jwtSecret,
                 ["Jwt:Issuer"] = "TestIssuer",
                 ["Jwt:Audience"] = "TestAudience",
                 ["Authentication:Github:ClientId"] = "test-client-id",
