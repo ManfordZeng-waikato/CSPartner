@@ -38,8 +38,9 @@ public sealed class AuthServiceTestScope : IDisposable
         services.AddHttpContextAccessor();
         services.AddAuthentication();
 
+        var dbName = $"AuthServiceTests-{Guid.NewGuid()}";
         services.AddDbContext<AppDbContext>(options =>
-            options.UseInMemoryDatabase("AuthServiceTests"));
+            options.UseInMemoryDatabase(dbName));
 
         services.AddIdentity<ApplicationUser, ApplicationRole>()
             .AddEntityFrameworkStores<AppDbContext>()
@@ -54,7 +55,6 @@ public sealed class AuthServiceTestScope : IDisposable
 
         var provider = services.BuildServiceProvider();
 
-        var db = provider.GetRequiredService<AppDbContext>();
         return new AuthServiceTestScope(provider);
     }
 
