@@ -90,6 +90,9 @@ public static class WebApplicationExtensions
     /// </summary>
     public static async Task InitializeDatabaseAsync(this WebApplication app)
     {
+        if (app.Environment.IsEnvironment("Test"))
+            return;
+
         using var scope = app.Services.CreateScope();
         var services = scope.ServiceProvider;
 

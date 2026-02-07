@@ -24,3 +24,5 @@ app.ConfigureMiddlewarePipeline();
 await app.InitializeDatabaseAsync();
 
 app.Run();
+
+public partial class Program { }
