@@ -14,10 +14,9 @@ namespace Infrastructure.Tests.Helpers;
 public sealed class AuthServiceTestScope : IDisposable
 {
     public ServiceProvider Provider { get; }
-    private const string TestJwtSecret = "Test" + "Secret" + "Key" + "-For-Integration-Only-" + "1234567890";
-    private const string TestJwtIssuer = "Test" + "Issuer";
-    private const string TestJwtAudience = "Test" + "Audience";
-    private const string TestClientUrl = "https://client." + "test";
+    private const string TestJwtIssuer = "TestIssuer";
+    private const string TestJwtAudience = "TestAudience";
+    private const string TestClientUrl = "https://client.test";
 
     private AuthServiceTestScope(ServiceProvider provider)
     {
@@ -26,10 +25,11 @@ public sealed class AuthServiceTestScope : IDisposable
 
     public static AuthServiceTestScope Create()
     {
+        var jwtSecret = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Jwt:SecretKey"] = TestJwtSecret,
+                ["Jwt:SecretKey"] = jwtSecret,
                 ["Jwt:Issuer"] = TestJwtIssuer,
                 ["Jwt:Audience"] = TestJwtAudience,
                 ["ClientApp:ClientUrl"] = TestClientUrl

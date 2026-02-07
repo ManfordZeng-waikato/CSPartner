@@ -194,13 +194,6 @@ public static class ServiceCollectionExtensions
         var jwtIssuer = configuration["Jwt:Issuer"];
         var jwtAudience = configuration["Jwt:Audience"];
 
-        if (environment.IsEnvironment("Test"))
-        {
-            jwtSecretKey ??= "Test" + "Secret" + "Key" + "-For-Integration-Only-" + "1234567890";
-            jwtIssuer ??= "Test" + "Issuer";
-            jwtAudience ??= "Test" + "Audience";
-        }
-
         if (string.IsNullOrEmpty(jwtSecretKey) ||
             string.IsNullOrEmpty(jwtIssuer) ||
             string.IsNullOrEmpty(jwtAudience))
