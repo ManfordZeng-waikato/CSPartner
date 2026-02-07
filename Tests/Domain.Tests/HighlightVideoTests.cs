@@ -78,6 +78,28 @@ public class HighlightVideoTests
     }
 
     [Fact]
+    public void MarkAiFailed_throws_when_empty()
+    {
+        var video = new HighlightVideo(Guid.NewGuid(), "t", "url");
+
+        var act = () => video.MarkAiFailed(" ");
+
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void MarkAiPending_clears_error()
+    {
+        var video = new HighlightVideo(Guid.NewGuid(), "t", "url");
+        video.MarkAiFailed("err");
+
+        video.MarkAiPending();
+
+        video.AiStatus.Should().Be(AiStatus.Pending);
+        video.AiLastError.Should().BeNull();
+    }
+
+    [Fact]
     public void ApplyLikeRemoved_does_not_go_below_zero()
     {
         var video = new HighlightVideo(Guid.NewGuid(), "t", "url");
@@ -85,6 +107,27 @@ public class HighlightVideoTests
         video.ApplyLikeRemoved();
 
         video.LikeCount.Should().Be(0);
+    }
+
+    [Fact]
+    public void ApplyLikeAdded_increments_count()
+    {
+        var video = new HighlightVideo(Guid.NewGuid(), "t", "url");
+
+        video.ApplyLikeAdded();
+
+        video.LikeCount.Should().Be(1);
+    }
+
+    [Fact]
+    public void ApplyCommentAdded_and_removed_update_count()
+    {
+        var video = new HighlightVideo(Guid.NewGuid(), "t", "url");
+
+        video.ApplyCommentAdded();
+        video.ApplyCommentRemoved();
+
+        video.CommentCount.Should().Be(0);
     }
 
     [Fact]
@@ -98,6 +141,16 @@ public class HighlightVideoTests
     }
 
     [Fact]
+    public void SetTags_sets_value()
+    {
+        var video = new HighlightVideo(Guid.NewGuid(), "t", "url");
+
+        video.SetTags("[\"Mirage\",\"AK47\"]");
+
+        video.TagsJson.Should().Be("[\"Mirage\",\"AK47\"]");
+    }
+
+    [Fact]
     public void SetDescription_null_clears_description()
     {
         var video = new HighlightVideo(Guid.NewGuid(), "t", "url", "desc");
@@ -105,5 +158,55 @@ public class HighlightVideoTests
         video.SetDescription(null);
 
         video.Description.Should().BeNull();
+    }
+
+    [Fact]
+    public void SetVideoUrl_throws_when_empty()
+    {
+        var video = new HighlightVideo(Guid.NewGuid(), "t", "url");
+
+        var act = () => video.SetVideoUrl(" ");
+
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void SetThumbnailUrl_normalizes_empty_to_null()
+    {
+        var video = new HighlightVideo(Guid.NewGuid(), "t", "url", thumbnailUrl: "x");
+
+        video.SetThumbnailUrl(" ");
+
+        video.ThumbnailUrl.Should().BeNull();
+    }
+
+    [Fact]
+    public void IncreaseView_increments_count()
+    {
+        var video = new HighlightVideo(Guid.NewGuid(), "t", "url");
+
+        video.IncreaseView();
+
+        video.ViewCount.Should().Be(1);
+    }
+
+    [Fact]
+    public void SetVisibility_updates_value()
+    {
+        var video = new HighlightVideo(Guid.NewGuid(), "t", "url");
+
+        video.SetVisibility(VideoVisibility.Private);
+
+        video.Visibility.Should().Be(VideoVisibility.Private);
+    }
+
+    [Fact]
+    public void SoftDelete_sets_flag()
+    {
+        var video = new HighlightVideo(Guid.NewGuid(), "t", "url");
+
+        video.SoftDelete();
+
+        video.IsDeleted.Should().BeTrue();
     }
 }

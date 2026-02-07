@@ -25,4 +25,18 @@ public class UserProfileTests
         profile.SteamProfileUrl.Should().Be("https://steam");
         profile.FaceitProfileUrl.Should().Be("https://faceit");
     }
+
+    [Fact]
+    public void Update_allows_nulls()
+    {
+        var profile = new UserProfile(Guid.NewGuid());
+
+        profile.Update(null, null, null, null, null);
+
+        profile.DisplayName.Should().BeNull();
+        profile.Bio.Should().BeNull();
+        profile.AvatarUrl.Should().BeNull();
+        profile.SteamProfileUrl.Should().BeNull();
+        profile.FaceitProfileUrl.Should().BeNull();
+    }
 }

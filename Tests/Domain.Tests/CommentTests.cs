@@ -25,6 +25,17 @@ public class CommentTests
     }
 
     [Fact]
+    public void SetContent_trims_and_limits()
+    {
+        var comment = new Comment(Guid.NewGuid(), Guid.NewGuid(), "ok");
+        var longContent = new string('c', 2100);
+
+        comment.SetContent($"  {longContent}  ");
+
+        comment.Content.Should().Be(longContent[..2000]);
+    }
+
+    [Fact]
     public void SoftDelete_sets_deleted_state_and_content()
     {
         var comment = new Comment(Guid.NewGuid(), Guid.NewGuid(), "hello");
@@ -34,5 +45,15 @@ public class CommentTests
         comment.IsDeleted.Should().BeTrue();
         comment.DeletedReason.Should().Be("spam");
         comment.Content.Should().Be("This comment has been deleted");
+    }
+
+    [Fact]
+    public void SoftDelete_null_reason_clears_reason()
+    {
+        var comment = new Comment(Guid.NewGuid(), Guid.NewGuid(), "hello");
+
+        comment.SoftDelete(null);
+
+        comment.DeletedReason.Should().BeNull();
     }
 }
