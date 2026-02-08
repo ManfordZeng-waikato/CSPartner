@@ -24,6 +24,7 @@ using API.SignalR;
 using Application.DTOs.Ai;
 using Application.Features.Videos.Commands.GenerateVideoAiMeta;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Hosting;
 
 namespace API.Controllers;
 
@@ -34,19 +35,22 @@ public class VideosController : BaseApiController
     private readonly ILogger<VideosController> _logger;
     private readonly IHubContext<CommentHub> _hubContext;
     private readonly IServiceScopeFactory _serviceScopeFactory;
+    private readonly IWebHostEnvironment _environment;
 
     public VideosController(
         IMediator mediator,
         ICurrentUserService currentUserService,
         ILogger<VideosController> logger,
         IHubContext<CommentHub> hubContext,
-        IServiceScopeFactory serviceScopeFactory)
+        IServiceScopeFactory serviceScopeFactory,
+        IWebHostEnvironment environment)
     {
         _mediator = mediator;
         _currentUserService = currentUserService;
         _logger = logger;
         _hubContext = hubContext;
         _serviceScopeFactory = serviceScopeFactory;
+        _environment = environment;
     }
 
     /// <summary>
@@ -160,39 +164,42 @@ public class VideosController : BaseApiController
 
         // Automatically trigger AI metadata generation after video creation
         // Execute in background using IServiceScopeFactory to ensure proper DbContext lifetime
-        _ = Task.Run(async () =>
+        if (!_environment.IsEnvironment("Test"))
         {
-            try
+            _ = Task.Run(async () =>
             {
-                // Wait a bit longer to ensure video is committed to database
-                await Task.Delay(500);
-                
-                using var scope = _serviceScopeFactory.CreateScope();
-                var scopedMediator = scope.ServiceProvider.GetRequiredService<IMediator>();
-                var scopedLogger = scope.ServiceProvider.GetRequiredService<ILogger<VideosController>>();
-                
-                scopedLogger.LogInformation("Starting background AI metadata generation for video {VideoId} with Map={Map}, Weapon={Weapon}, HighlightType={HighlightType}", 
-                    video.VideoId, dto.Map, dto.Weapon, dto.HighlightType);
-                
-                await scopedMediator.Send(new GenerateVideoAiMetaCommand(video.VideoId, dto.Map, dto.Weapon, dto.HighlightType), CancellationToken.None);
-                
-                scopedLogger.LogInformation("Successfully completed AI metadata generation for video {VideoId}", video.VideoId);
-            }
-            catch (Exception ex)
-            {
-                // Use a scoped logger if available, otherwise fall back to instance logger
                 try
                 {
-                    using var errorScope = _serviceScopeFactory.CreateScope();
-                    var errorLogger = errorScope.ServiceProvider.GetRequiredService<ILogger<VideosController>>();
-                    errorLogger.LogError(ex, "Failed to automatically generate AI metadata for video {VideoId}. User can trigger it manually later.", video.VideoId);
+                    // Wait a bit longer to ensure video is committed to database
+                    await Task.Delay(500);
+                    
+                    using var scope = _serviceScopeFactory.CreateScope();
+                    var scopedMediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+                    var scopedLogger = scope.ServiceProvider.GetRequiredService<ILogger<VideosController>>();
+                    
+                    scopedLogger.LogInformation("Starting background AI metadata generation for video {VideoId} with Map={Map}, Weapon={Weapon}, HighlightType={HighlightType}", 
+                        video.VideoId, dto.Map, dto.Weapon, dto.HighlightType);
+                    
+                    await scopedMediator.Send(new GenerateVideoAiMetaCommand(video.VideoId, dto.Map, dto.Weapon, dto.HighlightType), CancellationToken.None);
+                    
+                    scopedLogger.LogInformation("Successfully completed AI metadata generation for video {VideoId}", video.VideoId);
                 }
-                catch
+                catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed to automatically generate AI metadata for video {VideoId}. User can trigger it manually later.", video.VideoId);
+                    // Use a scoped logger if available, otherwise fall back to instance logger
+                    try
+                    {
+                        using var errorScope = _serviceScopeFactory.CreateScope();
+                        var errorLogger = errorScope.ServiceProvider.GetRequiredService<ILogger<VideosController>>();
+                        errorLogger.LogError(ex, "Failed to automatically generate AI metadata for video {VideoId}. User can trigger it manually later.", video.VideoId);
+                    }
+                    catch
+                    {
+                        _logger.LogError(ex, "Failed to automatically generate AI metadata for video {VideoId}. User can trigger it manually later.", video.VideoId);
+                    }
                 }
-            }
-        }, CancellationToken.None);
+            }, CancellationToken.None);
+        }
 
         return CreatedAtAction(nameof(GetVideo), new { id = video.VideoId }, video);
     }

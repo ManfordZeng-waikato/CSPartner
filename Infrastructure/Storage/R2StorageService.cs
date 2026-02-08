@@ -17,7 +17,7 @@ public class R2StorageService : IStorageService, IDisposable
     private readonly string _s3ServiceUrl;
     private readonly ILogger<R2StorageService> _logger;
 
-    public R2StorageService(IConfiguration configuration, ILogger<R2StorageService> logger)
+    public R2StorageService(IConfiguration configuration, ILogger<R2StorageService> logger, IAmazonS3? s3Client = null)
     {
         _logger = logger;
         _accountId = configuration["CloudflareR2:AccountId"] ?? throw new InvalidOperationException("CloudflareR2:AccountId is not configured");
@@ -45,7 +45,7 @@ public class R2StorageService : IStorageService, IDisposable
         };
 
 
-        _s3Client = new AmazonS3Client(accessKeyId, secretAccessKey, config);
+        _s3Client = s3Client ?? new AmazonS3Client(accessKeyId, secretAccessKey, config);
         
         _logger.LogInformation("R2StorageService initialized. AccountId: {AccountId}, Bucket: {BucketName}, ServiceURL: {ServiceURL}", 
             _accountId, _bucketName, config.ServiceURL);

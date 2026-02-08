@@ -17,17 +17,29 @@ namespace API.Tests.Helpers;
 
 public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 {
+    static CustomWebApplicationFactory()
+    {
+        var jwtSecret = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
+        Environment.SetEnvironmentVariable("Jwt__SecretKey", jwtSecret);
+        Environment.SetEnvironmentVariable("Jwt__Issuer", "TestIssuer");
+        Environment.SetEnvironmentVariable("Jwt__Audience", "TestAudience");
+        Environment.SetEnvironmentVariable("Authentication__Github__ClientId", "test-client-id");
+        Environment.SetEnvironmentVariable("Authentication__Github__ClientSecret", "test-client-secret");
+        Environment.SetEnvironmentVariable("Resend__ApiToken", "test-resend-token");
+        Environment.SetEnvironmentVariable("OpenAI__ApiKey", "test-openai-key");
+        Environment.SetEnvironmentVariable("Seed__DemoData", "false");
+    }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Test");
 
         builder.ConfigureAppConfiguration((_, config) =>
         {
-            var jwtSecret = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
             var settings = new Dictionary<string, string?>
             {
                 ["ConnectionStrings:Default"] = "Server=(localdb)\\mssqllocaldb;Database=CSPartner_Test;Trusted_Connection=True;",
-                ["Jwt:SecretKey"] = jwtSecret,
+                ["Jwt:SecretKey"] = Environment.GetEnvironmentVariable("Jwt__SecretKey"),
                 ["Jwt:Issuer"] = "TestIssuer",
                 ["Jwt:Audience"] = "TestAudience",
                 ["Authentication:Github:ClientId"] = "test-client-id",
