@@ -29,10 +29,11 @@ public class JwtServiceTests
     [Fact]
     public void GenerateToken_includes_claims_and_roles()
     {
+        var secret = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Jwt:SecretKey"] = "TestSecretKey-For-Integration-Only-1234567890",
+                ["Jwt:SecretKey"] = secret,
                 ["Jwt:Issuer"] = "issuer",
                 ["Jwt:Audience"] = "audience",
                 ["Jwt:ExpirationMinutes"] = "60"
