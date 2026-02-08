@@ -269,6 +269,45 @@ public class AuthServiceTests
     }
 
     [Fact]
+    public async Task ConfirmEmailAsync_returns_failure_when_code_invalid()
+    {
+        using var scope = AuthServiceTestScope.Create();
+
+        var userManager = scope.Provider.GetRequiredService<UserManager<ApplicationUser>>();
+        var password = CreateStrongPassword();
+        var user = new ApplicationUser { UserName = "pending@test.local", Email = "pending@test.local" };
+        await userManager.CreateAsync(user, password);
+
+        var authService = scope.Provider.GetRequiredService<AuthService>();
+
+        var result = await authService.ConfirmEmailAsync(user.Id, "not-base64");
+
+        result.Succeeded.Should().BeFalse();
+        result.Errors.Should().ContainSingle()
+            .Which.Should().Contain("Invalid or expired confirmation link");
+    }
+
+    [Fact]
+    public async Task ResetPasswordAsync_returns_error_when_user_missing()
+    {
+        using var scope = AuthServiceTestScope.Create();
+
+        var authService = scope.Provider.GetRequiredService<AuthService>();
+        var password = CreateStrongPassword();
+
+        var result = await authService.ResetPasswordAsync(new ResetPasswordDto
+        {
+            Email = "missing@test.local",
+            NewPassword = password,
+            ConfirmPassword = password,
+            Code = "code"
+        });
+
+        result.Succeeded.Should().BeFalse();
+        result.Message.Should().Be("Invalid reset code or email address.");
+    }
+
+    [Fact]
     public async Task LoginWithGitHubAsync_returns_failure_when_github_id_missing()
     {
         using var scope = AuthServiceTestScope.Create();
@@ -279,5 +318,34 @@ public class AuthServiceTests
 
         result.Succeeded.Should().BeFalse();
         result.Errors.Should().Contain("GitHub ID is required");
+    }
+
+    [Fact]
+    public async Task LoginWithGitHubAsync_creates_user_and_profile_when_missing()
+    {
+        using var scope = AuthServiceTestScope.Create();
+
+        var roleManager = scope.Provider.GetRequiredService<RoleManager<ApplicationRole>>();
+        await roleManager.CreateAsync(new ApplicationRole { Name = "User" });
+
+        var authService = scope.Provider.GetRequiredService<AuthService>();
+        var userManager = scope.Provider.GetRequiredService<UserManager<ApplicationUser>>();
+
+        var result = await authService.LoginWithGitHubAsync(
+            "github@test.local",
+            "GitHub User",
+            "https://avatar.test/img.png",
+            "github-123");
+
+        result.Succeeded.Should().BeTrue();
+        result.Email.Should().Be("github@test.local");
+        result.Token.Should().NotBeNullOrWhiteSpace();
+
+        var user = await userManager.FindByEmailAsync("github@test.local");
+        user.Should().NotBeNull();
+        user!.EmailConfirmed.Should().BeTrue();
+
+        var roles = await userManager.GetRolesAsync(user);
+        roles.Should().Contain("User");
     }
 }
