@@ -1,14 +1,18 @@
+using System.Net;
+using Amazon.S3;
+using Amazon.S3.Model;
 using Application.DTOs.Storage;
 using FluentAssertions;
 using Infrastructure.Storage;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 
 namespace Infrastructure.Tests.Storage;
 
 public class R2StorageServiceTests
 {
-    private static R2StorageService CreateService(Dictionary<string, string?>? overrides = null)
+    private static R2StorageService CreateService(Dictionary<string, string?>? overrides = null, IAmazonS3? s3Client = null)
     {
         var settings = new Dictionary<string, string?>
         {
@@ -31,7 +35,7 @@ public class R2StorageServiceTests
             .AddInMemoryCollection(settings)
             .Build();
 
-        return new R2StorageService(config, NullLogger<R2StorageService>.Instance);
+        return new R2StorageService(config, NullLogger<R2StorageService>.Instance, s3Client);
     }
 
     [Fact]
@@ -66,5 +70,47 @@ public class R2StorageServiceTests
         var act = async () => await service.GetVideoUploadUrlAsync(Guid.NewGuid(), "clip.txt", "text/plain");
 
         await act.Should().ThrowAsync<ArgumentException>();
+    }
+
+    [Fact]
+    public async Task FileExistsAsync_returns_true_when_metadata_found()
+    {
+        var s3 = new Mock<IAmazonS3>();
+        s3.Setup(s => s.GetObjectMetadataAsync(It.IsAny<GetObjectMetadataRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new GetObjectMetadataResponse());
+
+        using var service = CreateService(s3Client: s3.Object);
+
+        var exists = await service.FileExistsAsync("videos/key.mp4");
+
+        exists.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task FileExistsAsync_returns_false_when_not_found()
+    {
+        var s3 = new Mock<IAmazonS3>();
+        s3.Setup(s => s.GetObjectMetadataAsync(It.IsAny<GetObjectMetadataRequest>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new AmazonS3Exception("missing") { StatusCode = HttpStatusCode.NotFound });
+
+        using var service = CreateService(s3Client: s3.Object);
+
+        var exists = await service.FileExistsAsync("videos/missing.mp4");
+
+        exists.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task FileExistsAsync_returns_false_on_exception()
+    {
+        var s3 = new Mock<IAmazonS3>();
+        s3.Setup(s => s.GetObjectMetadataAsync(It.IsAny<GetObjectMetadataRequest>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("boom"));
+
+        using var service = CreateService(s3Client: s3.Object);
+
+        var exists = await service.FileExistsAsync("videos/error.mp4");
+
+        exists.Should().BeFalse();
     }
 }
