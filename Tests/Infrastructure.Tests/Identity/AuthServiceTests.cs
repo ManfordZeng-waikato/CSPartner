@@ -142,6 +142,37 @@ public class AuthServiceTests
     }
 
     [Fact]
+    public async Task ResendConfirmationEmailAsync_returns_success_when_user_missing()
+    {
+        using var scope = AuthServiceTestScope.Create();
+
+        var authService = scope.Provider.GetRequiredService<AuthService>();
+
+        var result = await authService.ResendConfirmationEmailAsync("missing@test.local");
+
+        result.Succeeded.Should().BeTrue();
+        result.Message.Should().Contain("confirmation link has been sent");
+    }
+
+    [Fact]
+    public async Task ResendConfirmationEmailAsync_returns_error_when_email_confirmed()
+    {
+        using var scope = AuthServiceTestScope.Create();
+
+        var userManager = scope.Provider.GetRequiredService<UserManager<ApplicationUser>>();
+        var password = CreateStrongPassword();
+        var user = new ApplicationUser { UserName = "confirmed@test.local", Email = "confirmed@test.local", EmailConfirmed = true };
+        await userManager.CreateAsync(user, password);
+
+        var authService = scope.Provider.GetRequiredService<AuthService>();
+
+        var result = await authService.ResendConfirmationEmailAsync("confirmed@test.local");
+
+        result.Succeeded.Should().BeFalse();
+        result.Message.Should().Be("Email is already confirmed");
+    }
+
+    [Fact]
     public async Task RequestPasswordResetAsync_returns_error_when_email_unconfirmed()
     {
         using var scope = AuthServiceTestScope.Create();
@@ -163,6 +194,22 @@ public class AuthServiceTests
     }
 
     [Fact]
+    public async Task RequestPasswordResetAsync_returns_error_when_email_missing()
+    {
+        using var scope = AuthServiceTestScope.Create();
+
+        var authService = scope.Provider.GetRequiredService<AuthService>();
+
+        var result = await authService.RequestPasswordResetAsync(new RequestPasswordResetDto
+        {
+            Email = " "
+        });
+
+        result.Succeeded.Should().BeFalse();
+        result.Message.Should().Be("Email is required");
+    }
+
+    [Fact]
     public async Task ResetPasswordAsync_returns_error_when_passwords_mismatch()
     {
         using var scope = AuthServiceTestScope.Create();
@@ -180,5 +227,57 @@ public class AuthServiceTests
 
         result.Succeeded.Should().BeFalse();
         result.Message.Should().Be("Passwords do not match");
+    }
+
+    [Fact]
+    public async Task ResetPasswordAsync_returns_error_when_code_missing()
+    {
+        using var scope = AuthServiceTestScope.Create();
+
+        var authService = scope.Provider.GetRequiredService<AuthService>();
+        var password = CreateStrongPassword();
+
+        var result = await authService.ResetPasswordAsync(new ResetPasswordDto
+        {
+            Email = "user@test.local",
+            NewPassword = password,
+            ConfirmPassword = password,
+            Code = ""
+        });
+
+        result.Succeeded.Should().BeFalse();
+        result.Message.Should().Be("Reset code is required");
+    }
+
+    [Fact]
+    public async Task ConfirmEmailAsync_returns_success_when_already_confirmed()
+    {
+        using var scope = AuthServiceTestScope.Create();
+
+        var userManager = scope.Provider.GetRequiredService<UserManager<ApplicationUser>>();
+        var password = CreateStrongPassword();
+        var user = new ApplicationUser { UserName = "confirmed2@test.local", Email = "confirmed2@test.local", EmailConfirmed = true };
+        await userManager.CreateAsync(user, password);
+
+        var authService = scope.Provider.GetRequiredService<AuthService>();
+
+        var result = await authService.ConfirmEmailAsync(user.Id, "code");
+
+        result.Succeeded.Should().BeTrue();
+        result.Token.Should().NotBeNullOrWhiteSpace();
+        result.Email.Should().Be("confirmed2@test.local");
+    }
+
+    [Fact]
+    public async Task LoginWithGitHubAsync_returns_failure_when_github_id_missing()
+    {
+        using var scope = AuthServiceTestScope.Create();
+
+        var authService = scope.Provider.GetRequiredService<AuthService>();
+
+        var result = await authService.LoginWithGitHubAsync("user@test.local", "User", null, "");
+
+        result.Succeeded.Should().BeFalse();
+        result.Errors.Should().Contain("GitHub ID is required");
     }
 }

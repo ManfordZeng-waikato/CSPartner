@@ -85,6 +85,60 @@ public class OpenAiVideoServiceTests
         await act.Should().ThrowAsync<AiServiceQuotaExceededException>();
     }
 
+    [Fact]
+    public async Task GenerateVideoMetaAsync_throws_service_exception_on_api_error()
+    {
+        var handler = new StubHttpMessageHandler(_ =>
+        {
+            var json = JsonSerializer.Serialize(new
+            {
+                error = new
+                {
+                    message = "bad request",
+                    type = "invalid_request_error",
+                    code = "invalid_api_key"
+                }
+            });
+
+            return new HttpResponseMessage(HttpStatusCode.BadRequest)
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json")
+            };
+        });
+
+        var http = new HttpClient(handler) { BaseAddress = new Uri("https://api.test/") };
+        var config = new ConfigurationBuilder().AddInMemoryCollection().Build();
+        var service = new OpenAiVideoService(http, config, NullLogger<OpenAiVideoService>.Instance);
+
+        var act = async () => await service.GenerateVideoMetaAsync(
+            new VideoAiInputDto("title", null, null, null, null, null),
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<AiServiceException>();
+    }
+
+    [Fact]
+    public async Task GenerateVideoMetaAsync_throws_service_exception_on_non_json_error()
+    {
+        var handler = new StubHttpMessageHandler(_ =>
+        {
+            return new HttpResponseMessage(HttpStatusCode.InternalServerError)
+            {
+                Content = new StringContent("oops", Encoding.UTF8, "text/plain")
+            };
+        });
+
+        var http = new HttpClient(handler) { BaseAddress = new Uri("https://api.test/") };
+        var config = new ConfigurationBuilder().AddInMemoryCollection().Build();
+        var service = new OpenAiVideoService(http, config, NullLogger<OpenAiVideoService>.Instance);
+
+        var act = async () => await service.GenerateVideoMetaAsync(
+            new VideoAiInputDto("title", null, null, null, null, null),
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<AiServiceException>();
+    }
+
     private sealed class StubHttpMessageHandler : HttpMessageHandler
     {
         private readonly Func<HttpRequestMessage, HttpResponseMessage> _handler;
