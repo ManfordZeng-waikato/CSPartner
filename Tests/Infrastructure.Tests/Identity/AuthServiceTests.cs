@@ -1,8 +1,10 @@
 using Application.DTOs.Auth;
+using Application.Common.Interfaces;
 using FluentAssertions;
 using Infrastructure.Identity;
 using Infrastructure.Persistence.Identity;
 using Infrastructure.Tests.Helpers;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -347,5 +349,50 @@ public class AuthServiceTests
 
         var roles = await userManager.GetRolesAsync(user);
         roles.Should().Contain("User");
+    }
+
+    [Fact]
+    public async Task LogoutAsync_blacklists_token_when_present()
+    {
+        using var scope = AuthServiceTestScope.Create();
+
+        var userManager = scope.Provider.GetRequiredService<UserManager<ApplicationUser>>();
+        var password = CreateStrongPassword();
+        var user = new ApplicationUser { UserName = "logout@test.local", Email = "logout@test.local" };
+        await userManager.CreateAsync(user, password);
+
+        var currentUser = (FakeCurrentUserService)scope.Provider.GetRequiredService<ICurrentUserService>();
+        currentUser.UserId = user.Id;
+
+        var jwtService = scope.Provider.GetRequiredService<IJwtService>();
+        var token = jwtService.GenerateToken(user.Id, user.Email!, Array.Empty<string>());
+
+        var httpAccessor = scope.Provider.GetRequiredService<IHttpContextAccessor>();
+        httpAccessor.HttpContext = new DefaultHttpContext();
+        httpAccessor.HttpContext.Request.Headers["Authorization"] = $"Bearer {token}";
+
+        var blacklist = (FakeTokenBlacklistService)scope.Provider.GetRequiredService<ITokenBlacklistService>();
+        var authService = scope.Provider.GetRequiredService<AuthService>();
+
+        await authService.LogoutAsync();
+
+        blacklist.AddedTokens.Should().ContainSingle();
+        blacklist.AddedTokens[0].Token.Should().Be(token);
+    }
+
+    [Fact]
+    public async Task LogoutAsync_does_nothing_when_user_missing()
+    {
+        using var scope = AuthServiceTestScope.Create();
+
+        var currentUser = (FakeCurrentUserService)scope.Provider.GetRequiredService<ICurrentUserService>();
+        currentUser.UserId = Guid.NewGuid();
+
+        var blacklist = (FakeTokenBlacklistService)scope.Provider.GetRequiredService<ITokenBlacklistService>();
+        var authService = scope.Provider.GetRequiredService<AuthService>();
+
+        await authService.LogoutAsync();
+
+        blacklist.AddedTokens.Should().BeEmpty();
     }
 }

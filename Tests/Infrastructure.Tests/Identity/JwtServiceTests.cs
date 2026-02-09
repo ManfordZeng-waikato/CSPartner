@@ -53,4 +53,67 @@ public class JwtServiceTests
         jwt.Claims.Should().Contain(c => c.Type == ClaimTypes.Role && c.Value == "User");
         jwt.Claims.Should().Contain(c => c.Type == ClaimTypes.Role && c.Value == "Admin");
     }
+
+    [Fact]
+    public void GenerateToken_throws_when_issuer_missing()
+    {
+        var secret = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Jwt:SecretKey"] = secret,
+                ["Jwt:Audience"] = "audience"
+            })
+            .Build();
+
+        var service = new JwtService(config);
+
+        var act = () => service.GenerateToken(Guid.NewGuid(), "user@test.local", Array.Empty<string>());
+
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void GenerateToken_throws_when_audience_missing()
+    {
+        var secret = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Jwt:SecretKey"] = secret,
+                ["Jwt:Issuer"] = "issuer"
+            })
+            .Build();
+
+        var service = new JwtService(config);
+
+        var act = () => service.GenerateToken(Guid.NewGuid(), "user@test.local", Array.Empty<string>());
+
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void GenerateToken_uses_default_expiration_minutes()
+    {
+        var secret = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Jwt:SecretKey"] = secret,
+                ["Jwt:Issuer"] = "issuer",
+                ["Jwt:Audience"] = "audience"
+            })
+            .Build();
+
+        var service = new JwtService(config);
+
+        var token = service.GenerateToken(Guid.NewGuid(), "user@test.local", Array.Empty<string>());
+
+        var handler = new JwtSecurityTokenHandler();
+        var jwt = handler.ReadJwtToken(token);
+        var remainingMinutes = (jwt.ValidTo - DateTime.UtcNow).TotalMinutes;
+
+        remainingMinutes.Should().BeGreaterThan(1430);
+        remainingMinutes.Should().BeLessThan(1450);
+    }
 }

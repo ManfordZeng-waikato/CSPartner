@@ -39,6 +39,23 @@ public class AccountControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task Register_returns_bad_request_when_failed()
+    {
+        var auth = GetAuthService();
+        auth.RegisterResult = new AuthResultDto { Succeeded = false, Errors = new[] { "bad" } };
+
+        var client = _factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/account/register", new RegisterDto
+        {
+            Email = "user@test.local",
+            Password = TestPassword,
+            ConfirmPassword = TestPassword
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
     public async Task Login_returns_generic_error_when_failure()
     {
         var auth = GetAuthService();
@@ -59,6 +76,25 @@ public class AccountControllerTests : IClassFixture<CustomWebApplicationFactory>
         var result = await response.Content.ReadFromJsonAsync<AuthResultDto>();
         result.Should().NotBeNull();
         result!.Errors.Should().ContainSingle().Which.Should().Be("Invalid email or password");
+    }
+
+    [Fact]
+    public async Task Login_returns_ok_when_success()
+    {
+        var auth = GetAuthService();
+        auth.LoginResult = new AuthResultDto { Succeeded = true, Token = "token" };
+
+        var client = _factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/account/login", new LoginDto
+        {
+            Email = "user@test.local",
+            Password = TestPassword
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var result = await response.Content.ReadFromJsonAsync<AuthResultDto>();
+        result!.Succeeded.Should().BeTrue();
+        result.Token.Should().Be("token");
     }
 
     [Fact]
@@ -97,6 +133,18 @@ public class AccountControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task ResendConfirmationEmail_returns_ok_when_success()
+    {
+        var auth = GetAuthService();
+        auth.ResendResult = (true, "ok");
+
+        var client = _factory.CreateClient();
+        var response = await client.GetAsync("/api/account/resendConfirmationEmail?email=user@test.local");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
     public async Task ConfirmEmail_returns_bad_request_when_code_missing()
     {
         var client = _factory.CreateClient();
@@ -115,6 +163,18 @@ public class AccountControllerTests : IClassFixture<CustomWebApplicationFactory>
         var response = await client.PostAsync($"/api/account/confirmEmail?userId={Guid.NewGuid()}&code=code", content: null);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task ConfirmEmail_returns_ok_when_success()
+    {
+        var auth = GetAuthService();
+        auth.ConfirmEmailResult = new AuthResultDto { Succeeded = true, Token = "t" };
+
+        var client = _factory.CreateClient();
+        var response = await client.PostAsync($"/api/account/confirmEmail?userId={Guid.NewGuid()}&code=code", content: null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]
@@ -161,6 +221,21 @@ public class AccountControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task RequestPasswordReset_returns_ok_when_success()
+    {
+        var auth = GetAuthService();
+        auth.RequestPasswordResetResult = (true, "ok");
+
+        var client = _factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/account/requestPasswordReset", new RequestPasswordResetDto
+        {
+            Email = "user@test.local"
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
     public async Task ResetPassword_returns_bad_request_when_failed()
     {
         var auth = GetAuthService();
@@ -179,10 +254,42 @@ public class AccountControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task ResetPassword_returns_ok_when_success()
+    {
+        var auth = GetAuthService();
+        auth.ResetPasswordResult = (true, "ok");
+
+        var client = _factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/account/resetPassword", new ResetPasswordDto
+        {
+            Email = "user@test.local",
+            NewPassword = TestPassword,
+            ConfirmPassword = TestPassword,
+            Code = "code"
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
     public async Task Logout_returns_ok_even_on_exception()
     {
         var auth = GetAuthService();
         auth.ThrowOnLogout = true;
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Test-Auth", "true");
+
+        var response = await client.PostAsync("/api/account/logout", content: null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Logout_returns_ok_when_success()
+    {
+        var auth = GetAuthService();
+        auth.ThrowOnLogout = false;
 
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Add("X-Test-Auth", "true");
