@@ -1,4 +1,5 @@
 using Application.Common.Interfaces;
+using System.Collections.Generic;
 
 namespace Infrastructure.Tests.Helpers;
 
@@ -12,8 +13,16 @@ public class FakeEmailService : IEmailService
 
 public class FakeTokenBlacklistService : ITokenBlacklistService
 {
+    public List<(string Token, DateTime ExpiresAt)> AddedTokens { get; } = new();
+
     public Task<bool> IsTokenBlacklistedAsync(string token) => Task.FromResult(false);
-    public Task AddToBlacklistAsync(string token, DateTime expiresAt) => Task.CompletedTask;
+
+    public Task AddToBlacklistAsync(string token, DateTime expiresAt)
+    {
+        AddedTokens.Add((token, expiresAt));
+        return Task.CompletedTask;
+    }
+
     public Task RemoveFromBlacklistAsync(string token) => Task.CompletedTask;
 }
 
