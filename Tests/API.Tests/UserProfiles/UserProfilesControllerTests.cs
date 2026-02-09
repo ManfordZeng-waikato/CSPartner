@@ -106,4 +106,17 @@ public class UserProfilesControllerTests : IClassFixture<CustomWebApplicationFac
         result!.DisplayName.Should().Be("NewName");
         result.Bio.Should().Be("Bio");
     }
+
+    [Fact]
+    public async Task UpdateUserProfile_returns_unauthorized_when_not_authenticated()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.PutAsJsonAsync($"/api/userprofiles/{Guid.NewGuid()}", new UpdateUserProfileDto
+        {
+            DisplayName = "Nope"
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
 }

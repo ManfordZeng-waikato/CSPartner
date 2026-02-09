@@ -104,4 +104,31 @@ public class CommentsControllerTests : IClassFixture<CustomWebApplicationFactory
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
+
+    [Fact]
+    public async Task DeleteComment_returns_unauthorized_when_not_authenticated()
+    {
+        Guid commentId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await db.Database.EnsureDeletedAsync();
+            await db.Database.EnsureCreatedAsync();
+
+            var video = new HighlightVideo(TestAuthDefaults.UserId, "t", "url");
+            db.Videos.Add(video);
+
+            var comment = new Comment(video.VideoId, TestAuthDefaults.UserId, "hello");
+            db.Comments.Add(comment);
+            await db.SaveChangesAsync();
+
+            commentId = comment.CommentId;
+        }
+
+        var client = _factory.CreateClient();
+
+        var response = await client.DeleteAsync($"/api/comments/{commentId}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
 }
