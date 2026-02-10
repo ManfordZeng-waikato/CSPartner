@@ -152,6 +152,31 @@ public class VideosControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task GetVideo_returns_ok_for_private_when_owner()
+    {
+        Guid videoId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await db.Database.EnsureDeletedAsync();
+            await db.Database.EnsureCreatedAsync();
+
+            var video = new HighlightVideo(TestAuthDefaults.UserId, "priv", "url");
+            video.SetVisibility(VideoVisibility.Private);
+            db.Videos.Add(video);
+            await db.SaveChangesAsync();
+            videoId = video.VideoId;
+        }
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Test-Auth", "true");
+
+        var response = await client.GetAsync($"/api/videos/{videoId}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
     public async Task GetVideo_returns_not_found_when_missing()
     {
         using (var scope = _factory.Services.CreateScope())
@@ -232,6 +257,39 @@ public class VideosControllerTests : IClassFixture<CustomWebApplicationFactory>
         result.Should().NotBeNull();
         result!.Select(v => v.VideoId).Should().Contain(publicId);
         result.Select(v => v.VideoId).Should().Contain(privateId);
+    }
+
+    [Fact]
+    public async Task GetVideosByUser_returns_only_public_when_anonymous()
+    {
+        Guid otherUserId;
+        Guid publicId;
+        Guid privateId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await db.Database.EnsureDeletedAsync();
+            await db.Database.EnsureCreatedAsync();
+
+            otherUserId = Guid.NewGuid();
+            var publicVideo = new HighlightVideo(otherUserId, "pub", "url1");
+            var privateVideo = new HighlightVideo(otherUserId, "priv", "url2");
+            privateVideo.SetVisibility(VideoVisibility.Private);
+
+            db.Videos.AddRange(publicVideo, privateVideo);
+            await db.SaveChangesAsync();
+
+            publicId = publicVideo.VideoId;
+            privateId = privateVideo.VideoId;
+        }
+
+        var client = _factory.CreateClient();
+
+        var result = await client.GetFromJsonAsync<List<VideoDto>>($"/api/videos/user/{otherUserId}", TestJsonOptions.Default);
+
+        result.Should().NotBeNull();
+        result!.Select(v => v.VideoId).Should().Contain(publicId);
+        result.Select(v => v.VideoId).Should().NotContain(privateId);
     }
 
     [Fact]
@@ -391,6 +449,52 @@ public class VideosControllerTests : IClassFixture<CustomWebApplicationFactory>
         {
             Title = "Title",
             VideoObjectKey = "",
+            Description = "Desc",
+            Visibility = VideoVisibility.Public
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task CreateVideo_returns_bad_request_when_object_key_not_owned()
+    {
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var storage = (FakeStorageService)scope.ServiceProvider.GetRequiredService<IStorageService>();
+            storage.FileExists = true;
+        }
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Test-Auth", "true");
+
+        var response = await client.PostAsJsonAsync("/api/videos", new CreateVideoDto
+        {
+            Title = "Title",
+            VideoObjectKey = $"videos/{Guid.NewGuid()}/20250101/highlight.mp4",
+            Description = "Desc",
+            Visibility = VideoVisibility.Public
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task CreateVideo_returns_bad_request_when_video_file_missing()
+    {
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var storage = (FakeStorageService)scope.ServiceProvider.GetRequiredService<IStorageService>();
+            storage.FileExists = false;
+        }
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Test-Auth", "true");
+
+        var response = await client.PostAsJsonAsync("/api/videos", new CreateVideoDto
+        {
+            Title = "Title",
+            VideoObjectKey = $"videos/{TestAuthDefaults.UserId}/20250101/highlight.mp4",
             Description = "Desc",
             Visibility = VideoVisibility.Public
         });
@@ -731,6 +835,32 @@ public class VideosControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task ToggleLike_returns_too_many_requests_when_rate_limited()
+    {
+        Guid videoId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await db.Database.EnsureDeletedAsync();
+            await db.Database.EnsureCreatedAsync();
+
+            var video = new HighlightVideo(TestAuthDefaults.UserId, "t", "url");
+            db.Videos.Add(video);
+            await db.SaveChangesAsync();
+            videoId = video.VideoId;
+        }
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Test-Auth", "true");
+
+        var first = await client.PostAsync($"/api/videos/{videoId}/like", content: null);
+        first.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var second = await client.PostAsync($"/api/videos/{videoId}/like", content: null);
+        second.StatusCode.Should().Be(HttpStatusCode.TooManyRequests);
+    }
+
+    [Fact]
     public async Task ToggleLike_returns_not_found_when_video_missing()
     {
         using (var scope = _factory.Services.CreateScope())
@@ -907,6 +1037,68 @@ public class VideosControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task CreateComment_returns_bad_request_when_parent_deleted()
+    {
+        Guid videoId;
+        Guid parentId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await db.Database.EnsureDeletedAsync();
+            await db.Database.EnsureCreatedAsync();
+
+            var video = new HighlightVideo(TestAuthDefaults.UserId, "t", "url");
+            db.Videos.Add(video);
+            await db.SaveChangesAsync();
+            videoId = video.VideoId;
+
+            var parent = new Domain.Comments.Comment(videoId, TestAuthDefaults.UserId, "parent");
+            parent.SoftDelete();
+            db.Comments.Add(parent);
+            await db.SaveChangesAsync();
+            parentId = parent.CommentId;
+        }
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Test-Auth", "true");
+
+        var response = await client.PostAsJsonAsync($"/api/videos/{videoId}/comments", new CreateCommentDto
+        {
+            Content = "hello",
+            ParentCommentId = parentId
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task CreateComment_returns_bad_request_when_content_empty()
+    {
+        Guid videoId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await db.Database.EnsureDeletedAsync();
+            await db.Database.EnsureCreatedAsync();
+
+            var video = new HighlightVideo(TestAuthDefaults.UserId, "t", "url");
+            db.Videos.Add(video);
+            await db.SaveChangesAsync();
+            videoId = video.VideoId;
+        }
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Test-Auth", "true");
+
+        var response = await client.PostAsJsonAsync($"/api/videos/{videoId}/comments", new CreateCommentDto
+        {
+            Content = " "
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
     public async Task GetVideoComments_returns_list()
     {
         Guid videoId;
@@ -932,5 +1124,98 @@ public class VideosControllerTests : IClassFixture<CustomWebApplicationFactory>
         result.Should().NotBeNull();
         result!.Should().HaveCount(1);
         result[0].Content.Should().Be("hello");
+    }
+
+    [Fact]
+    public async Task GetVideoComments_returns_empty_when_no_comments()
+    {
+        Guid videoId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await db.Database.EnsureDeletedAsync();
+            await db.Database.EnsureCreatedAsync();
+
+            var video = new HighlightVideo(TestAuthDefaults.UserId, "t", "url");
+            db.Videos.Add(video);
+            await db.SaveChangesAsync();
+            videoId = video.VideoId;
+        }
+
+        var client = _factory.CreateClient();
+
+        var result = await client.GetFromJsonAsync<List<CommentDto>>($"/api/videos/{videoId}/comments", TestJsonOptions.Default);
+
+        result.Should().NotBeNull();
+        result!.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetVideoComments_returns_replies_flat_list()
+    {
+        Guid videoId;
+        Guid parentId;
+        Guid replyId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await db.Database.EnsureDeletedAsync();
+            await db.Database.EnsureCreatedAsync();
+
+            var video = new HighlightVideo(TestAuthDefaults.UserId, "t", "url");
+            db.Videos.Add(video);
+            await db.SaveChangesAsync();
+            videoId = video.VideoId;
+
+            var parent = new Domain.Comments.Comment(videoId, TestAuthDefaults.UserId, "root");
+            db.Comments.Add(parent);
+            await db.SaveChangesAsync();
+            parentId = parent.CommentId;
+
+            var reply = new Domain.Comments.Comment(videoId, TestAuthDefaults.UserId, "reply", parentId);
+            db.Comments.Add(reply);
+            await db.SaveChangesAsync();
+            replyId = reply.CommentId;
+        }
+
+        var client = _factory.CreateClient();
+
+        var result = await client.GetFromJsonAsync<List<CommentDto>>($"/api/videos/{videoId}/comments", TestJsonOptions.Default);
+
+        result.Should().NotBeNull();
+        result!.Should().HaveCount(1);
+        result[0].CommentId.Should().Be(parentId);
+        result[0].Replies.Should().ContainSingle(r => r.CommentId == replyId);
+    }
+
+    [Fact]
+    public async Task GetVideoComments_excludes_deleted_comments()
+    {
+        Guid videoId;
+        Guid commentId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await db.Database.EnsureDeletedAsync();
+            await db.Database.EnsureCreatedAsync();
+
+            var video = new HighlightVideo(TestAuthDefaults.UserId, "t", "url");
+            db.Videos.Add(video);
+            await db.SaveChangesAsync();
+            videoId = video.VideoId;
+
+            var comment = new Domain.Comments.Comment(videoId, TestAuthDefaults.UserId, "hello");
+            comment.SoftDelete();
+            db.Comments.Add(comment);
+            await db.SaveChangesAsync();
+            commentId = comment.CommentId;
+        }
+
+        var client = _factory.CreateClient();
+
+        var result = await client.GetFromJsonAsync<List<CommentDto>>($"/api/videos/{videoId}/comments", TestJsonOptions.Default);
+
+        result.Should().NotBeNull();
+        result!.Should().BeEmpty();
     }
 }
