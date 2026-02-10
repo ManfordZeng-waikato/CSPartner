@@ -299,6 +299,16 @@ public class AccountControllerTests : IClassFixture<CustomWebApplicationFactory>
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
+    [Fact]
+    public async Task Logout_returns_unauthorized_when_not_authenticated()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.PostAsync("/api/account/logout", content: null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
     private FakeAuthService GetAuthService()
     {
         using var scope = _factory.Services.CreateScope();

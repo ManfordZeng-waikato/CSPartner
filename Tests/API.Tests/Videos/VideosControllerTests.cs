@@ -958,6 +958,33 @@ public class VideosControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task CreateComment_returns_bad_request_when_content_empty()
+    {
+        Guid videoId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await db.Database.EnsureDeletedAsync();
+            await db.Database.EnsureCreatedAsync();
+
+            var video = new HighlightVideo(TestAuthDefaults.UserId, "t", "url");
+            db.Videos.Add(video);
+            await db.SaveChangesAsync();
+            videoId = video.VideoId;
+        }
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Test-Auth", "true");
+
+        var response = await client.PostAsJsonAsync($"/api/videos/{videoId}/comments", new CreateCommentDto
+        {
+            Content = " "
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
     public async Task GetVideoComments_returns_list()
     {
         Guid videoId;
@@ -1045,5 +1072,36 @@ public class VideosControllerTests : IClassFixture<CustomWebApplicationFactory>
         result!.Should().HaveCount(1);
         result[0].CommentId.Should().Be(parentId);
         result[0].Replies.Should().ContainSingle(r => r.CommentId == replyId);
+    }
+
+    [Fact]
+    public async Task GetVideoComments_excludes_deleted_comments()
+    {
+        Guid videoId;
+        Guid commentId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await db.Database.EnsureDeletedAsync();
+            await db.Database.EnsureCreatedAsync();
+
+            var video = new HighlightVideo(TestAuthDefaults.UserId, "t", "url");
+            db.Videos.Add(video);
+            await db.SaveChangesAsync();
+            videoId = video.VideoId;
+
+            var comment = new Domain.Comments.Comment(videoId, TestAuthDefaults.UserId, "hello");
+            comment.SoftDelete();
+            db.Comments.Add(comment);
+            await db.SaveChangesAsync();
+            commentId = comment.CommentId;
+        }
+
+        var client = _factory.CreateClient();
+
+        var result = await client.GetFromJsonAsync<List<CommentDto>>($"/api/videos/{videoId}/comments", TestJsonOptions.Default);
+
+        result.Should().NotBeNull();
+        result!.Should().BeEmpty();
     }
 }
