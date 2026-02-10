@@ -149,6 +149,51 @@ public class CommentsControllerTests : IClassFixture<CustomWebApplicationFactory
     }
 
     [Fact]
+    public async Task DeleteComment_decrements_video_comment_count_for_tree()
+    {
+        Guid parentId;
+        Guid childId;
+        Guid videoId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await db.Database.EnsureDeletedAsync();
+            await db.Database.EnsureCreatedAsync();
+
+            var video = new HighlightVideo(TestAuthDefaults.UserId, "t", "url");
+            db.Videos.Add(video);
+            await db.SaveChangesAsync();
+            videoId = video.VideoId;
+
+            var parent = new Comment(videoId, TestAuthDefaults.UserId, "parent");
+            var child = new Comment(videoId, TestAuthDefaults.UserId, "child", parent.CommentId);
+            db.Comments.AddRange(parent, child);
+            video.ApplyCommentAdded();
+            video.ApplyCommentAdded();
+            await db.SaveChangesAsync();
+            parentId = parent.CommentId;
+            childId = child.CommentId;
+        }
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Test-Auth", "true");
+
+        var response = await client.DeleteAsync($"/api/comments/{parentId}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var updatedVideo = await db.Videos.FindAsync(videoId);
+            updatedVideo!.CommentCount.Should().Be(0);
+
+            var updatedChild = await db.Comments.FindAsync(childId);
+            updatedChild!.IsDeleted.Should().BeTrue();
+        }
+    }
+
+    [Fact]
     public async Task DeleteComment_returns_not_found_when_already_deleted()
     {
         Guid commentId;
