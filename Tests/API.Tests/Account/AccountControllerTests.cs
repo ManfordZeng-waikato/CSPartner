@@ -272,6 +272,33 @@ public class AccountControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task RequestPasswordReset_returns_bad_request_when_email_missing()
+    {
+        var client = _factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/account/requestPasswordReset", new RequestPasswordResetDto
+        {
+            Email = ""
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task ResetPassword_returns_bad_request_when_code_missing()
+    {
+        var client = _factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/account/resetPassword", new ResetPasswordDto
+        {
+            Email = "user@test.local",
+            NewPassword = TestPassword,
+            ConfirmPassword = TestPassword,
+            Code = ""
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
     public async Task Logout_returns_ok_even_on_exception()
     {
         var auth = GetAuthService();
