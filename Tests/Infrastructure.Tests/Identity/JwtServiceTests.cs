@@ -141,4 +141,30 @@ public class JwtServiceTests
         jwt.Audiences.Should().Contain("audience");
         jwt.Claims.Should().Contain(c => c.Type == JwtRegisteredClaimNames.Jti && !string.IsNullOrWhiteSpace(c.Value));
     }
+
+    [Fact]
+    public void GenerateToken_uses_configured_expiration_minutes()
+    {
+        var secret = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Jwt:SecretKey"] = secret,
+                ["Jwt:Issuer"] = "issuer",
+                ["Jwt:Audience"] = "audience",
+                ["Jwt:ExpirationMinutes"] = "5"
+            })
+            .Build();
+
+        var service = new JwtService(config);
+
+        var token = service.GenerateToken(Guid.NewGuid(), "user@test.local", Array.Empty<string>());
+
+        var handler = new JwtSecurityTokenHandler();
+        var jwt = handler.ReadJwtToken(token);
+        var remainingMinutes = (jwt.ValidTo - DateTime.UtcNow).TotalMinutes;
+
+        remainingMinutes.Should().BeGreaterThan(3);
+        remainingMinutes.Should().BeLessThan(6);
+    }
 }
