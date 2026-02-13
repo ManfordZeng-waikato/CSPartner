@@ -243,6 +243,49 @@ public class OpenAiVideoServiceTests
         await act.Should().ThrowAsync<InvalidOperationException>();
     }
 
+    [Fact]
+    public async Task GenerateVideoMetaAsync_sends_request_to_responses_endpoint()
+    {
+        HttpRequestMessage? captured = null;
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            captured = request;
+            var json = JsonSerializer.Serialize(new
+            {
+                output = new[]
+                {
+                    new
+                    {
+                        content = new[]
+                        {
+                            new
+                            {
+                                type = "output_text",
+                                text = "{\"description\":\"ok\"}"
+                            }
+                        }
+                    }
+                }
+            });
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json")
+            };
+        });
+
+        var http = new HttpClient(handler) { BaseAddress = new Uri("https://api.test/") };
+        var config = new ConfigurationBuilder().AddInMemoryCollection().Build();
+        var service = new OpenAiVideoService(http, config, NullLogger<OpenAiVideoService>.Instance);
+
+        await service.GenerateVideoMetaAsync(
+            new VideoAiInputDto("title", null, null, null, null, null),
+            CancellationToken.None);
+
+        captured.Should().NotBeNull();
+        captured!.Method.Should().Be(HttpMethod.Post);
+        captured.RequestUri!.ToString().Should().Contain("v1/responses");
+    }
+
     private sealed class StubHttpMessageHandler : HttpMessageHandler
     {
         private readonly Func<HttpRequestMessage, HttpResponseMessage> _handler;
