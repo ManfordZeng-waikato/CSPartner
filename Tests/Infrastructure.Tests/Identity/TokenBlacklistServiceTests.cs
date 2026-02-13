@@ -62,4 +62,13 @@ public class TokenBlacklistServiceTests
         (await service.IsTokenBlacklistedAsync(token)).Should().BeFalse();
         service.GetBlacklistSize().Should().Be(0);
     }
+
+    [Fact]
+    public async Task IsTokenBlacklisted_returns_false_when_token_empty()
+    {
+        var service = new TokenBlacklistService(NullLogger<TokenBlacklistService>.Instance);
+
+        (await service.IsTokenBlacklistedAsync(" ")).Should().BeFalse();
+        service.GetBlacklistSize().Should().Be(0);
+    }
 }
