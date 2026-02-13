@@ -89,4 +89,57 @@ public class EmailSenderServiceTests
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("boom");
     }
+
+    [Fact]
+    public async Task SendPasswordResetLinkAsync_sends_email()
+    {
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Resend:ApiToken"] = "token",
+                ["Resend:FromEmail"] = "from@test.local",
+                ["ClientApp:ClientUrl"] = "https://client.test"
+            })
+            .Build();
+
+        EmailMessage? captured = null;
+        var resend = new Mock<IResend>();
+        resend.Setup(r => r.EmailSendAsync(It.IsAny<EmailMessage>()))
+            .Callback<EmailMessage, CancellationToken>((m, _) => captured = m)
+            .ReturnsAsync(new ResendResponse<Guid>(Guid.NewGuid(), new ResendRateLimit()));
+
+        var service = new EmailSenderService(resend.Object, config, NullLogger<EmailSenderService>.Instance);
+
+        await service.SendPasswordResetLinkAsync("user@test.local", "User", "https://reset");
+
+        captured.Should().NotBeNull();
+        captured!.To.Should().ContainSingle().Which.Email.Should().Be("user@test.local");
+        captured.Subject.Should().Contain("Reset");
+    }
+
+    [Fact]
+    public async Task SendPasswordResetCodeAsync_uses_client_url()
+    {
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Resend:ApiToken"] = "token",
+                ["Resend:FromEmail"] = "from@test.local",
+                ["ClientApp:ClientUrl"] = "https://client.test"
+            })
+            .Build();
+
+        EmailMessage? captured = null;
+        var resend = new Mock<IResend>();
+        resend.Setup(r => r.EmailSendAsync(It.IsAny<EmailMessage>()))
+            .Callback<EmailMessage, CancellationToken>((m, _) => captured = m)
+            .ReturnsAsync(new ResendResponse<Guid>(Guid.NewGuid(), new ResendRateLimit()));
+
+        var service = new EmailSenderService(resend.Object, config, NullLogger<EmailSenderService>.Instance);
+
+        await service.SendPasswordResetCodeAsync("user@test.local", "User", "code");
+
+        captured.Should().NotBeNull();
+        captured!.HtmlBody.Should().Contain("https://client.test/reset-password");
+    }
 }
