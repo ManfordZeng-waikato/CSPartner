@@ -46,4 +46,47 @@ public class EmailSenderServiceTests
 
         resend.Verify(r => r.EmailSendAsync(It.IsAny<EmailMessage>()), Times.Once);
     }
+
+    [Fact]
+    public async Task SendEmailAsync_throws_when_resend_exception()
+    {
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Resend:ApiToken"] = "token"
+            })
+            .Build();
+
+        var resend = new Mock<IResend>();
+        resend.Setup(r => r.EmailSendAsync(It.IsAny<EmailMessage>()))
+            .ThrowsAsync(new ResendException(System.Net.HttpStatusCode.Unauthorized, ErrorType.InvalidApiKey, "bad", new ResendRateLimit()));
+
+        var service = new EmailSenderService(resend.Object, config, NullLogger<EmailSenderService>.Instance);
+
+        var act = async () => await service.SendEmailAsync("user@test.local", "subject", "<p>hi</p>");
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task SendEmailAsync_rethrows_unhandled_exception()
+    {
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Resend:ApiToken"] = "token"
+            })
+            .Build();
+
+        var resend = new Mock<IResend>();
+        resend.Setup(r => r.EmailSendAsync(It.IsAny<EmailMessage>()))
+            .ThrowsAsync(new InvalidOperationException("boom"));
+
+        var service = new EmailSenderService(resend.Object, config, NullLogger<EmailSenderService>.Instance);
+
+        var act = async () => await service.SendEmailAsync("user@test.local", "subject", "<p>hi</p>");
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("boom");
+    }
 }
