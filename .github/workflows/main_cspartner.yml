@@ -4,6 +4,9 @@
 name: Build and deploy ASP.Net Core app to Azure Web App - CSPartner
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
     branches:
       - main
