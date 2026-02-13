@@ -345,6 +345,25 @@ public class VideosControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task GetVideosByUser_returns_empty_when_no_videos()
+    {
+        var userId = Guid.NewGuid();
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await db.Database.EnsureDeletedAsync();
+            await db.Database.EnsureCreatedAsync();
+        }
+
+        var client = _factory.CreateClient();
+
+        var result = await client.GetFromJsonAsync<List<VideoDto>>($"/api/videos/user/{userId}", TestJsonOptions.Default);
+
+        result.Should().NotBeNull();
+        result!.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task GetUploadUrl_returns_bad_request_when_filename_missing()
     {
         var client = _factory.CreateClient();
@@ -528,6 +547,58 @@ public class VideosControllerTests : IClassFixture<CustomWebApplicationFactory>
             Visibility = VideoVisibility.Public,
             Map = "",
             Weapon = "AK47",
+            HighlightType = HighlightType.Clutch
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task CreateVideo_returns_bad_request_when_title_missing()
+    {
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var storage = (FakeStorageService)scope.ServiceProvider.GetRequiredService<IStorageService>();
+            storage.FileExists = true;
+        }
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Test-Auth", "true");
+
+        var response = await client.PostAsJsonAsync("/api/videos", new CreateVideoDto
+        {
+            Title = "",
+            VideoObjectKey = $"videos/{TestAuthDefaults.UserId}/20250101/highlight.mp4",
+            Description = "Desc",
+            Visibility = VideoVisibility.Public,
+            Map = "Mirage",
+            Weapon = "AK47",
+            HighlightType = HighlightType.Clutch
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task CreateVideo_returns_bad_request_when_weapon_missing()
+    {
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var storage = (FakeStorageService)scope.ServiceProvider.GetRequiredService<IStorageService>();
+            storage.FileExists = true;
+        }
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Test-Auth", "true");
+
+        var response = await client.PostAsJsonAsync("/api/videos", new CreateVideoDto
+        {
+            Title = "Title",
+            VideoObjectKey = $"videos/{TestAuthDefaults.UserId}/20250101/highlight.mp4",
+            Description = "Desc",
+            Visibility = VideoVisibility.Public,
+            Map = "Mirage",
+            Weapon = "",
             HighlightType = HighlightType.Clutch
         });
 
@@ -805,6 +876,30 @@ public class VideosControllerTests : IClassFixture<CustomWebApplicationFactory>
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task UpdateVideo_returns_unauthorized_when_not_authenticated()
+    {
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await db.Database.EnsureDeletedAsync();
+            await db.Database.EnsureCreatedAsync();
+
+            var video = new HighlightVideo(TestAuthDefaults.UserId, "t", "url");
+            db.Videos.Add(video);
+            await db.SaveChangesAsync();
+        }
+
+        var client = _factory.CreateClient();
+
+        var response = await client.PutAsJsonAsync($"/api/videos/{Guid.NewGuid()}", new
+        {
+            visibility = VideoVisibility.Private
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     [Fact]
