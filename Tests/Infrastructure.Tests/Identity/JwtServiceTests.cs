@@ -116,4 +116,29 @@ public class JwtServiceTests
         remainingMinutes.Should().BeGreaterThan(1430);
         remainingMinutes.Should().BeLessThan(1450);
     }
+
+    [Fact]
+    public void GenerateToken_includes_jti_and_issuer_audience()
+    {
+        var secret = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Jwt:SecretKey"] = secret,
+                ["Jwt:Issuer"] = "issuer",
+                ["Jwt:Audience"] = "audience"
+            })
+            .Build();
+
+        var service = new JwtService(config);
+
+        var token = service.GenerateToken(Guid.NewGuid(), "user@test.local", Array.Empty<string>());
+
+        var handler = new JwtSecurityTokenHandler();
+        var jwt = handler.ReadJwtToken(token);
+
+        jwt.Issuer.Should().Be("issuer");
+        jwt.Audiences.Should().Contain("audience");
+        jwt.Claims.Should().Contain(c => c.Type == JwtRegisteredClaimNames.Jti && !string.IsNullOrWhiteSpace(c.Value));
+    }
 }

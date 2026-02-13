@@ -39,4 +39,27 @@ public class TokenBlacklistServiceTests
 
         (await service.IsTokenBlacklistedAsync(token)).Should().BeFalse();
     }
+
+    [Fact]
+    public async Task AddToBlacklist_ignores_empty_token()
+    {
+        var service = new TokenBlacklistService(NullLogger<TokenBlacklistService>.Instance);
+
+        await service.AddToBlacklistAsync("", DateTime.UtcNow.AddMinutes(5));
+
+        service.GetBlacklistSize().Should().Be(0);
+    }
+
+    [Fact]
+    public async Task IsTokenBlacklisted_removes_expired_tokens()
+    {
+        var service = new TokenBlacklistService(NullLogger<TokenBlacklistService>.Instance);
+        var token = "token";
+
+        await service.AddToBlacklistAsync(token, DateTime.UtcNow.AddMilliseconds(20));
+        await Task.Delay(50);
+
+        (await service.IsTokenBlacklistedAsync(token)).Should().BeFalse();
+        service.GetBlacklistSize().Should().Be(0);
+    }
 }
