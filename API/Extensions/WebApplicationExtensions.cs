@@ -63,7 +63,10 @@ public static class WebApplicationExtensions
         app.UseResponseCaching();
 
         // Rate limiting (must be after UseRouting)
-        app.UseRateLimiter();
+        if (!app.Environment.IsEnvironment("Test"))
+        {
+            app.UseRateLimiter();
+        }
 
         // CORS (only in development when frontend is served separately)
         if (app.Environment.IsDevelopment())

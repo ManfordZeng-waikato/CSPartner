@@ -4,6 +4,9 @@
 name: Build and deploy ASP.Net Core app to Azure Web App - CSPartner
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
     branches:
       - main
@@ -83,6 +86,7 @@ jobs:
           path: publish
 
   deploy:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: windows-latest
     needs: build
     permissions:
@@ -99,9 +103,9 @@ jobs:
       - name: Login to Azure
         uses: azure/login@v2
         with:
-         client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_756B4B4BB69D4724B1D70F10B53ED2F4 }}
-         tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_017815E24B544DADA759705176494402 }}
-         subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_14FDC7D57A7343CBA1A47A8CB1DFE20C }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_756B4B4BB69D4724B1D70F10B53ED2F4 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_017815E24B544DADA759705176494402 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_14FDC7D57A7343CBA1A47A8CB1DFE20C }}
 
       - name: Deploy to Azure Web App
         id: deploy-to-webapp
