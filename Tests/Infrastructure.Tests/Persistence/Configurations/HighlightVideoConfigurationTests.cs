@@ -39,7 +39,7 @@ public class HighlightVideoConfigurationTests
         aiLastError!.GetMaxLength().Should().Be(1000);
 
         var tagsJson = entity.FindProperty(nameof(HighlightVideo.TagsJson));
-        tagsJson!.GetColumnType().Should().Be("nvarchar(max)");
+        tagsJson!.GetColumnType().Should().Be("text");
 
         var visibility = entity.FindProperty(nameof(HighlightVideo.Visibility));
         visibility!.GetProviderClrType().Should().Be(typeof(int));

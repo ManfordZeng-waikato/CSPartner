@@ -132,10 +132,12 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Configure CORS policy
+    /// Configure CORS policy.
+    /// Development: localhost. Production: ClientApp:ClientUrl (required when frontend is on Cloudflare Pages).
     /// </summary>
     public static IServiceCollection AddCorsConfiguration(
         this IServiceCollection services,
+        IConfiguration configuration,
         IWebHostEnvironment environment)
     {
         services.AddCors(options =>
@@ -151,9 +153,20 @@ public static class ServiceCollectionExtensions
                 }
                 else
                 {
-                    policy.AllowAnyOrigin()
-                        .AllowAnyMethod()
-                        .AllowAnyHeader();
+                    // Production: use ClientApp:ClientUrl when frontend is on Cloudflare Pages (cross-origin)
+                    var clientUrl = configuration["ClientApp:ClientUrl"];
+                    if (!string.IsNullOrWhiteSpace(clientUrl))
+                    {
+                        policy.WithOrigins(clientUrl.TrimEnd('/'))
+                            .AllowAnyMethod()
+                            .AllowAnyHeader();
+                    }
+                    else
+                    {
+                        policy.AllowAnyOrigin()
+                            .AllowAnyMethod()
+                            .AllowAnyHeader();
+                    }
                 }
             });
         });

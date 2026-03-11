@@ -42,7 +42,7 @@ public class HighlightVideoConfiguration : IEntityTypeConfiguration<HighlightVid
             .HasMaxLength(600);
 
         b.Property(v => v.TagsJson)
-            .HasColumnType("nvarchar(max)");
+            .HasColumnType("text");
 
         b.Property(v => v.AiHighlightType)
             .HasConversion<int>()
@@ -56,7 +56,7 @@ public class HighlightVideoConfiguration : IEntityTypeConfiguration<HighlightVid
             .HasMaxLength(1000);
 
         b.Property(v => v.AiUpdatedAtUtc)
-            .HasColumnType("datetime2");
+            .HasColumnType("timestamp with time zone");
 
         // Index on AI status for efficient querying of pending videos
         b.HasIndex(v => v.AiStatus);

@@ -5,7 +5,9 @@ import mkcert from 'vite-plugin-mkcert'
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const isProduction = mode === 'production';
-  
+  // Cloudflare Pages: set VITE_DEPLOY_TARGET=cloudflare to output to dist/
+  const isCloudflareDeploy = import.meta.env.VITE_DEPLOY_TARGET === 'cloudflare';
+
   return {
     plugins: [
       react(),
@@ -25,8 +27,8 @@ export default defineConfig(({ mode }) => {
       }
     },
     build: {
-      // Output to API/wwwroot when building for production deployment with backend
-      outDir: isProduction ? '../API/wwwroot' : 'dist',
+      // Cloudflare Pages: dist/ | Same-origin (API serves frontend): ../API/wwwroot
+      outDir: isCloudflareDeploy ? 'dist' : (isProduction ? '../API/wwwroot' : 'dist'),
       assetsDir: 'assets',
       sourcemap: false, // Disable sourcemaps in production for smaller builds
       minify: 'esbuild', // Fast minification

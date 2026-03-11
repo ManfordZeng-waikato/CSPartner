@@ -68,17 +68,15 @@ public static class WebApplicationExtensions
             app.UseRateLimiter();
         }
 
-        // CORS (only in development when frontend is served separately)
-        if (app.Environment.IsDevelopment())
-        {
-            app.UseCors("AllowReactClient");
-        }
+        // CORS: development (localhost) or production (ClientApp:ClientUrl when frontend on Cloudflare Pages)
+        app.UseCors("AllowReactClient");
 
         // Authentication & Authorization
         app.UseAuthentication();
         app.UseAuthorization();
 
         // API endpoints
+        app.MapGet("/health", () => Results.Ok(new { status = "Healthy" })).ExcludeFromDescription();
         app.MapControllers();
         app.MapHub<API.SignalR.CommentHub>("/api/hubs/comments");
 
@@ -104,17 +102,29 @@ public static class WebApplicationExtensions
             var logger = services.GetRequiredService<ILogger<Program>>();
             var db = services.GetRequiredService<AppDbContext>();
 
-            // Auto migration - only for relational databases
-            if (db.Database.IsRelational())
+            // Auto migration - only for relational databases (skip when Database:SkipAutoMigration=true)
+            var skipMigration = app.Configuration.GetValue<bool>("Database:SkipAutoMigration");
+            if (!skipMigration && db.Database.IsRelational())
             {
                 await db.Database.MigrateAsync();
                 logger.LogInformation("Database migration completed.");
             }
+            else if (skipMigration)
+            {
+                logger.LogInformation("Database auto-migration skipped (Database:SkipAutoMigration=true).");
+            }
 
-            // Seed (with switch)
-            await API.Seed.DemoSeeder.SeedAsync(app.Services, app.Configuration);
-
-            logger.LogInformation("Database migrated & demo data seeded.");
+            // Seed (skip when Database:SkipSeed=true or when migration was skipped)
+            var skipSeed = app.Configuration.GetValue<bool>("Database:SkipSeed");
+            if (!skipSeed && !skipMigration)
+            {
+                await API.Seed.DemoSeeder.SeedAsync(app.Services, app.Configuration);
+                logger.LogInformation("Database migrated & demo data seeded.");
+            }
+            else if (skipSeed || skipMigration)
+            {
+                logger.LogInformation("Database seed skipped (Database:SkipSeed or SkipAutoMigration).");
+            }
         }
         catch (Exception ex)
         {
