@@ -12,11 +12,13 @@ public class ExceptionHandlingMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ILogger<ExceptionHandlingMiddleware> _logger;
+    private readonly IHostEnvironment _env;
 
-    public ExceptionHandlingMiddleware(RequestDelegate next, ILogger<ExceptionHandlingMiddleware> logger)
+    public ExceptionHandlingMiddleware(RequestDelegate next, ILogger<ExceptionHandlingMiddleware> logger, IHostEnvironment env)
     {
         _next = next;
         _logger = logger;
+        _env = env;
     }
 
     public async Task InvokeAsync(HttpContext context)
@@ -74,8 +76,10 @@ public class ExceptionHandlingMiddleware
 
             default:
                 response.StatusCode = (int)HttpStatusCode.InternalServerError;
-                response.Message = "An error occurred while processing your request.";
-                _logger.LogError(exception, "Unhandled exception occurred");
+                response.Message = _env.IsDevelopment()
+                    ? $"{exception.GetType().Name}: {exception.Message}"
+                    : "An error occurred while processing your request.";
+                _logger.LogError(exception, "Unhandled exception: {Type} - {Message}", exception.GetType().Name, exception.Message);
                 break;
         }
 

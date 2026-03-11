@@ -1,8 +1,21 @@
 using API.Extensions;
 using API.Seed;
 using Infrastructure;
+using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Trust X-Forwarded-* headers from Railway/Cloudflare so Request.Scheme is https
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
+// Railway/container: listen on PORT (default 8080), all interfaces (0.0.0.0)
+var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
+builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 
 // Configure services
 builder.Services

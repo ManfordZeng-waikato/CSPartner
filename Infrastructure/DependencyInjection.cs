@@ -19,7 +19,15 @@ public static class DependencyInjection
         // Database Context
         services.AddDbContext<AppDbContext>(options =>
         {
-            options.UseNpgsql(configuration.GetConnectionString("Default"));
+            var connStr = configuration.GetConnectionString("Default") ?? "";
+            // Supabase requires SSL; ensure SslMode is set when not specified
+            if (connStr.Contains("supabase", StringComparison.OrdinalIgnoreCase) &&
+                !connStr.Contains("Ssl Mode", StringComparison.OrdinalIgnoreCase) &&
+                !connStr.Contains("SslMode", StringComparison.OrdinalIgnoreCase))
+            {
+                connStr = connStr.TrimEnd(';') + ";Ssl Mode=Require";
+            }
+            options.UseNpgsql(connStr);
         });
 
         // Register IApplicationDbContext

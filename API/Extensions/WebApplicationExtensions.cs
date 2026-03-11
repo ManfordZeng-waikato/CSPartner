@@ -1,4 +1,5 @@
 using Infrastructure.Persistence.Context;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,6 +12,9 @@ public static class WebApplicationExtensions
     /// </summary>
     public static WebApplication ConfigureMiddlewarePipeline(this WebApplication app)
     {
+        // Must be first: trust X-Forwarded-* from Railway/Cloudflare so Request.Scheme = https
+        app.UseForwardedHeaders();
+
         // Swagger UI in development
         if (app.Environment.IsDevelopment())
         {
@@ -25,6 +29,18 @@ public static class WebApplicationExtensions
 
         // Global exception handling (must be early in pipeline)
         app.UseMiddleware<API.Middleware.ExceptionHandlingMiddleware>();
+
+        // Cloudflare cdn-cgi: these paths are served by Cloudflare edge, not origin.
+        // If request reaches us (e.g. DNS-only), return 404 to avoid MapFallback returning HTML (500).
+        app.Use(async (context, next) =>
+        {
+            if (context.Request.Path.StartsWithSegments("/cdn-cgi", StringComparison.OrdinalIgnoreCase))
+            {
+                context.Response.StatusCode = 404;
+                return;
+            }
+            await next();
+        });
 
         // Domain redirect middleware
         app.Use(async (context, next) =>
